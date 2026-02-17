@@ -4,7 +4,6 @@
 # Usage: gzcmd.sh /path/elf-executable[.gz]
 #
 
-blocks=2
 headstr=$(cat <<EOF
 #!/bin/sh
 # (c) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
@@ -28,7 +27,7 @@ dirnme="\$tmp/\$flenme-\$\$-\$datens"
 flenme="\$dirnme/\$flenme"
 mkdir -p "\$dirnme"
 
-dd if=\$0 skip=$blocks status=none | zcat - >"\$flenme"
+dd if=\$0 skip=BLOCKS status=none | zcat - >"\$flenme"
 chmod a+x "\$flenme" && sh -c "\$flenme \$@"; err=\$?
 { rm -f "\$flenme"; rmdir "\$dirnme"; } 2>&1 | grep -q .
 
@@ -48,10 +47,13 @@ if [ ! -r "$gzelf" ]; then
   break
 fi >&2
 
+headsze=$(echo "$headstr" | wc -c)
+nblocks=$(( (headsze + 511) / 512 ))
+
 gzelfle="$gzelf.gz.sh"
-echo "$headstr" > $gzelfle.tmp
-dd if=/dev/zero count=$blocks status=none >> $gzelfle.tmp
-dd if=$gzelfle.tmp count=$blocks status=none > $gzelfle
+echo "$headstr" | sed "s/skip=BLOCKS/skip=$nblocks/" > $gzelfle.tmp
+dd if=/dev/zero count=$nblocks status=none >> $gzelfle.tmp
+dd if=$gzelfle.tmp count=$nblocks status=none > $gzelfle
 rm -f $gzelfle.tmp
 
 if file $gzelf | grep -q "gzip compressed data"; then
