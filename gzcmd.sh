@@ -1,5 +1,8 @@
 #!/bin/sh
 # (c) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
+#
+# Usage: gzcmd.sh /path/elf-executable[.gz]
+#
 
 blocks=2
 headstr=$(cat <<EOF
