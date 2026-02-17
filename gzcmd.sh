@@ -1,12 +1,13 @@
 #!/bin/sh
 # (c) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
 
+blocks=2
 headstr=$(cat <<EOF
-#!/bin/sh -x
+#!/bin/sh
 # (c) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
-
+# URL: raw.githubusercontent.com/robang74/bare-minimal-linux-system/
+# Source: refs/heads/main/gzcmd.sh
 err=1
-echo "0: \$0 ; args: \$@"
 while true; do #################################################################
 
 ORIGNAME="$(basename ${1:-gzelf})"
@@ -23,7 +24,7 @@ dirnme="/tmp/\$flenme-\$\$-\$datens"
 flenme="\$dirnme/\$flenme"
 mkdir -p "\$dirnme"
 
-dd if=\$0 skip=2 status=none | zcat - >"\$flenme"
+dd if=\$0 skip=$blocks status=none | zcat - >"\$flenme"
 chmod a+x "\$flenme" && sh -c "\$flenme \$@"
 err=\$? #; rm -f "\$flenme"
 
@@ -33,7 +34,6 @@ exit
 #### ///////////////////////////////////////////////////////////////////////////
 EOF
 )
-#echo "$headstr"
 
 err=1
 while true; do #################################################################
@@ -46,8 +46,8 @@ fi >&2
 
 gzelfle="$gzelf.gz.sh"
 echo "$headstr" > $gzelfle.tmp
-dd if=/dev/zero count=2 status=none >> $gzelfle.tmp
-dd if=$gzelfle.tmp count=2 status=none > $gzelfle
+dd if=/dev/zero count=$blocks status=none >> $gzelfle.tmp
+dd if=$gzelfle.tmp count=$blocks status=none > $gzelfle
 rm -f $gzelfle.tmp
 
 if file $gzelf | grep -q "gzip compressed data"; then
@@ -57,7 +57,7 @@ else
 fi
 err=$?
 chmod +x $gzelfle
-du -ks $gzelfle
+echo Size Kb: $(du -ks $gzelfle) $(file $gzelfle | cut -d: -f2-)
 
 break; done ####################################################################
 test $err -eq 0
