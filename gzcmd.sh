@@ -1,7 +1,7 @@
 #!/bin/sh
 # (c) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
 #
-# Usage: gzcmd.sh /path/elf-executable[.gz]
+# Usage: gzcmd.sh /path/elf-executable[.gz] [name]
 #
 
 headstr=$(cat <<EOF
@@ -50,6 +50,10 @@ err=1
 while true; do #################################################################
 
 gzelf=${1:-}
+if [ ! -n "$gzelf" ]; then
+  echo "Usage: gzcmd.sh /path/elf-executable[.gz] [name]"
+  break
+fi >&2
 if [ ! -r "$gzelf" ]; then
   echo "ERROR: executable '$gzelf' is not readable"
   break
@@ -58,19 +62,24 @@ fi >&2
 headsze=$(echo "$headstr" | wc -c)
 nblocks=$(( (headsze + 511) / 512 ))
 
-gzelfle="$gzelf.gz.sh"
-echo "$headstr" | sed "s/skip=BLOCKS/skip=$nblocks/" > $gzelfle.tmp
-dd if=/dev/zero count=$nblocks status=none >> $gzelfle.tmp
-dd if=$gzelfle.tmp count=$nblocks status=none > $gzelfle
-rm -f $gzelfle.tmp
+gzelfle="${2:-$gzelf}.gz.sh"
+echo "$headstr" | sed "s/skip=BLOCKS/skip=$nblocks/" > "$gzelfle.tmp"
+dd if=/dev/zero count=$nblocks status=none >> "$gzelfle.tmp"
+dd if="$gzelfle.tmp" count=$nblocks status=none > "$gzelfle"
+rm -f "$gzelfle.tmp"
 
-if file $gzelf | grep -q "gzip compressed data"; then
-  cat $gzelf >> $gzelfle
+test -r "$gzelfle" || break
+if file "$gzelf" | grep -q "gzip compressed data"; then
+  cat "$gzelf" >> "$gzelfle" || break
 else
-  gzip -9c $gzelf >> $gzelfle
+  zp="pigz"; if ! which $zp | grep -q . ; then
+    zp="gzip"; which $zp | grep -q . || break
+  fi
+  $zp -9c "$gzelf" >> "$gzelfle" || break
 fi
-err=$?
-chmod +x $gzelfle
+err=0
+
+chmod +x "$gzelfle"
 echo Size Kb: $(du -ks $gzelfle) $(file $gzelfle | cut -d: -f2-)
 
 break; done ####################################################################
