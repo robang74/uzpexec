@@ -11,7 +11,7 @@ headstr=$(cat <<EOF
 # Source: refs/heads/main/gzcmd.sh
 err=1
 while true; do #################################################################
-
+export PATH=$PATH:/bin:/usr/bin:/usr/local/bin:/$HOME/bin
 ORIGNAME="$(basename ${1:-gzelf})"
 cmdnme="\$0"
 if [ ! -r "\$cmdnme" ]; then
@@ -19,20 +19,24 @@ if [ ! -r "\$cmdnme" ]; then
   break
 fi >&2
 
-sm=/dev/shm/; grep -qe "\$sm.*noexec" /proc/mounts && sm=
-for tmp in "\${GZTMPDIR:-}" \$sm /tmp/ \$HOME/.tmp/; do
+uz="zcat"; if ! which \$uz | grep -q . ; then
+  uz="gzip -dc";which gzip | grep -q . || exit 1
+fi
+
+sm=/dev/shm; grep -qe "\$sm.*noexec" /proc/mounts && sm=
+for tmp in "\${GZTMPDIR:-}" \$sm/ /tmp/ \$HOME/.tmp/; do
   mkdir -p "\$tmp"; [ -d "\$tmp" -a -w "\$tmp" ] && break
 done
 
-uzpcmd="zcat"
 datens=\$(date +%N)
 flenme="\$ORIGNAME"
 dirnme="\$tmp/\$flenme-\$\$-\$datens"
 flenme="\$dirnme/\$flenme"
 mkdir -p "\$dirnme"
+chmod o-wrx "\$dirnme"
 
-dd if=\$0 skip=BLOCKS status=none | zcat - >"\$flenme"
-chmod a+x "\$flenme" && sh -c "\$flenme \$@"; err=\$?
+dd if=\$0 skip=BLOCKS status=none | \$uz - >"\$flenme"
+chmod +x-w "\$flenme" && sh -c "\$flenme \$@"; err=\$?
 { rm -f "\$flenme"; rmdir "\$dirnme"; } 2>&1 | grep -q .
 
 break; done ####################################################################
