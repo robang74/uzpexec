@@ -19,10 +19,13 @@ if [ ! -r "\$cmdnme" ]; then
   break
 fi >&2
 
+for tmp in "\${GZTMPDIR:-}" /dev/shm/ /tmp/ \$HOME/.tmp/; do
+  mkdir -p "\$tmp"; [ -d "\$tmp" -a -w "\$tmp" ] && break
+done
+
 uzpcmd="zcat"
 datens=\$(date +%N)
 flenme="\$ORIGNAME"
-tmp=/tmp; test -d /dev/shm/ && tmp=/dev/shm
 dirnme="\$tmp/\$flenme-\$\$-\$datens"
 flenme="\$dirnme/\$flenme"
 mkdir -p "\$dirnme"
