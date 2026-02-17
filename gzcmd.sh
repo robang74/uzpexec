@@ -23,13 +23,14 @@ fi >&2
 uzpcmd="zcat"
 datens=\$(date +%N)
 flenme="\$ORIGNAME"
-dirnme="/tmp/\$flenme-\$\$-\$datens"
+tmp=/tmp; test -d /dev/shm/ && tmp=/dev/shm
+dirnme="\$tmp/\$flenme-\$\$-\$datens"
 flenme="\$dirnme/\$flenme"
 mkdir -p "\$dirnme"
 
 dd if=\$0 skip=$blocks status=none | zcat - >"\$flenme"
-chmod a+x "\$flenme" && sh -c "\$flenme \$@"
-err=\$? #; rm -f "\$flenme"
+chmod a+x "\$flenme" && sh -c "\$flenme \$@"; err=\$?
+{ rm -f "\$flenme"; rmdir "\$dirnme"; } 2>&1 | grep -q .
 
 break; done ####################################################################
 test \$err -eq 0
