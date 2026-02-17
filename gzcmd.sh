@@ -19,7 +19,8 @@ if [ ! -r "\$cmdnme" ]; then
   break
 fi >&2
 
-for tmp in "\${GZTMPDIR:-}" /dev/shm/ /tmp/ \$HOME/.tmp/; do
+sm=/dev/shm/; grep -qe "\$sm.*noexec" /proc/mounts && sm=
+for tmp in "\${GZTMPDIR:-}" \$sm /tmp/ \$HOME/.tmp/; do
   mkdir -p "\$tmp"; [ -d "\$tmp" -a -w "\$tmp" ] && break
 done
 
