@@ -2,7 +2,7 @@
 #
 # (c) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
 #
-# Version : v0.1.2
+# Version : v0.1.3
 # Usage   : gzcmd.sh /path/elf-executable[.gz] [filename] [blocksize]
 # Hint    : set blocksize as headersize +2 from gzcmd.sh for min.size
 # Host    : [[export] GZTMPDIR=path GZUNGZIP=pigz;] [shell] elf.gz.sh
@@ -29,6 +29,8 @@
 # in particular when /dev/shm is used rather than a on-disk temporary path.
 # Howver, the best aspect of gzcmd.sh is being totally agnostic about the
 # executable to compress, including scripts on which UPX fails, obviously.
+#
+# Feedback from UPX: github.com/upx/upx/issues/911#issuecomment-3922221407
 #
 ################################################################################
 if [ "x${1:-}" = "x--do-tests" ]; then #########################################
@@ -193,7 +195,8 @@ MD5="$MD5CKSUM"
 test -n "\$UID"  || UID=$(id -u 2>&3)
 test -n "\$PATH" || export UID PATH=/bin:/usr/bin:/usr/local/bin
 if [ !  -r "\$0" ]; then echo "ERROR: '\$0' is not readable"; exit 1; fi
-gpm() { grep -qe '\$@' /proc/mounts; }
+gpm() { grep -qe "\$@" /proc/mounts; }
+trap 'gpm "tmpfs.*/dev/shm" && { rm -f "\$fn"; rmdir "\$dn" 2>&3; }' EXIT INT TERM
 
 sm=/dev/shm; gpm "\$sm.*noexec" && sm=
 for tmp in "\${GZTMPDIR:-}" \$sm /tmp \$HOME/.tmp; do
@@ -207,13 +210,12 @@ if ! md5sum \$fn 2>&3 | grep -qe "^\$MD5 "; then
     uz=\$i; which \$uz >&3 && break
   done
   { umask 007; mkdir -p "\$dn" && touch "\$fn"; } | 2>&3 &&
-    chmod 0700 "\$dn" "\$fn" &&
-       dd if=\$0 skip=BLOCKS bs=$BLKSIZE status=none | \$uz -dc >"\$fn" || exit 1
+    chmod 0700 "\$dn" "\$fn" && dd if=\$0 skip=BLOCKS bs=$BLKSIZE \
+      status=none | \$uz -dc >"\$fn" || exit 1
 fi
 
-eval sh -c "'\$fn \$@'"; err=\$?;
-gpm "tmpfs.*/dev/shm" && { rm -f "\$fn"; rmdir "\$dn"; } 2>&3;
-exit \$err
+eval sh -c "'\$fn \$@'"
+exit \$?
 ###
 EOF
 )
