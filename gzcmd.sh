@@ -49,11 +49,11 @@ done
 flenme="\$ORIGNAME"
 dirnme="\$tmp/\$flenme-\$\$-\$(date +%N)"
 flenme="\$dirnme/\$flenme"
-mkdir -p "\$dirnme"
-chmod o-wrx "\$dirnme"
-
+ 
+mkdir -p "\$dirnme" && touch "\$flenme"; chmod 0700 "\$dirnme" "\$flenme"
 dd if=\$0 skip=BLOCKS bs=$BLKSZE status=none | \$uz >"\$flenme"
-chmod +x-w "\$flenme" && sh -c "\$flenme \$@"; err=\$?
+sh -c "\$flenme \$@"; err=\$?
+
 { rm -f "\$flenme"; rmdir "\$dirnme"; } 2>&3
 exit \$err
 
