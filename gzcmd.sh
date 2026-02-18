@@ -61,7 +61,6 @@ gzcmd_main_func() {
   headsze=$(echo "$headstr" | wc -c)
   nblocks=$(( (headsze + 511) / 512 ))
 
-  gzelfle="${2:-$gzelf}.gz.sh"
   echo "$headstr" | sed "s/skip=BLOCKS/skip=$nblocks/" > "$gzelfle.tmp"
   dd if=/dev/zero count=$nblocks status=none >> "$gzelfle.tmp"
   dd if="$gzelfle.tmp" count=$nblocks status=none > "$gzelfle"
@@ -81,10 +80,14 @@ gzcmd_main_func() {
   chmod +x "$gzelfle"
 }
 
+gzelfle="${2:-$gzelf}.gz.sh"
+
 gzcmd_main_func; err=$?
-str1=$(du -ks $gzelfle | cut -f1)
-echo "File name: '$(basename $gzelfle)', Header size: $headsze bytes, ELF size: $str1 Kb"
-file $gzelfle
+
+str1=$(du -ks "$gzelfle" | cut -f1)
+echo "File name: '$(basename "$gzelfle")', Header size:"\
+     "$headsze bytes, ELF size: $str1 Kb"
+file "$gzelfle"
 test $err -eq 0
 
 ### ////////////////////////////////////////////////////////////////////////////
