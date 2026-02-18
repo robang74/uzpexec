@@ -209,11 +209,12 @@ if ! md5sum \$fn 2>&3 | grep -qe "^\$MD5 "; then
   for i in \${GZUNGZIP:-} pigz gzip zcat; do
     uz=\$i; which \$uz >&3 && break
   done
-  gpm "tmpfs.*/dev/shm" &&
-    trap 'rm -f "\$fn"; rmdir "\$dn" 2>&3' EXIT INT TERM
-  ( umask 007; mkdir -p "\$dn" && touch "\$fn" &&
-    chmod 0700 "\$dn" "\$fn" ) || exit 1
-  dd if=\$0 skip=1 bs=HDRSIZE status=none | \$uz -dc >"\$fn" || exit 1
+  ns=\$(date +"%N"); wn="\$fn.\$ns"; gpm "tmpfs.*/dev/shm" &&
+    trap 'rm -f "\$fn" "\$wn"; rmdir "\$dn" 2>&3' EXIT INT TERM
+  ( umask 007; mkdir -p "\$dn" && touch "\$wn" &&
+    chmod 0700 "\$dn" "\$wn" ) || exit 1
+  dd if=\$0 skip=1 bs=HDRSIZE status=none | \$uz -dc >"\$wn" &&
+    mv -f "\$wn" "\$fn" || exit 1
 fi
 
 eval sh -c "'\$fn \$@'"
