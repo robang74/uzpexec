@@ -182,7 +182,7 @@ ORIGNAME=$(echo "$ORIGNAME" | sed -e "s/\.gz$//")
 MD5CKSUM=$(md5sum "$gzelf"  | cut -d' ' -f1)
 gzelfle="$ORIGNAME.gz.sh"
 BLKSIZE=${3:-32}
-ZCMPLVL=${4:-11}
+ZCMPLVL=${4:-9}
 
 headstr=$(cat <<EOF
 #!/bin/sh
@@ -240,6 +240,7 @@ gzcmd_main_func() {
     echo "ERROR: executable '$gzelf' is not readable"
     return 1
   fi >&2
+  fsze=$(du -b "$gzelf" | cut -f1)
 
   # select the best-first binary for gzip compression
   for i in 1; do
@@ -267,7 +268,8 @@ gzcmd_main_func() {
 
   szeb=$(du -b "$gzelfle" | cut -f1)
   szek=$(( ( szeb + 512 ) >> 10 ))
-  echo "File: '$(basename "$gzelfle")', HEAD: $headsze, GZIP: $szeb ($szek Kb)"
+  rtio=$(( ((100 * szeb) + (fsze >> 2)) / fsze ));
+  echo "File: '$(basename "$gzelfle")', HEAD: $headsze, GZIP: $szeb (${szek}Kb, ${rtio}%)"
   chmod +x "$gzelfle"
 }
 gzcmd_main_func
