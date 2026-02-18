@@ -9,6 +9,8 @@
 #   -Wl,--gc-sections -Wl,--build-id=none -fno-asynchronous-unwind-tables \
 #   file.c -o uchaos; strip -R .comment -R .gnu.version uchaos
 #
+# Required: sudo apt install musl-tools gcc-multilib
+#
 ################################################################################
 
 gzelf=${1:-gzelf}
