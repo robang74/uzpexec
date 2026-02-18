@@ -25,7 +25,7 @@
 # cases is easier and even a better way to go, in some others is less
 # competitive. The shell spawn time may vary (bash vs built-in toysh).
 #
-# Testing gzcmd.sh vs upx-cli, not that memory footprint can widely varying
+# Testing gzcmd.sh vs upx-cli, note that memory footprint can widely varying
 # in particular when /dev/shm is used rather than a on-disk temporary path.
 # Howver, the best aspect of gzcmd.sh is being totally agnostic about the
 # executable to compress, including scripts on which UPX fails, obviously.
