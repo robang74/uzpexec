@@ -4,6 +4,7 @@
 # Usage: gzcmd.sh /path/elf-executable[.gz] [name]
 #
 
+gzelf=${1:-}
 headstr=$(cat <<EOF
 #!/bin/sh
 # (c) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
@@ -11,7 +12,7 @@ headstr=$(cat <<EOF
 # Source: refs/heads/main/gzcmd.sh
 err=1
 while true; do #################################################################
-export PATH=$PATH:/bin:/usr/bin:/usr/local/bin:/$HOME/bin
+export PATH=\$PATH:/bin:/usr/bin:/usr/local/bin:/\$HOME/bin
 ORIGNAME="$(basename ${1:-gzelf})"
 cmdnme="\$0"
 if [ ! -r "\$cmdnme" ]; then
@@ -25,7 +26,8 @@ fi
 
 sm=/dev/shm; grep -qe "\$sm.*noexec" /proc/mounts && sm=
 for tmp in "\${GZTMPDIR:-}" \$sm/ /tmp/ \$HOME/.tmp/; do
-  mkdir -p "\$tmp"; [ -d "\$tmp" -a -w "\$tmp" ] && break
+  mkdir -p "\$tmp" 2>&3 || continue;
+  test -d "\$tmp" -a -w "\$tmp" && break
 done
 
 datens=\$(date +%N)
@@ -49,7 +51,6 @@ EOF
 err=1
 while true; do #################################################################
 
-gzelf=${1:-}
 if [ ! -n "$gzelf" ]; then
   echo "Usage: gzcmd.sh /path/elf-executable[.gz] [name]"
   break
