@@ -66,15 +66,17 @@ upx --ultra-brute gzcmd.sh.upx >&3; du -b gzcmd*
 
 rm -f ./gzcmd.elf gzcmd.static
 
-CFLAGS="-O3" shc -f gzcmd.sh.orig -o gzcmd.elf
+CFLAGS="-O3 " shc -f gzcmd.sh.orig -o gzcmd.elf
 CFLAGS="-O3 -static" shc -f gzcmd.sh.orig -o gzcmd.static
+CC="musl-gcc" CFLAGS="-O3 -static -s" shc -f gzcmd.sh.orig -o gzcmd.musl
+{ dotest ./gzcmd.static; dotest ./gzcmd.elf; } | sed -e "s/KO$//"
 
-# real 0m0.018s  28488 ./gzcmd.elf    KO  (here, ko is ok)
-# real 0m0.020s 973360 ./gzcmd.static KO  (here, ko is ok)
+# real 0m0.023s 968368 ./gzcmd.static
+# real 0m0.020s  27352 ./gzcmd.elf
 
 dotest ./gzcmd.gz.sh
  du -b ./gzcmd.gz.sh
-for i in elf static; do
+for i in elf static musl; do
   cp -f gzcmd.$i gzcmd.$i.upx
    ./gzcmd.gz.sh gzcmd.$i >&3
   upx --ultra-brute gzcmd.$i.upx >&3
@@ -89,8 +91,11 @@ done | sed -e "s/KO$//"
 # real 0m0.020s  18072 ./gzcmd.elf.upx
 #                27120 ./gzcmd.elf
 # real 0m0.028s 402516 ./gzcmd.static.gz.sh
-# real 0m0.013s 318756 ./gzcmd.static.upx   <-- Faster but 100x bigger
+# real 0m0.013s 318756 ./gzcmd.static.upx   <-- Faster but 88x bigger
 #               967440 ./gzcmd.static
+# real 0m0.033s  43392 ./gzcmd.musl.gz.sh   <-- Slower (+19 ms, -164 bytes)
+# real 0m0.014s  43556 ./gzcmd.musl.upx     <-- Faster but 12x bigger
+#                72192 ./gzcmd.musl
 
 rm -f ./uchaos.orig
 
@@ -166,7 +171,7 @@ dotest sh ./uchaos.musl.gz.sh "" -qT 1000
 #    512 real 0m0.022s 24912 ./uchaos.musl.gz.sh ok
 # 512000 real 0m0.163s 24912 ./uchaos.musl.gz.sh ok (+14 ms, -1464 bytes)
 
-exit; fi #######################################################################
+exit; fi # x--do-tests #########################################################
 ################################################################################
 
 gzelf=${1:-gzelf}
