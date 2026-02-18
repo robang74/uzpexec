@@ -17,22 +17,19 @@ BLKSZE=64
 gzelf=${1:-gzelf}
 ORIGNAME=$(basename "$gzelf")
 ORIGNAME=$(echo "$ORIGNAME" | sed -e "s/\.gz$//")
-#MD5CKSUM=$(md5sum "$gzelf" | cut -d' ' -f1)
+MD5CKSUM=$(md5sum "$gzelf"  | cut -d' ' -f1)
 gzelfle="${2:-$ORIGNAME}.gz.sh"
+
 headstr=$(cat <<EOF
 #!/bin/sh
 # (c) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
-# URL: raw.githubusercontent.com/robang74/bare-minimal-linux-system/
-# Source: refs/heads/main/gzcmd.sh
+#           URL: raw.githubusercontent.com/robang74/bare-minimal-linux-system/
+#           Source: /refs/heads/main/gzcmd.sh
 #
-
+BFN="$ORIGNAME"
+MD5="$MD5CKSUM"
 test -n "\$PATH" || export PATH=/bin:/usr/bin:/usr/local/bin:/\$HOME/bin
-ORIGNAME="$ORIGNAME"
-cmdnme="\$0"
-if [ ! -r "\$cmdnme" ]; then
-  echo "ERROR: executable '\$cmdnme' is not readable"
-  exit 1
-fi >&2
+if [ !  -r "\$0" ]; then echo "ERROR: '\$0' is not readable"; exit 1; fi
 
 for i in 1; do
   uz="pigz -dc"; which pigz >&3 && break
@@ -43,20 +40,15 @@ done
 sm=/dev/shm; grep -qe "\$sm.*noexec" /proc/mounts && sm=
 for tmp in "\${GZTMPDIR:-}" \$sm/ /tmp/ \$HOME/.tmp/; do
   mkdir -p "\$tmp" 2>&3 || continue;
-  test -d "\$tmp" -a -w "\$tmp" && break
+  test  -d "\$tmp" -a -w "\$tmp" && break
 done
 
-flenme="\$ORIGNAME"
-dirnme="\$tmp/\$flenme-\$\$-\$(date +%N)"
-flenme="\$dirnme/\$flenme"
- 
-mkdir -p "\$dirnme" && touch "\$flenme"; chmod 0700 "\$dirnme" "\$flenme"
-dd if=\$0 skip=BLOCKS bs=$BLKSZE status=none | \$uz >"\$flenme"
-sh -c "\$flenme \$@"; err=\$?
+dn="\$tmp/.gzcmd-\$BFN-\$MD5-\$\$"; fn="\$dn/\$BFN"
+{ umask 007; mkdir -p "\$dn" && touch "\$fn"; } | 2>&3 &&
+  chmod 0700 "\$dn" "\$fn" &&
+     dd if=\$0 skip=BLOCKS bs=$BLKSZE status=none | \$uz >"\$fn" || exit 1
 
-{ rm -f "\$flenme"; rmdir "\$dirnme"; } 2>&3
-exit \$err
-
+sh -c "\$fn \$@"; err=\$?; { rm -f "\$fn"; rmdir "\$dn"; } 2>&3; exit \$err
 ###
 EOF
 )
