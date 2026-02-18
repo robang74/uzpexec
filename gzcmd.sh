@@ -45,46 +45,46 @@ exit \$err
 ###
 EOF
 )
+### ////////////////////////////////////////////////////////////////////////////
 
-err=1
-while true; do #################################################################
+gzcmd_main_func() {
 
-if [ ! -n "$gzelf" ]; then
-  echo "Usage: gzcmd.sh /path/elf-executable[.gz] [name]"
-  break
-fi >&2
-if [ ! -r "$gzelf" ]; then
-  echo "ERROR: executable '$gzelf' is not readable"
-  break
-fi >&2
+  if [ ! -n "$gzelf" ]; then
+    echo "Usage: gzcmd.sh /path/elf-executable[.gz] [name]"
+    return 1
+  fi >&2
+  if [ ! -r "$gzelf" ]; then
+    echo "ERROR: executable '$gzelf' is not readable"
+    return 1
+  fi >&2
 
-headsze=$(echo "$headstr" | wc -c)
-nblocks=$(( (headsze + 511) / 512 ))
+  headsze=$(echo "$headstr" | wc -c)
+  nblocks=$(( (headsze + 511) / 512 ))
 
-gzelfle="${2:-$gzelf}.gz.sh"
-echo "$headstr" | sed "s/skip=BLOCKS/skip=$nblocks/" > "$gzelfle.tmp"
-dd if=/dev/zero count=$nblocks status=none >> "$gzelfle.tmp"
-dd if="$gzelfle.tmp" count=$nblocks status=none > "$gzelfle"
-rm -f "$gzelfle.tmp"
+  gzelfle="${2:-$gzelf}.gz.sh"
+  echo "$headstr" | sed "s/skip=BLOCKS/skip=$nblocks/" > "$gzelfle.tmp"
+  dd if=/dev/zero count=$nblocks status=none >> "$gzelfle.tmp"
+  dd if="$gzelfle.tmp" count=$nblocks status=none > "$gzelfle"
+  rm -f "$gzelfle.tmp"
 
-test -r "$gzelfle" || break
-if file "$gzelf" | grep -q "gzip compressed data"; then
-  cat "$gzelf" >> "$gzelfle" || break
-else
-  zp="pigz"; if ! which $zp >&3; then
-    zp="gzip"; which $zp >&3 || break
+  test -r "$gzelfle" || return 1
+  if file "$gzelf" | grep -q "gzip compressed data"; then
+    cat "$gzelf" >> "$gzelfle" || return 1
+  else
+    zp="pigz"; if ! which $zp >&3; then
+      zp="gzip"; which $zp >&3 || return 1
+    fi
+    $zp -9c "$gzelf" >> "$gzelfle" || return 1
   fi
-  $zp -9c "$gzelf" >> "$gzelfle" || break
-fi
-err=0
+  err=0
 
-chmod +x "$gzelfle"
+  chmod +x "$gzelfle"
+}
 
+gzcmd_main_func; err=$?
 str1=$(du -ks $gzelfle | cut -f1)
 echo "File name: '$(basename $gzelfle)', Header size: $headsze bytes, ELF size: $str1 Kb"
 file $gzelfle
-
-break; done ####################################################################
 test $err -eq 0
 
-#### ///////////////////////////////////////////////////////////////////////////
+### ////////////////////////////////////////////////////////////////////////////
