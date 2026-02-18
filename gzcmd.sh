@@ -42,7 +42,7 @@ chmod +x-w "\$flenme" && sh -c "\$flenme \$@"; err=\$?
 { rm -f "\$flenme"; rmdir "\$dirnme"; } 2>&3
 exit \$err
 
-# //////////////////////////////////////////////////////////////////////////////
+###
 EOF
 )
 
@@ -71,8 +71,8 @@ test -r "$gzelfle" || break
 if file "$gzelf" | grep -q "gzip compressed data"; then
   cat "$gzelf" >> "$gzelfle" || break
 else
-  zp="pigz"; if ! which $zp | grep -q . ; then
-    zp="gzip"; which $zp | grep -q . || break
+  zp="pigz"; if ! which $zp >&3; then
+    zp="gzip"; which $zp >&3 || break
   fi
   $zp -9c "$gzelf" >> "$gzelfle" || break
 fi
