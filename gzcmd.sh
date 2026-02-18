@@ -222,11 +222,7 @@ EOF
 )
 ### ////////////////////////////////////////////////////////////////////////////
 
-isgzipfile() {
-  zfle=${1:-}
-  file "$zfle" | grep -q "gzip compressed data" ||\
-    od -h "$zfle" | head -n1 | grep -q "8b1f 0808"
-}
+isgzipfile() { od -h ${1:-} | head -n1 | grep -q "8b1f 0808"; }
 
 gzdd() { dd count=1 bs=$headsze status=none "$@"; }
 phdr() { echo "$headstr"; }
@@ -255,16 +251,19 @@ gzcmd_main_func() {
   # setting privileges on target file before writing it
   ( rm -f "$gzelfle"; umask 0644 | touch "$gzelfle"; chmod 0644 "$gzelfle" )
   # initialising the target file with a the top-half
-  { echo "$hdrtext"; gzdd if=/dev/zero; } | gzdd > "$gzelfle" || return 1
-  # extra check about file creation
-  test -r "$gzelfle" || return 1
+  echo "$hdrtext########" | gzdd > "$gzelfle" || return 1
 
   if isgzipfile "$gzelf" ; then
     zp="zcat \"$gzelf\" | $zp -${ZCMPLVL}c"
   else
     zp="$zp -${ZCMPLVL}c \"$gzelf\""
   fi
-  eval "$zp" >> "$gzelfle" || return 1
+  # finalise the target file + an extra check about proper file creation
+  eval "$zp" >> "$gzelfle" && gzdd if="$gzelfle" skip=1 | isgzipfile || {
+    echo "ERROR: gzdata isn't where supposed to, report the bug" >&2
+    echo "       sh -x <same command given> 2>&1 | grep -e '^+'" >&2
+    return 1
+  }
 
   szeb=$(du -b "$gzelfle" | cut -f1)
   szek=$(( ( szeb + 512 ) >> 10 ))
