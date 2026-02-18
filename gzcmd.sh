@@ -3,6 +3,13 @@
 #
 # Usage: gzcmd.sh /path/elf-executable[.gz] [name]
 #
+# Suggestion for minimal size with musl static compilation of a single file.c:
+#
+# musl-gcc -static -Os --fast-math -Wall -s -ffunction-sections -fdata-sections \
+#   -Wl,--gc-sections -Wl,--build-id=none -fno-asynchronous-unwind-tables \
+#   file.c -o uchaos; strip -R .comment -R .gnu.version uchaos
+#
+################################################################################
 
 gzelf=${1:-gzelf}
 ORIGNAME=$(basename "$gzelf")
@@ -78,7 +85,7 @@ gzcmd_main_func() {
   else
     for i in 1; do
       zp="pigz"; which $zp >&3 && break
-      zp="gzip"; which $zp >&3 || exit 1
+      zp="gzip"; which $zp >&3 || return 1
     done
     $zp -9c "$gzelf" >> "$gzelfle" || return 1
   fi
