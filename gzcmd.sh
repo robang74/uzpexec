@@ -4,7 +4,7 @@
 #
 # Version : v0.1.2
 # Usage   : gzcmd.sh /path/elf-executable[.gz] [filename] [blocksize]
-# Hint    : for blocksize use $(cat filename |wc -c) for minimal size
+# Hint    : set blocksize as headersize +2 from gzcmd.sh for min.size
 # Host    : [[export] GZTMPDIR=path GZUNGZIP=pigz;] [shell] elf.gz.sh
 #
 # Suggestion for minimal size with musl static compilation of a single file.c:
@@ -27,11 +27,11 @@
 #
 # Testing gzcmd.sh vs upx-cli, not that memory footprint can widely varying
 # in particular when /dev/shm is used rather than a on-disk temporary path.
+# Howver, the best aspect of gzcmd.sh is being totally agnostic about the
+# executable to compress, including scripts on which UPX fails, obviously.
 #
 ################################################################################
 if [ "x${1:-}" = "x--do-tests" ]; then #########################################
-
-gzpath=${gzpath:-"$HOME/robang74/bare-minimal-linux-system"}
 
 dotest() {
   str=$({ { time cat dmesg.txt | $@ | wc -c; } 2>&1 |\
@@ -47,6 +47,51 @@ domusl() {
           mv -f uchaos.musl uchaos.musl.orig
 }
 
+url="raw.githubusercontent.com/robang74/bare-minimal-linux-system"
+ref="refs/heads/main/gzcmd.sh"
+
+wget $url/$ref -qO gzcmd.sh.orig
+{ time sh gzcmd.sh.orig gzcmd.sh.orig gzcmd 33; } 2>&1 | grep real
+cp -f gzcmd.sh.orig gzcmd.sh.upx; chmod +x gzcmd.sh.upx
+upx --ultra-brute gzcmd.sh.upx >&3; du -b gzcmd*
+{ time ./gzcmd.gz.sh  gzcmd.sh.orig gzcmd 33;   } 2>&1 | grep real
+
+# File name: 'gzcmd.gz.sh', Header size: 1089 (33 x 33) bytes, ELF size: 4 Kb
+# gzcmd.gz.sh: POSIX shell script executable (binary data)
+# real	0m0.027s
+# 3634	gzcmd.gz.sh       (upx -1025 bytes)
+# 7211	gzcmd.sh.orig
+# 4669	gzcmd.sh.upx      <-- FAIL TO RUN!!
+# real	0m0.036s          (+9 ms, -50% bytes)
+
+rm -f ./gzcmd.elf gzcmd.static
+
+CFLAGS="-O3" shc -f gzcmd.sh.orig -o gzcmd.elf
+CFLAGS="-O3 -static" shc -f gzcmd.sh.orig -o gzcmd.static
+
+# real 0m0.018s  28488 ./gzcmd.elf    KO  (here, ko is ok)
+# real 0m0.020s 973360 ./gzcmd.static KO  (here, ko is ok)
+
+dotest ./gzcmd.gz.sh
+ du -b ./gzcmd.gz.sh
+for i in elf static; do
+  cp -f gzcmd.$i gzcmd.$i.upx
+   ./gzcmd.gz.sh gzcmd.$i >&3
+  upx --ultra-brute gzcmd.$i.upx >&3
+  dotest ./gzcmd.$i.gz.sh
+  dotest ./gzcmd.$i.upx
+   du -b ./gzcmd.$i
+done | sed -e "s/KO$//"
+
+# real 0m0.026s   3634 ./gzcmd.gz.sh        <-- Great but not obscure/proprietary
+#                 3634 ./gzcmd.gz.sh
+# real 0m0.027s  16218 ./gzcmd.elf.gz.sh    <-- Obscurated (+7 ms, -1854 bytes)
+# real 0m0.020s  18072 ./gzcmd.elf.upx
+#                27120 ./gzcmd.elf
+# real 0m0.028s 402516 ./gzcmd.static.gz.sh
+# real 0m0.013s 318756 ./gzcmd.static.upx   <-- Faster but 100x bigger
+#               967440 ./gzcmd.static
+
 rm -f ./uchaos.orig
 
 gcc uchaos.c -O3 -s --fast-math -Wall -o uchaos.orig
@@ -58,8 +103,7 @@ upx --ultra-brute uchaos.upx >&3
 dotest ./uchaos.upx
 dotest ./uchaos.upx "" -qT 1000
 
-sh $gzpath/gzcmd.sh uchaos.orig uchaos >&3
-dotest sh ./uchaos.gz.sh
+./gzcmd.gz.sh uchaos.orig uchaos >&3
 dotest sh ./uchaos.gz.sh
 dotest sh ./uchaos.gz.sh "" -qT 1000
 
@@ -86,7 +130,7 @@ upx uchaos.upx >&3
 dotest ./uchaos.upx
 dotest ./uchaos.upx "" -qT 1000
 
-sh $gzpath/gzcmd.sh uchaos.static uchaos >&3
+./gzcmd.gz.sh uchaos.static uchaos >&3
 dotest sh ./uchaos.gz.sh
 dotest sh ./uchaos.gz.sh "" -qT 1000
 
@@ -111,7 +155,7 @@ dotest ./uchaos.musl
 dotest ./uchaos.musl "" -qT 1000
 
 cp -f uchaos.musl.orig uchaos.musl
-sh $gzpath/gzcmd.sh uchaos.musl >&3
+./gzcmd.gz.sh uchaos.musl >&3
 dotest sh ./uchaos.musl.gz.sh
 dotest sh ./uchaos.musl.gz.sh "" -qT 1000
 
@@ -131,6 +175,7 @@ ORIGNAME=$(echo "$ORIGNAME" | sed -e "s/\.gz$//")
 MD5CKSUM=$(md5sum "$gzelf"  | cut -d' ' -f1)
 gzelfle="$ORIGNAME.gz.sh"
 BLKSIZE=${3:-32}
+ZCMPLVL=${4:-9}
 
 headstr=$(cat <<EOF
 #!/bin/sh
@@ -203,7 +248,7 @@ gzcmd_main_func() {
       zp="pigz"; which $zp >&3 && break
       zp="gzip"; which $zp >&3 || return 1
     done
-    $zp -9c "$gzelf" >> "$gzelfle" || return 1
+    $zp -${ZCMPLVL}c "$gzelf" >> "$gzelfle" || return 1
   fi
   err=0
 
