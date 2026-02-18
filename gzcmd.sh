@@ -1,7 +1,9 @@
 #!/bin/sh
 # (c) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
 #
-# Usage: gzcmd.sh /path/elf-executable[.gz] [name]
+# Version : v0.1
+# Usage   : gzcmd.sh /path/elf-executable[.gz] [name]
+# Host    : [[export] GZTMPDIR=path GZUNGZIP=pigz;] [shell] name.gz.sh
 #
 # Suggestion for minimal size with musl static compilation of a single file.c:
 #
@@ -9,7 +11,7 @@
 #   -Wl,--gc-sections -Wl,--build-id=none -fno-asynchronous-unwind-tables \
 #   file.c -o uchaos; strip -R .comment -R .gnu.version uchaos
 #
-# Required: sudo apt install musl-tools gcc-multilib
+# Requires: sudo apt install musl-tools gcc-multilib
 #
 ################################################################################
 
@@ -28,27 +30,29 @@ headstr=$(cat <<EOF
 #
 BFN="$ORIGNAME"
 MD5="$MD5CKSUM"
-test -n "\$PATH" || export PATH=/bin:/usr/bin:/usr/local/bin:/\$HOME/bin
+test -n "\$UID"  || UID=$(id -u 2>&3)
+test -n "\$PATH" || export UID PATH=/bin:/usr/bin:/usr/local/bin
 if [ !  -r "\$0" ]; then echo "ERROR: '\$0' is not readable"; exit 1; fi
+gpm() { grep -qe '\$@' /proc/mounts; }
 
-for i in 1; do
-  uz="pigz -dc"; which pigz >&3 && break
-  uz="gzip -dc"; which gzip >&3 && break
-  uz="zcat";     which zcat >&3 || exit 1
+sm=/dev/shm; gpm "\$sm.*noexec" && sm=
+for tmp in "\${GZTMPDIR:-}" \$sm /tmp \$HOME/.tmp; do
+  mkdir -p "\$tmp/" 2>&3 || continue
+  test  -d "\$tmp/" -a -w "\$tmp/" && break
 done
 
-sm=/dev/shm; grep -qe "\$sm.*noexec" /proc/mounts && sm=
-for tmp in "\${GZTMPDIR:-}" \$sm/ /tmp/ \$HOME/.tmp/; do
-  mkdir -p "\$tmp" 2>&3 || continue;
-  test  -d "\$tmp" -a -w "\$tmp" && break
+for i in \${GZUNGZIP:-} pigz gzip zcat; do
+  uz=\$i; which \$uz >&3 && break
 done
 
-dn="\$tmp/.gzcmd-\$BFN-\$MD5-\$\$"; fn="\$dn/\$BFN"
+dn="\$tmp/.gzcmd-\$BFN-\$MD5-\$UID"; fn="\$dn/\$BFN"
 { umask 007; mkdir -p "\$dn" && touch "\$fn"; } | 2>&3 &&
   chmod 0700 "\$dn" "\$fn" &&
-     dd if=\$0 skip=BLOCKS bs=$BLKSZE status=none | \$uz >"\$fn" || exit 1
+     dd if=\$0 skip=BLOCKS bs=$BLKSZE status=none | \$uz -dc >"\$fn" || exit 1
 
-sh -c "\$fn \$@"; err=\$?; { rm -f "\$fn"; rmdir "\$dn"; } 2>&3; exit \$err
+sh -c "\$fn \$@"; err=\$?; 
+gpm "tmpfs.*/dev/shm" && { rm -f "\$fn"; rmdir "\$dn"; } 2>&3;
+exit \$err
 ###
 EOF
 )
