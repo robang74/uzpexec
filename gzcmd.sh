@@ -4,7 +4,12 @@
 # Usage: gzcmd.sh /path/elf-executable[.gz] [name]
 #
 
-gzelf=${1:-}
+gzelf=${1:-gzelf}
+ORIGNAME=$(basename "$gzelf")
+#MD5CKSUM=$(md5sum "$gzelf" | cut -d' ' -f1)
+ORIGNAME=$(echo "$ORIGNAME" | sed -e "s/\.gz$//")
+gzelfle="${2:-$ORIGNAME}.gz.sh"
+
 headstr=$(cat <<EOF
 #!/bin/sh
 # (c) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
@@ -13,7 +18,7 @@ headstr=$(cat <<EOF
 #
 
 test -n "\$PATH" || export PATH=/bin:/usr/bin:/usr/local/bin:/\$HOME/bin
-ORIGNAME="$(basename ${1:-gzelf})"
+ORIGNAME="$ORIGNAME"
 cmdnme="\$0"
 if [ ! -r "\$cmdnme" ]; then
   echo "ERROR: executable '\$cmdnme' is not readable"
@@ -80,16 +85,12 @@ gzcmd_main_func() {
   err=0
 
   chmod +x "$gzelfle"
+  str1=$(du -ks "$gzelfle" | cut -f1)
+  echo "File name: '$(basename "$gzelfle")', Header size:"\
+       "$headsze bytes, ELF size: $str1 Kb"
+  file "$gzelfle"
 }
 
-gzelfle="${2:-$gzelf}.gz.sh"
-
-gzcmd_main_func; err=$?
-
-str1=$(du -ks "$gzelfle" | cut -f1)
-echo "File name: '$(basename "$gzelfle")', Header size:"\
-     "$headsze bytes, ELF size: $str1 Kb"
-file "$gzelfle"
-test $err -eq 0
+gzcmd_main_func
 
 ### ////////////////////////////////////////////////////////////////////////////
