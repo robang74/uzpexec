@@ -10,18 +10,18 @@ headstr=$(cat <<EOF
 # (c) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
 # URL: raw.githubusercontent.com/robang74/bare-minimal-linux-system/
 # Source: refs/heads/main/gzcmd.sh
-err=1
-while true; do #################################################################
-export PATH=\$PATH:/bin:/usr/bin:/usr/local/bin:/\$HOME/bin
+#
+
+test -n "\$PATH" || export PATH=/bin:/usr/bin:/usr/local/bin:/\$HOME/bin
 ORIGNAME="$(basename ${1:-gzelf})"
 cmdnme="\$0"
 if [ ! -r "\$cmdnme" ]; then
   echo "ERROR: executable '\$cmdnme' is not readable"
-  break
+  exit 1
 fi >&2
 
-uz="zcat"; if ! which \$uz | grep -q . ; then
-  uz="gzip -dc";which gzip | grep -q . || exit 1
+uz="zcat"; if ! which \$uz >&3 ; then
+  uz="gzip -dc";which gzip >&3 || exit 1
 fi
 
 sm=/dev/shm; grep -qe "\$sm.*noexec" /proc/mounts && sm=
@@ -39,12 +39,10 @@ chmod o-wrx "\$dirnme"
 
 dd if=\$0 skip=BLOCKS status=none | \$uz - >"\$flenme"
 chmod +x-w "\$flenme" && sh -c "\$flenme \$@"; err=\$?
-{ rm -f "\$flenme"; rmdir "\$dirnme"; } 2>&1 | grep -q .
+{ rm -f "\$flenme"; rmdir "\$dirnme"; } 2>&3
+exit \$err
 
-break; done ####################################################################
-test \$err -eq 0
-exit
-#### ///////////////////////////////////////////////////////////////////////////
+# //////////////////////////////////////////////////////////////////////////////
 EOF
 )
 
@@ -81,7 +79,10 @@ fi
 err=0
 
 chmod +x "$gzelfle"
-echo Size Kb: $(du -ks $gzelfle) $(file $gzelfle | cut -d: -f2-)
+
+str1=$(du -ks $gzelfle | cut -f1)
+echo "File name: '$(basename $gzelfle)', Header size: $headsze bytes, ELF size: $str1 Kb"
+file $gzelfle
 
 break; done ####################################################################
 test $err -eq 0
