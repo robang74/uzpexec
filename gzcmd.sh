@@ -244,14 +244,16 @@ gzcmd_main_func() {
     zp="gzip"; which $zp >&3 || return 1
   done
 
+  # create a monotonic enumered temporary file ext.
+  atm=$(date +"%N")
   # top-half script is 64-bit chunked in size, always
   headsze=$(( ( ($(phdr | wc -c) + 7) >> 3 ) << 3 ))
   # replacing the string HDRSIZE with a 4 digits number
   hdrtext=$(phdr | sed -e "s/1 bs=HDRSIZE/1 bs=$headsze/")
   # setting privileges on target file before writing it
-  ( rm -f "$gzelfle"; umask 0644 | touch "$gzelfle"; chmod 0644 "$gzelfle" )
+  ( rm -f "$gzelfle"; umask 0600 | touch "$gzelfle"; chmod 0600 "$gzelfle" )
   # initialising the target file with a the top-half
-  echo "$hdrtext########" | gzdd > "$gzelfle" || return 1
+  echo "$hdrtext########" | gzdd > "$gzelfle.$atm" || return 1
 
   if isgzipfile "$gzelf" ; then
     zp="zcat \"$gzelf\" | $zp -${ZCMPLVL}c"
@@ -259,11 +261,18 @@ gzcmd_main_func() {
     zp="$zp -${ZCMPLVL}c \"$gzelf\""
   fi
   # finalise the target file + an extra check about proper file creation
-  eval "$zp" >> "$gzelfle" && gzdd if="$gzelfle" skip=1 | isgzipfile || {
+  eval "$zp" >> "$gzelfle.$atm" && gzdd if="$gzelfle.$atm" skip=1 |\
+  isgzipfile || {
     echo "ERROR: gzdata isn't where supposed to, report the bug" >&2
     echo "       sh -x <same command given> 2>&1 | grep -e '^+'" >&2
     return 1
   }
+  # atomic substitution
+  if ! mv -f "$gzelfle.$atm" "$gzelfle"; then
+    # remove also the target
+    rm -f "$gzelfle.$atm" "$gzelfle"
+    return 1
+  fi
 
   szeb=$(du -b "$gzelfle" | cut -f1)
   szek=$(( ( szeb + 512 ) >> 10 ))
