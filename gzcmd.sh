@@ -192,6 +192,7 @@ headstr=$(cat <<EOF
 #
 BFN="$ORIGNAME"
 MD5="$MD5CKSUM"
+exec 3>/dev/null
 test -n "\$UID"  || UID=$(id -u 2>&3)
 test -n "\$PATH" || export UID PATH=/bin:/usr/bin:/usr/local/bin
 if [ !  -r "\$0" ]; then echo "ERROR: '\$0' is not readable" >&2; exit 1; fi
@@ -228,6 +229,8 @@ gzdd() { dd count=1 bs=$headsze status=none "$@"; }
 phdr() { echo "$headstr"; }
 
 gzcmd_main_func() {
+  exec 3>/dev/null
+
   if [ ! -n "$gzelf" ]; then
     echo "Usage: gzcmd.sh /path/elf-executable[.gz] [name]"
     return 1
