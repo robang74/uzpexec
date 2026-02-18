@@ -13,12 +13,12 @@
 #
 ################################################################################
 
+BLKSZE=64
 gzelf=${1:-gzelf}
 ORIGNAME=$(basename "$gzelf")
-#MD5CKSUM=$(md5sum "$gzelf" | cut -d' ' -f1)
 ORIGNAME=$(echo "$ORIGNAME" | sed -e "s/\.gz$//")
+#MD5CKSUM=$(md5sum "$gzelf" | cut -d' ' -f1)
 gzelfle="${2:-$ORIGNAME}.gz.sh"
-
 headstr=$(cat <<EOF
 #!/bin/sh
 # (c) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
@@ -52,7 +52,7 @@ flenme="\$dirnme/\$flenme"
 mkdir -p "\$dirnme"
 chmod o-wrx "\$dirnme"
 
-dd if=\$0 skip=BLOCKS status=none | \$uz >"\$flenme"
+dd if=\$0 skip=BLOCKS bs=$BLKSZE status=none | \$uz >"\$flenme"
 chmod +x-w "\$flenme" && sh -c "\$flenme \$@"; err=\$?
 { rm -f "\$flenme"; rmdir "\$dirnme"; } 2>&3
 exit \$err
@@ -61,6 +61,14 @@ exit \$err
 EOF
 )
 ### ////////////////////////////////////////////////////////////////////////////
+
+isgzipfile() {
+  zfle=${1:-}
+  file "$zfle" | grep -q "gzip compressed data" ||\
+    od -h "$zfle" | head -n1 | grep -q "8b1f 0808"
+}
+
+gzdd() { dd bs=$BLKSZE count=$nblocks status=none if=$1; }
 
 gzcmd_main_func() {
 
@@ -74,11 +82,11 @@ gzcmd_main_func() {
   fi >&2
 
   headsze=$(echo "$headstr" | wc -c)
-  nblocks=$(( (headsze + 511) / 512 ))
+  nblocks=$(( (headsze + $BLKSZE -1) / $BLKSZE ))
 
   echo "$headstr" | sed "s/skip=BLOCKS/skip=$nblocks/" > "$gzelfle.tmp"
-  dd if=/dev/zero count=$nblocks status=none >> "$gzelfle.tmp"
-  dd if="$gzelfle.tmp" count=$nblocks status=none > "$gzelfle"
+  gzdd /dev/zero >> "$gzelfle.tmp"
+  gzdd "$gzelfle.tmp" > "$gzelfle"
   rm -f "$gzelfle.tmp"
 
   test -r "$gzelfle" || return 1
@@ -96,7 +104,7 @@ gzcmd_main_func() {
   chmod +x "$gzelfle"
   str1=$(du -ks "$gzelfle" | cut -f1)
   echo "File name: '$(basename "$gzelfle")', Header size:"\
-       "$headsze bytes, ELF size: $str1 Kb"
+       "$headsze ($nblocks x $BLKSZE) bytes, ELF size: $str1 Kb"
   file "$gzelfle"
 }
 
