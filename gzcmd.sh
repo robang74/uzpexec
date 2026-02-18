@@ -182,7 +182,7 @@ ORIGNAME=$(echo "$ORIGNAME" | sed -e "s/\.gz$//")
 MD5CKSUM=$(md5sum "$gzelf"  | cut -d' ' -f1)
 gzelfle="$ORIGNAME.gz.sh"
 BLKSIZE=${3:-32}
-ZCMPLVL=${4:-9}
+ZCMPLVL=${4:-11}
 
 headstr=$(cat <<EOF
 #!/bin/sh
@@ -194,9 +194,8 @@ BFN="$ORIGNAME"
 MD5="$MD5CKSUM"
 test -n "\$UID"  || UID=$(id -u 2>&3)
 test -n "\$PATH" || export UID PATH=/bin:/usr/bin:/usr/local/bin
-if [ !  -r "\$0" ]; then echo "ERROR: '\$0' is not readable"; exit 1; fi
+if [ !  -r "\$0" ]; then echo "ERROR: '\$0' is not readable" >&2; exit 1; fi
 gpm() { grep -qe "\$@" /proc/mounts; }
-trap 'gpm "tmpfs.*/dev/shm" && { rm -f "\$fn"; rmdir "\$dn" 2>&3; }' EXIT INT TERM
 
 sm=/dev/shm; gpm "\$sm.*noexec" && sm=
 for tmp in "\${GZTMPDIR:-}" \$sm /tmp \$HOME/.tmp; do
@@ -209,14 +208,16 @@ if ! md5sum \$fn 2>&3 | grep -qe "^\$MD5 "; then
   for i in \${GZUNGZIP:-} pigz gzip zcat; do
     uz=\$i; which \$uz >&3 && break
   done
-  { umask 007; mkdir -p "\$dn" && touch "\$fn"; } | 2>&3 &&
-    chmod 0700 "\$dn" "\$fn" && dd if=\$0 skip=BLOCKS bs=$BLKSIZE \
-      status=none | \$uz -dc >"\$fn" || exit 1
+  gpm "tmpfs.*/dev/shm" &&
+    trap 'rm -f "\$fn"; rmdir "\$dn" 2>&3' EXIT INT TERM
+  ( umask 007; mkdir -p "\$dn" && touch "\$fn" &&
+    chmod 0700 "\$dn" "\$fn" ) || exit 1
+  dd if=\$0 skip=1 bs=HDRSIZE status=none | \$uz -dc >"\$fn" || exit 1
 fi
 
 eval sh -c "'\$fn \$@'"
 exit \$?
-###
+####
 EOF
 )
 ### ////////////////////////////////////////////////////////////////////////////
@@ -227,7 +228,8 @@ isgzipfile() {
     od -h "$zfle" | head -n1 | grep -q "8b1f 0808"
 }
 
-gzdd() { dd bs=$BLKSIZE count=$nblocks status=none if=$1; }
+gzdd() { dd count=1 bs=$headsze status=none "$@"; }
+phdr() { echo "$headstr"; }
 
 gzcmd_main_func() {
   if [ ! -n "$gzelf" ]; then
@@ -239,31 +241,34 @@ gzcmd_main_func() {
     return 1
   fi >&2
 
-  headsze=$(echo "$headstr" | wc -c)
-  nblocks=$(( (headsze + $BLKSIZE -1) / $BLKSIZE ))
+  # select the best-first binary for gzip compression
+  for i in 1; do
+    zp="pigz"; which $zp >&3 && break
+    zp="gzip"; which $zp >&3 || return 1
+  done
 
-  echo "$headstr" | sed "s/skip=BLOCKS/skip=$nblocks/" > "$gzelfle.tmp"
-  gzdd /dev/zero >> "$gzelfle.tmp"
-  gzdd "$gzelfle.tmp" > "$gzelfle"
-  rm -f "$gzelfle.tmp"
-
+  # top-half script is 64-bit chunked in size, always
+  headsze=$(( ( ($(phdr | wc -c) + 7) >> 3 ) << 3 ))
+  # replacing the string HDRSIZE with a 4 digits number
+  hdrtext=$(phdr | sed -e "s/1 bs=HDRSIZE/1 bs=$headsze/")
+  # setting privileges on target file before writing it
+  ( rm -f "$gzelfle"; umask 0644 | touch "$gzelfle"; chmod 0644 "$gzelfle" )
+  # initialising the target file with a the top-half
+  { echo "$hdrtext"; gzdd if=/dev/zero; } | gzdd > "$gzelfle" || return 1
+  # extra check about file creation
   test -r "$gzelfle" || return 1
-  if file "$gzelf" | grep -q "gzip compressed data"; then
-    cat "$gzelf" >> "$gzelfle" || return 1
-  else
-    for i in 1; do
-      zp="pigz"; which $zp >&3 && break
-      zp="gzip"; which $zp >&3 || return 1
-    done
-    $zp -${ZCMPLVL}c "$gzelf" >> "$gzelfle" || return 1
-  fi
-  err=0
 
+  if isgzipfile "$gzelf" ; then
+    zp="zcat \"$gzelf\" | $zp -${ZCMPLVL}c"
+  else
+    zp="$zp -${ZCMPLVL}c \"$gzelf\""
+  fi
+  eval "$zp" >> "$gzelfle" || return 1
+
+  szeb=$(du -b "$gzelfle" | cut -f1)
+  szek=$(( ( szeb + 512 ) >> 10 ))
+  echo "File: '$(basename "$gzelfle")', HEAD: $headsze, GZIP: $szeb ($szek Kb)"
   chmod +x "$gzelfle"
-  str1=$(du -ks "$gzelfle" | cut -f1)
-  echo "File name: '$(basename "$gzelfle")', Header size:"\
-       "$headsze ($nblocks x $BLKSIZE) bytes, ELF size: $str1 Kb"
-  file "$gzelfle"
 }
 gzcmd_main_func
 
