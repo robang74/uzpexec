@@ -20,9 +20,11 @@ if [ ! -r "\$cmdnme" ]; then
   exit 1
 fi >&2
 
-uz="zcat"; if ! which \$uz >&3 ; then
-  uz="gzip -dc";which gzip >&3 || exit 1
-fi
+for i in 1; do
+  uz="pigz -dc"; which pigz >&3 && break
+  uz="gzip -dc"; which gzip >&3 && break
+  uz="zcat";     which zcat >&3 || exit 1
+done
 
 sm=/dev/shm; grep -qe "\$sm.*noexec" /proc/mounts && sm=
 for tmp in "\${GZTMPDIR:-}" \$sm/ /tmp/ \$HOME/.tmp/; do
@@ -30,14 +32,13 @@ for tmp in "\${GZTMPDIR:-}" \$sm/ /tmp/ \$HOME/.tmp/; do
   test -d "\$tmp" -a -w "\$tmp" && break
 done
 
-datens=\$(date +%N)
 flenme="\$ORIGNAME"
-dirnme="\$tmp/\$flenme-\$\$-\$datens"
+dirnme="\$tmp/\$flenme-\$\$-\$(date +%N)"
 flenme="\$dirnme/\$flenme"
 mkdir -p "\$dirnme"
 chmod o-wrx "\$dirnme"
 
-dd if=\$0 skip=BLOCKS status=none | \$uz - >"\$flenme"
+dd if=\$0 skip=BLOCKS status=none | \$uz >"\$flenme"
 chmod +x-w "\$flenme" && sh -c "\$flenme \$@"; err=\$?
 { rm -f "\$flenme"; rmdir "\$dirnme"; } 2>&3
 exit \$err
@@ -70,9 +71,10 @@ gzcmd_main_func() {
   if file "$gzelf" | grep -q "gzip compressed data"; then
     cat "$gzelf" >> "$gzelfle" || return 1
   else
-    zp="pigz"; if ! which $zp >&3; then
-      zp="gzip"; which $zp >&3 || return 1
-    fi
+    for i in 1; do
+      zp="pigz"; which $zp >&3 && break
+      zp="gzip"; which $zp >&3 || exit 1
+    done
     $zp -9c "$gzelf" >> "$gzelfle" || return 1
   fi
   err=0
