@@ -1,9 +1,10 @@
 #!/bin/sh
 # (c) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
 #
-# Version : v0.1
-# Usage   : gzcmd.sh /path/elf-executable[.gz] [name]
-# Host    : [[export] GZTMPDIR=path GZUNGZIP=pigz;] [shell] name.gz.sh
+# Version : v0.1.1
+# Usage   : gzcmd.sh /path/elf-executable[.gz] [filename] [blocksize]
+# Hint    : for blocksize use $(cat filename |wc -c) for minimal size
+# Host    : [[export] GZTMPDIR=path GZUNGZIP=pigz;] [shell] elf.gz.sh
 #
 # Suggestion for minimal size with musl static compilation of a single file.c:
 #
@@ -15,12 +16,12 @@
 #
 ################################################################################
 
-BLKSZE=64
 gzelf=${1:-gzelf}
 ORIGNAME=$(basename "$gzelf")
 ORIGNAME=$(echo "$ORIGNAME" | sed -e "s/\.gz$//")
 MD5CKSUM=$(md5sum "$gzelf"  | cut -d' ' -f1)
 gzelfle="${2:-$ORIGNAME}.gz.sh"
+BLKSIZE=${3:-32}
 
 headstr=$(cat <<EOF
 #!/bin/sh
@@ -41,14 +42,15 @@ for tmp in "\${GZTMPDIR:-}" \$sm /tmp \$HOME/.tmp; do
   test  -d "\$tmp/" -a -w "\$tmp/" && break
 done
 
-for i in \${GZUNGZIP:-} pigz gzip zcat; do
-  uz=\$i; which \$uz >&3 && break
-done
-
 dn="\$tmp/.gzcmd-\$BFN-\$MD5-\$UID"; fn="\$dn/\$BFN"
-{ umask 007; mkdir -p "\$dn" && touch "\$fn"; } | 2>&3 &&
-  chmod 0700 "\$dn" "\$fn" &&
-     dd if=\$0 skip=BLOCKS bs=$BLKSZE status=none | \$uz -dc >"\$fn" || exit 1
+if ! md5sum \$fn 2>&3 | grep -qe "^\$MD5 "; then
+  for i in \${GZUNGZIP:-} pigz gzip zcat; do
+    uz=\$i; which \$uz >&3 && break
+  done
+  { umask 007; mkdir -p "\$dn" && touch "\$fn"; } | 2>&3 &&
+    chmod 0700 "\$dn" "\$fn" &&
+       dd if=\$0 skip=BLOCKS bs=$BLKSIZE status=none | \$uz -dc >"\$fn" || exit 1
+fi
 
 sh -c "\$fn \$@"; err=\$?; 
 gpm "tmpfs.*/dev/shm" && { rm -f "\$fn"; rmdir "\$dn"; } 2>&3;
@@ -64,10 +66,9 @@ isgzipfile() {
     od -h "$zfle" | head -n1 | grep -q "8b1f 0808"
 }
 
-gzdd() { dd bs=$BLKSZE count=$nblocks status=none if=$1; }
+gzdd() { dd bs=$BLKSIZE count=$nblocks status=none if=$1; }
 
 gzcmd_main_func() {
-
   if [ ! -n "$gzelf" ]; then
     echo "Usage: gzcmd.sh /path/elf-executable[.gz] [name]"
     return 1
@@ -78,7 +79,7 @@ gzcmd_main_func() {
   fi >&2
 
   headsze=$(echo "$headstr" | wc -c)
-  nblocks=$(( (headsze + $BLKSZE -1) / $BLKSZE ))
+  nblocks=$(( (headsze + $BLKSIZE -1) / $BLKSIZE ))
 
   echo "$headstr" | sed "s/skip=BLOCKS/skip=$nblocks/" > "$gzelfle.tmp"
   gzdd /dev/zero >> "$gzelfle.tmp"
@@ -100,10 +101,9 @@ gzcmd_main_func() {
   chmod +x "$gzelfle"
   str1=$(du -ks "$gzelfle" | cut -f1)
   echo "File name: '$(basename "$gzelfle")', Header size:"\
-       "$headsze ($nblocks x $BLKSZE) bytes, ELF size: $str1 Kb"
+       "$headsze ($nblocks x $BLKSIZE) bytes, ELF size: $str1 Kb"
   file "$gzelfle"
 }
-
 gzcmd_main_func
 
 ### ////////////////////////////////////////////////////////////////////////////
