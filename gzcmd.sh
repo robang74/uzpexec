@@ -20,7 +20,7 @@
 #
 # Rationale
 #
-# Both UPX and APE are powerful but troublesome, in some cases also
+# Both UPX and APE are powerful but troublesome [¹], in some cases also
 # over-complicating for Linux users. A shell wrap (thus pays a shell
 # time start) is a standard way that can works in all cases. In some
 # cases is easier and even a better way to go, in some others is less
@@ -37,6 +37,32 @@
 # the 1st call but speed-up all the others, especially for large archives.
 # By extension, root can use it for a temporary or permanent installation.
 # Instead the remote installation wget $url -O- | sh is still missing by $0.
+#
+# Notes
+#
+# ¹: for example cross-compiled binaries aren't simply managed outside the
+#    specific tool-chain / dev-enviroment. file uchaos: ELF 32-bit LSB pie
+#    executable, Intel 80386, version 1 (SYSV), static-pie linked, stripped
+#    with upx-cli running on a x86_64 GNU/Linux reports a failure: 
+#
+# upx: CantPackException: bad DT_GNU_HASH n_bucket=0x1 n_bitmask=0x1 len=0x18
+#
+#    In this specific case the UPX easiest option is to abbandond static musl
+#    and go with static libc, but the confrontation between the two is clear:
+#
+#  24293  uchaos-v0.23-linux-x86-32-static-musl.gz.sh
+# 304700  uchaos-v0.23-linux-x86-64-ld-3.20-elf32.upx (a bit smaller than -11)
+#
+#    Which is a gret result for UPX that create a compressed self-contained ELF
+#    a bit smaller than pigz -11 can do but 12.5x bigger than musl whatever the
+#    solution exists, it is an extra bruden which aligns with the the UI/UX for
+#    Posix users that are bothered about chmod +x and the executable bits are
+#    somthing that is good-practice to disable in dev enviroment and githup prj.
+#
+#    In conclusion, UPX can be great for Windows users or those needs to cope w/
+#    that platform but on Posix where the system helps devs, then UPX seems an
+#    overcomplicaiton over well-established dev-friendly universal-standards.
+#    Unsurprisingly, over-complicating requires over-engineering, at least. 
 #
 ################################################################################
 if [ "x${1:-}" = "x--do-tests" ]; then #########################################
