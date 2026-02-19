@@ -184,7 +184,7 @@ exit; fi # x--do-tests #########################################################
 
 gzelf=${1:-gzelf}
 ORIGNAME=$(basename "${2:-$gzelf}")
-ORIGNAME=$(echo "$ORIGNAME" | sed -e "s/\.gz$//")
+ORIGNAME=$(echo "$ORIGNAME" | sed -e "s/\.gz$//" -e "s/\.sh$//")
 MD5CKSUM=$(md5sum "$gzelf"  | cut -d' ' -f1)
 gzelfle="$ORIGNAME.gz.sh"
 BLKSIZE=${3:-32}
@@ -265,8 +265,17 @@ gzcmd_main_func() {
   ( rm -f "$wrkfle"; umask 0600 | touch "$wrkfle"; chmod 0600 "$wrkfle" )
   # initialising the target file with a the top-half
   echo "$hdrtext########" | gzdd > "$wrkfle" || return 1
-
-  if isgzipfile "$gzelf" ; then
+  
+  # self-compressing therefore leave behind the testing stuff
+  # to include everything gzip first then gzcmd over the .gz
+  nme=$(basename $0)
+  if [ "$ORIGNAME" = "$nme" -o  "$ORIGNAME.sh" = "$nme" ]; then
+      nhd=$(grep -ne " = \"x--do-tests" "$gzelf" | cut -d: -f1)
+      txt1=$(head -n$((nhd-2)) "$gzelf")
+      ntl=$(grep -ne "fi # x--do-tests" "$gzelf" | cut -d: -f1)
+      txt2=$(tail -n-$(($(cat "$gzelf" | wc -l)-ntl)) "$gzelf")
+      zpc="printf \"%s\\n%s\\n\" \"\$txt1\" \"\$txt2\" | $zp -${ZCMPLVL}c"
+  elif isgzipfile "$gzelf" ; then
     zpc="$zp -dc \"$gzelf\" | $zp -${ZCMPLVL}c"
   else
     zpc="$zp -${ZCMPLVL}c \"$gzelf\""
@@ -289,8 +298,9 @@ gzcmd_main_func() {
   szek=$(( ( szeb + 512 ) >> 10 ))
   rtio=$(( ((100 * szeb) + (fsze >> 2)) / fsze ));
   nhsh=$(sed -ne "/exit \$? ####/p" ./uchaos.gz.sh | tr -dc '#' | wc -c)
-  printf "File: '%s', HEAD: %d (%d), GZIP: %d (%d Kb, %d %%)\n" \
-    $(basename "$gzelfle") $headsze $((nhsh-4)) $szeb $szek $rtio
+  printf "File: '%s', HEAD: %d (%d), GZIP: %d (%d Kb, %d %%)%s\n" \
+    $(basename "$gzelfle") $headsze $((nhsh-4)) $szeb $szek $rtio \
+      "${ntl:+, SKIP: $nhd:$ntl}"
   # standard permissions + user-only execution
   chmod 0744 "$gzelfle"
 }
