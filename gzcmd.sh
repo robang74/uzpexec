@@ -199,19 +199,19 @@ headstr=$(cat <<EOF
 BFN="$ORIGNAME"
 MD5="$MD5CKSUM"
 exec 3>/dev/null
-uid=\$(id -u || echo 1000)
 test -n "\$PATH" || export PATH=/bin:/usr/bin:/usr/local/bin
-test -r "\$0" || { echo "ERROR: '\$0' is not readable (\$@)" >&2; exit 1; }
+test -r "\$0" || { echo "ERROR: '\$0' is not readable" >&2; exit 1; }
+
 mdc() { [ -r "\$fn" ] && md5sum "\$fn" | grep -qe "^\$MD5 "; } 
 gpm() { grep -qe "\$@" /proc/mounts; }
 
-sm=/dev/shm; gpm "\$sm.*noexec" && sm=
-for tmp in "\${GZTMPDIR:-}" \$sm /tmp \$HOME/.tmp; do
+for tmp in "\${GZTMPDIR:-}" /dev/shm /tmp \$HOME/.tmp; do
+  gpm "\$tmp.*noexec" && continue
   mkdir -p "\$tmp/" 2>&3 || continue
   test  -d "\$tmp/" -a -w "\$tmp/" && break
 done
 
-dn="\$tmp/.gzcmd-\$BFN-\$MD5-\$uid"; fn="\$dn/\$BFN"
+dn="\$tmp/.gzcmd-\$BFN-\$MD5-\$(id -u || echo 1000)"; fn="\$dn/\$BFN"
 if ! mdc; then
   for i in \${GZUNGZIP:-} pigz gzip zcat; do
     uz=\$i; which \$uz >&3 && break
@@ -221,7 +221,7 @@ if ! mdc; then
   ( umask 007; mkdir -p "\$dn" && touch "\$wn" &&
     chmod 0700 "\$dn" "\$wn" ) || exit 1
   dd if=\$0 skip=1 bs=HDRSIZE status=none | \$uz -dc >"\$wn" &&
-    mv -f "\$wn" "\$fn"        || exit 1
+    mv -f "\$wn" "\$fn" || exit 1
 fi
 
 eval sh -c "'\$fn \$@'"
