@@ -193,9 +193,10 @@ headstr=$(cat <<EOF
 BFN="$ORIGNAME"
 MD5="$MD5CKSUM"
 exec 3>/dev/null
-test -n "\$UID"  || UID=$(id -u 2>&3)
-test -n "\$PATH" || export UID PATH=/bin:/usr/bin:/usr/local/bin
+uid=\$(id -u || echo 1000)
+test -n "\$PATH" || export PATH=/bin:/usr/bin:/usr/local/bin
 if [ !  -r "\$0" ]; then echo "ERROR: '\$0' is not readable" >&2; exit 1; fi
+mdc() { [ -r "\$fn" ] && md5sum "\$fn" | grep -qe "^\$MD5 "; } 
 gpm() { grep -qe "\$@" /proc/mounts; }
 
 sm=/dev/shm; gpm "\$sm.*noexec" && sm=
@@ -204,17 +205,17 @@ for tmp in "\${GZTMPDIR:-}" \$sm /tmp \$HOME/.tmp; do
   test  -d "\$tmp/" -a -w "\$tmp/" && break
 done
 
-dn="\$tmp/.gzcmd-\$BFN-\$MD5-\$UID"; fn="\$dn/\$BFN"
-if ! md5sum \$fn 2>&3 | grep -qe "^\$MD5 "; then
+dn="\$tmp/.gzcmd-\$BFN-\$MD5-\$uid"; fn="\$dn/\$BFN"
+if ! mdc; then
   for i in \${GZUNGZIP:-} pigz gzip zcat; do
     uz=\$i; which \$uz >&3 && break
   done
-  ns=\$(date +"%N"); wn="\$fn.\$ns"; gpm "tmpfs.*/dev/shm" &&
+  wn="\$fn.\$(date +%N)"; gpm "tmpfs.*/dev/shm" &&
     trap 'rm -f "\$fn" "\$wn"; rmdir "\$dn" 2>&3' EXIT INT TERM
   ( umask 007; mkdir -p "\$dn" && touch "\$wn" &&
     chmod 0700 "\$dn" "\$wn" ) || exit 1
   dd if=\$0 skip=1 bs=HDRSIZE status=none | \$uz -dc >"\$wn" &&
-    mv -f "\$wn" "\$fn" || exit 1
+    mv -f "\$wn" "\$fn" && mdc || exit 1
 fi
 
 eval sh -c "'\$fn \$@'"
@@ -225,6 +226,7 @@ EOF
 
 isgzipfile() { od -h ${1:-} | head -n1 | grep -q "8b1f 0808"; }
 
+md5c() { gzdd skip=1 count=1G if="$1" | $zp -dc | md5sum | -qe "^$MD5CKSUM "; }
 gzdd() { dd count=1 bs=$headsze status=none "$@"; }
 phdr() { echo "$headstr"; }
 
@@ -259,18 +261,16 @@ gzcmd_main_func() {
   echo "$hdrtext########" | gzdd > "$wrkfle" || return 1
 
   if isgzipfile "$gzelf" ; then
-    zp="zcat \"$gzelf\" | $zp -${ZCMPLVL}c"
+    zpc="$zp -dc \"$gzelf\" | $zp -${ZCMPLVL}c"
   else
-    zp="$zp -${ZCMPLVL}c \"$gzelf\""
+    zpc="$zp -${ZCMPLVL}c \"$gzelf\""
   fi
   # finalise the target file + an extra check about proper file creation
-  eval "$zp" | gzdd seek=1 count=1G of="$wrkfle" && gzdd if="$wrkfle" skip=1 |\
-  { isgzipfile && gzdd if="$wrkfle" | grep -q "exit \$? ####"; } || {
-    # all the above massive checking when mdsum check is the correct approach!
+  if ! eval "$zpc" | gzdd seek=1 count=1G of="$wrkfle" && md5c "$wrkfle"; then
     echo "ERROR: gzdata isn't where supposed to, report the bug" >&2
     echo "       sh -x <same command given> 2>&1 | grep -e '^+'" >&2
     return 1
-  }
+  fi
   # atomic substitution
   if ! mv -f "$wrkfle" "$gzelfle"; then
     # remove also the target
