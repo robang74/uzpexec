@@ -282,7 +282,9 @@ gzcmd_main_func() {
   szeb=$(du -b "$gzelfle" | cut -f1)
   szek=$(( ( szeb + 512 ) >> 10 ))
   rtio=$(( ((100 * szeb) + (fsze >> 2)) / fsze ));
-  echo "File: '$(basename "$gzelfle")', HEAD: $headsze, GZIP: $szeb (${szek}Kb, ${rtio}%)"
+  nhsh=$(sed -ne "/exit \$? ####/p" ./uchaos.gz.sh | tr -dc '#' | wc -c)
+  printf "File: '%s', HEAD: %d (%d), GZIP: %d (%d Kb, %d %%)\n" \
+    $(basename "$gzelfle") $headsze $((nhsh-4)) $szeb $szek $rtio
   # standard permissions + user-only execution
   chmod 0744 "$gzelfle"
 }
