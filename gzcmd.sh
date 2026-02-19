@@ -268,17 +268,18 @@ gzcmd_main_func() {
   
   # self-compressing therefore leave behind the testing stuff
   # to include everything gzip first then gzcmd over the .gz
-  nme=$(basename $0)
+  nme=$(basename $0); xdo="x--do";
+  zip="$zp -${ZCMPLVL}c"; zpc="$zip \"$gzelf\""
   if [ "$ORIGNAME" = "$nme" -o  "$ORIGNAME.sh" = "$nme" ]; then
-      nhd=$(grep -ne " = \"x--do-tests" "$gzelf" | cut -d: -f1)
+    nhd=$(grep -ne " = \"$xdo-tests" "$gzelf" | cut -d: -f1)
+    ntl=$(grep -ne "fi # $xdo-tests" "$gzelf" | cut -d: -f1)
+    if [ -n "$nhd" -a -n "$ntl" ]; then
       txt1=$(head -n$((nhd-2)) "$gzelf")
-      ntl=$(grep -ne "fi # x--do-tests" "$gzelf" | cut -d: -f1)
       txt2=$(tail -n-$(($(cat "$gzelf" | wc -l)-ntl)) "$gzelf")
-      zpc="printf \"%s\\n%s\\n\" \"\$txt1\" \"\$txt2\" | $zp -${ZCMPLVL}c"
+      zpc="printf \"%s\\n%s\\n\" \"\$txt1\" \"\$txt2\" | $zip"
+    fi
   elif isgzipfile "$gzelf" ; then
-    zpc="$zp -dc \"$gzelf\" | $zp -${ZCMPLVL}c"
-  else
-    zpc="$zp -${ZCMPLVL}c \"$gzelf\""
+    zpc="$zp -dc \"$gzelf\" | $zip"
   fi
   # finalise the target file + an extra check about proper file creation
   if ! eval "$zpc" | gzdd seek=1 count=1G of="$wrkfle" && md5c "$wrkfle"; then
