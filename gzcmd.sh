@@ -218,8 +218,7 @@ if ! md5sum \$fn 2>&3 | grep -qe "^\$MD5 "; then
 fi
 
 eval sh -c "'\$fn \$@'"
-exit \$?
-####
+exit \$? ####
 EOF
 )
 ### ////////////////////////////////////////////////////////////////////////////
@@ -265,8 +264,9 @@ gzcmd_main_func() {
     zp="$zp -${ZCMPLVL}c \"$gzelf\""
   fi
   # finalise the target file + an extra check about proper file creation
-  eval "$zp" >> "$wrkfle" && gzdd if="$wrkfle" skip=1 |\
-  isgzipfile || {
+  eval "$zp" | gzdd seek=1 count=1G of="$wrkfle" && gzdd if="$wrkfle" skip=1 |\
+  { isgzipfile && gzdd if="$wrkfle" | grep -q "exit \$? ####"; } || {
+    # all the above massive checking when mdsum check is the correct approach!
     echo "ERROR: gzdata isn't where supposed to, report the bug" >&2
     echo "       sh -x <same command given> 2>&1 | grep -e '^+'" >&2
     return 1
