@@ -296,15 +296,16 @@ test -r "\$0" || { echo "ERROR: '\$0' is not readable" >&2; exit 1; }
 mdc() { [ -r "\$fn" ] && { md5sum "\$fn" | grep -qe "^\$MD5 "; }; }
 gpm() { grep -qe "\$@" /proc/mounts 2>&3; }
 
-for tmp in "\${GZTMPDIR:-}" /dev/shm /tmp \$HOME/.tmp; do
-  gpm "\$tmp.*noexec" && continue
-  mkdir -p "\$tmp/" 2>&3 || continue
-  test  -d "\$tmp/" -a -w "\$tmp/" && break
-done
+tmp=\$(for d in "\${GZTMPDIR:-}" /dev/shm /tmp \$HOME/.tmp; do
+  gpm "\$d.*noexec" && continue
+  mkdir -p "\$d/" 2>&3 || continue
+  test  -d "\$d/" -a -w "\$d/" || continue
+  echo "\$d"; break
+done); echo "DBG> tmp: \$tmp" >&3;
 
 dn="\$tmp/.gzcmd-\$BFN-\$MD5-\$(id -u || echo 1000)"
-fn="\$dn/\$BFN"; echo ">fn: \$fn" >&3; # DDG
-if mdc; then exec 3>&- "\$fn" "\$@"; else
+fn="\$dn/\$BFN"; echo "DBG> fn: \$fn" >&3;
+if mdc; then exec "\$fn" "\$@"; else
   for i in \${GZUNGZIP:-} pigz gzip zcat; do
     uz=\$i; which \$uz >&3 && break
   done
