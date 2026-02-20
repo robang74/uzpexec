@@ -2,7 +2,7 @@
 #
 # (c) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
 #
-# Version : v0.1.3
+# Version : v0.1.4
 # Usage   : gzcmd.sh /path/elf-executable[.gz] [filename] [blocksize]
 # Hint    : set blocksize as headersize +2 from gzcmd.sh for min.size
 # Host    : [[export] GZTMPDIR=path GZUNGZIP=pigz;] [shell] elf.gz.sh
@@ -283,33 +283,32 @@ EXITSTR="exit \$? ####"
 headstr=$(cat <<EOF
 #!/bin/sh
 # (c) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
-#           URL: raw.githubusercontent.com/robang74/bare-minimal-linux-system/
-#           Source: /refs/heads/main/gzcmd.sh
+#      URL: raw.githubusercontent.com/robang74/bare-minimal-linux-system/
+#      SRC: /refs/heads/main/gzcmd.sh
 #
 BFN="$ORIGNAME"
 MD5="$MD5CKSUM"
 
-test "\${GZDEBUG:-0}" -eq 0  && exec 3>/dev/null || { set -x; exec 3>&2; }
 test -n "\$PATH" || export PATH=/bin:/usr/bin:/usr/local/bin
+test "\${GZDEBUG:-0}" -eq 0  && exec 3>/dev/null || { set -x; exec 3>&2; }
 test -r "\$0" || { echo "ERROR: '\$0' is not readable" >&2; exit 1; }
 
 mdc() { [ -r "\$fn" ] && { md5sum "\$fn" | grep -qe "^\$MD5 "; }; }
 gpm() { grep -qe "\$@" /proc/mounts 2>&3; }
 
-tmp=\$(for d in "\${GZTMPDIR:-}" /dev/shm /tmp \$HOME/.tmp; do
+for d in "\${GZTMPDIR:-}" /dev/shm /tmp \$HOME/.tmp; do
   gpm "\$d.*noexec" && continue
   mkdir -p "\$d/" 2>&3 || continue
-  test  -d "\$d/" -a -w "\$d/" || continue
-  echo "\$d"; break
-done); echo "DBG> tmp: \$tmp" >&3;
+  test  -d "\$d/" -a -w "\$d/" && break
+done; echo "DBG> tmp: \$d" >&3
 
-dn="\$tmp/.gzcmd-\$BFN-\$MD5-\$(id -u || echo 1000)"
+dn="\$d/.gzcmd-\$BFN-\$MD5-\$(id -u || echo 1000)"
 fn="\$dn/\$BFN"; echo "DBG> fn: \$fn" >&3;
 if mdc; then exec "\$fn" "\$@"; else
   for i in \${GZUNGZIP:-} pigz gzip zcat; do
     uz=\$i; which \$uz >&3 && break
   done
-  wn="\$fn.\$(date +%N)"; gpm "tmpfs.*\$tmp" &&
+  wn="\$fn.\$(date +%N)"; gpm "tmpfs.*\$d" &&
     trap 'rm -f "\$fn" "\$wn"; rmdir "\$dn" 2>&3' EXIT INT TERM
   ( umask 007 2>&3; mkdir -p "\$dn" && touch "\$wn" &&
     chmod 0700 "\$dn" "\$wn" ) || exit 1
