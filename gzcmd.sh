@@ -213,12 +213,14 @@ dotest sh ./uchaos.musl.gz.sh "" -qT 1000
 if false; then # Testing with Busybox in QEMU bare minimal Linux system ########
 
 mount
+
 # none on /     type rootfs   (rw)
 # none on /proc type proc     (rw,relatime)
 # none on /sys  type sysfs    (rw,relatime)
 # none on /dev  type devtmpfs (rw,relatime)
 
 echo | time -v uchaos.gz.sh | wc -c
+
 # Command being timed: "uchaos.gz.sh"
 #	User time (seconds): 0.01
 #	System time (seconds): 0.00
@@ -243,7 +245,7 @@ echo | time -v uchaos.upx | wc -c
 # Involuntary context switches: 2
 # Page size (bytes): 4096
 
-mkdir -p /tmp
+mkdir -p /tmp # This settings allows to optimize the 2nd+ starting time
 
 echo | GZTMPDIR=/tmp GZUNGZIP=zcat time -v uchaos.gz.sh | wc -c
 
@@ -294,7 +296,7 @@ echo | time -v uchaos.upx >/dev/null
 # Voluntary context switches: 1
 # Involuntary context switches: 1
 
-echo | time -v uchaos.gz.sh >/dev/null
+echo | GZTMPDIR=/tmp GZUNGZIP=/bin/zcat time -v uchaos.gz.sh >/dev/null
 
 # Real time (s): 0.021723
 # User time (s): 0.011403
@@ -304,7 +306,7 @@ echo | time -v uchaos.gz.sh >/dev/null
 # Voluntary context switches: 33
 # Involuntary context switches: 3
 
-echo | time -v uchaos.gz.sh >/dev/null
+echo | GZTMPDIR=/tmp GZUNGZIP=/bin/zcat time -v uchaos.gz.sh >/dev/null
 
 # Real time (s): 0.008651
 # User time (s): 0.007660
