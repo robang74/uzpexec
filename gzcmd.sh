@@ -278,6 +278,7 @@ MD5CKSUM=$(md5sum "$gzelf"  | cut -d' ' -f1)
 gzelfle="$ORIGNAME.gz.sh"
 BLKSIZE=${3:-32}
 ZCMPLVL=${4:-9}
+EXITSTR="exit \$? ####"
 # md5sum check after gunzip was for debug only, a corrupted archive fails anyway.
 headstr=$(cat <<EOF
 #!/bin/sh
@@ -287,13 +288,13 @@ headstr=$(cat <<EOF
 #
 BFN="$ORIGNAME"
 MD5="$MD5CKSUM"
-exec 3>/dev/null
-test -z "\$GZDEBUG" || set -x
+
+test "\${GZDEBUG:-0}" -eq 0  && exec 3>/dev/null || { set -x; exec 3>&2; }
 test -n "\$PATH" || export PATH=/bin:/usr/bin:/usr/local/bin
 test -r "\$0" || { echo "ERROR: '\$0' is not readable" >&2; exit 1; }
 
-mdc() { [ -r "\$fn" ] && md5sum "\$fn" | grep -qe "^\$MD5 "; } 
-gpm() { grep -qe "\$@" /proc/mounts; }
+mdc() { [ -r "\$fn" ] && { md5sum "\$fn" | grep -qe "^\$MD5 "; }; }
+gpm() { grep -qe "\$@" /proc/mounts 2>&3; }
 
 for tmp in "\${GZTMPDIR:-}" /dev/shm /tmp \$HOME/.tmp; do
   gpm "\$tmp.*noexec" && continue
@@ -301,21 +302,21 @@ for tmp in "\${GZTMPDIR:-}" /dev/shm /tmp \$HOME/.tmp; do
   test  -d "\$tmp/" -a -w "\$tmp/" && break
 done
 
-dn="\$tmp/.gzcmd-\$BFN-\$MD5-\$(id -u || echo 1000)"; fn="\$dn/\$BFN"
-if ! mdc; then
+dn="\$tmp/.gzcmd-\$BFN-\$MD5-\$(id -u || echo 1000)"
+fn="\$dn/\$BFN"; echo ">fn: \$fn" >&3; # DDG
+if mdc; then exec 3>&- "\$fn" "\$@"; else
   for i in \${GZUNGZIP:-} pigz gzip zcat; do
     uz=\$i; which \$uz >&3 && break
   done
   wn="\$fn.\$(date +%N)"; gpm "tmpfs.*\$tmp" &&
     trap 'rm -f "\$fn" "\$wn"; rmdir "\$dn" 2>&3' EXIT INT TERM
-  ( umask 007; mkdir -p "\$dn" && touch "\$wn" &&
+  ( umask 007 2>&3; mkdir -p "\$dn" && touch "\$wn" &&
     chmod 0700 "\$dn" "\$wn" ) || exit 1
   dd if=\$0 skip=1 bs=HDRSIZE status=none | \$uz -dc >"\$wn" &&
     mv -f "\$wn" "\$fn" || exit 1
-fi
-
-eval sh -c "'\$fn \$@'"
-exit \$? ####
+  "\$fn" "\$@"
+fi; $EXITSTR
+___
 EOF
 )
 ### ////////////////////////////////////////////////////////////////////////////
@@ -348,13 +349,13 @@ gzcmd_main_func() {
   # create a monotonic enumered temporary file ext.
   atm=$(date +"%N"); wrkfle="$gzelfle.$atm"
   # top-half script is 64-bit chunked in size, always
-  headsze=$(( ( ($(phdr | wc -c) + 7) >> 3 ) << 3 ))
+  headsze=$(( ( ($(phdr | wc -c) ) >> 3 ) << 3 ))
   # replacing the string HDRSIZE with a 4 digits number
   hdrtext=$(phdr | sed -e "s/1 bs=HDRSIZE/1 bs=$headsze/")
   # setting privileges on target file before writing it
   ( rm -f "$wrkfle"; umask 0600 | touch "$wrkfle"; chmod 0600 "$wrkfle" )
   # initialising the target file with a the top-half
-  echo "$hdrtext########" | gzdd > "$wrkfle" || return 1
+  echo "$hdrtext" | gzdd > "$wrkfle" || return 1
   
   # self-compressing therefore leave behind the testing stuff
   # to include everything gzip first then gzcmd over the .gz
@@ -388,9 +389,9 @@ gzcmd_main_func() {
   szeb=$(du -b "$gzelfle" | cut -f1)
   szek=$(( ( szeb + 512 ) >> 10 ))
   rtio=$(( ((100 * szeb) + (fsze >> 2)) / fsze ));
-  nhsh=$(sed -ne "/exit \$? ####/p" ./uchaos.gz.sh | tr -dc '#' | wc -c)
+  nhsh=$(sed -ne "/$EXITSTR/p" ./uchaos.gz.sh | tr -dc '#' | wc -c)
   printf "File: '%s', HEAD: %d (%d), GZIP: %d (%d Kb, %d %%)%s\n" \
-    $(basename "$gzelfle") $headsze $((nhsh-4)) $szeb $szek $rtio \
+    $(basename "$gzelfle") $headsze $nhsh $szeb $szek $rtio \
       "${ntl:+, SKIP: $nhd:$ntl}"
   # standard permissions + user-only execution
   chmod 0744 "$gzelfle"
