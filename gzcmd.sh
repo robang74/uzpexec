@@ -231,6 +231,7 @@ echo | time -v uchaos.gz.sh | wc -c
 #	Page size (bytes): 4096
 
 echo | time -v uchaos.upx | wc -c
+
 # Command being timed: "uchaos.upx"
 # User time (seconds): 0.00
 # System time (seconds): 0.00
@@ -245,6 +246,7 @@ echo | time -v uchaos.upx | wc -c
 mkdir -p /tmp
 
 echo | GZTMPDIR=/tmp GZUNGZIP=zcat time -v uchaos.gz.sh | wc -c
+
 # Command being timed: "uchaos.gz.sh"
 # User time (seconds): 0.00
 # System time (seconds): 0.00
@@ -257,6 +259,7 @@ echo | GZTMPDIR=/tmp GZUNGZIP=zcat time -v uchaos.gz.sh | wc -c
 # Page size (bytes): 4096
 
 echo | GZTMPDIR=/tmp GZUNGZIP=zcat time -v uchaos.gz.sh | wc -c
+
 # Command being timed: "uchaos.gz.sh"
 # User time (seconds): 0.00
 # System time (seconds): 0.00
@@ -266,6 +269,50 @@ echo | GZTMPDIR=/tmp GZUNGZIP=zcat time -v uchaos.gz.sh | wc -c
 # Minor (reclaiming a frame) page faults: 566
 # Voluntary context switches: 17
 # Page size (bytes): 4096
+
+################ Testing with Toybox in QEMU bare minimal Linux system #########
+
+mount
+
+# none on / type rootfs (rw)
+# dev on /dev type devtmpfs (rw,relatime)
+# dev/pts on /dev/pts type devpts (rw,relatime,mode=600,ptmxmode=000)
+# proc on /proc type proc (rw,relatime)
+# sys on /sys type sysfs (rw,relatime)
+
+toybox --version
+
+# toybox 0.8.13
+
+echo | time -v uchaos.upx >/dev/null
+
+# Real time (s): 0.005478
+# User time (s): 0.000000
+# System time (s): 0.005036
+# Max RSS (KiB): 608
+# Minor faults: 26
+# Voluntary context switches: 1
+# Involuntary context switches: 1
+
+echo | time -v uchaos.gz.sh >/dev/null
+
+# Real time (s): 0.021723
+# User time (s): 0.011403
+# System time (s): 0.007242
+# Max RSS (KiB): 700
+# Minor faults: 539
+# Voluntary context switches: 33
+# Involuntary context switches: 3
+
+echo | time -v uchaos.gz.sh >/dev/null
+
+# Real time (s): 0.008651
+# User time (s): 0.007660
+# System time (s): 0.000000
+# Max RSS (KiB): 676
+# Minor faults: 220
+# Voluntary context switches: 11
+# Involuntary context switches: 3
 
 fi #############################################################################
 exit; fi # x--do-tests #########################################################
@@ -297,10 +344,9 @@ mdc() { [ -r "\$fn" ] && { md5sum "\$fn" | grep -qe "^\$MD5 "; }; }
 gpm() { grep -qe "\$@" /proc/mounts 2>&3; }
 
 for d in "\${GZTMPDIR:-}" /dev/shm /tmp \$HOME/.tmp; do
-  gpm "\$d.*noexec" && continue
-  mkdir -p "\$d/" 2>&3 || continue
+  gpm "\$d.*noexec" || mkdir -p "\$d/" 2>&3 &&
   test  -d "\$d/" -a -w "\$d/" && break
-done; echo "DBG> tmp: \$d" >&3
+done; echo "DBG> tmp: \$d \$PPID \$\$" >&3
 
 dn="\$d/.gzcmd-\$BFN-\$MD5-\$(id -u || echo 1000)"
 fn="\$dn/\$BFN"; echo "DBG> fn: \$fn" >&3;
