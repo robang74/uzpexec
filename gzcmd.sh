@@ -38,6 +38,10 @@
 # By extension, root can use it for a temporary or permanent installation.
 # Instead the remote installation wget $url -O- | sh is still missing by $0.
 #
+# Finally, in embedded systems w/busybox once configured properly the enviroment
+# the .gz.sh binaries shows a starting time that can differ not more than 10 ms
+# and the overall performances strongly improves in calls after the first one.
+#
 # Notes
 #
 # ¹: for example cross-compiled binaries aren't simply managed outside the
@@ -205,6 +209,65 @@ dotest sh ./uchaos.musl.gz.sh "" -qT 1000
 #    512 real 0m0.022s 24912 ./uchaos.musl.gz.sh ok
 # 512000 real 0m0.163s 24912 ./uchaos.musl.gz.sh ok (+14 ms, -1464 bytes)
 
+################################################################################
+if false; then # Testing with Busybox in QEMU bare minimal Linux system ########
+
+/ # mount
+  none on /     type rootfs   (rw)
+  none on /proc type proc     (rw,relatime)
+  none on /sys  type sysfs    (rw,relatime)
+  none on /dev  type devtmpfs (rw,relatime)
+
+/ # echo | time -v uchaos.gz.sh | wc -c
+	Command being timed: "uchaos.gz.sh"
+	User time (seconds): 0.01
+	System time (seconds): 0.00
+	Percent of CPU this job got: 95%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0m 0.02s
+	Maximum resident set size (kbytes): 7792
+	Minor (reclaiming a frame) page faults: 1272
+	Voluntary context switches: 39
+	Involuntary context switches: 6
+	Page size (bytes): 4096
+
+/ # echo | time -v uchaos.upx | wc -c
+	Command being timed: "uchaos.upx"
+	User time (seconds): 0.00
+	System time (seconds): 0.00
+	Percent of CPU this job got: 100%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0m 0.00s
+	Maximum resident set size (kbytes): 6560
+	Minor (reclaiming a frame) page faults: 27
+	Voluntary context switches: 1
+	Involuntary context switches: 2
+	Page size (bytes): 4096
+
+/ # mkdir -p /tmp
+
+/ # echo | GZTMPDIR=/tmp GZUNGZIP=zcat time -v uchaos.gz.sh | wc -c
+	Command being timed: "uchaos.gz.sh"
+	User time (seconds): 0.00
+	System time (seconds): 0.00
+	Percent of CPU this job got: 66%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0m 0.00s
+	Maximum resident set size (kbytes): 7536
+	Minor (reclaiming a frame) page faults: 1055
+	Voluntary context switches: 36
+	Involuntary context switches: 7
+	Page size (bytes): 4096
+
+/ # echo | GZTMPDIR=/tmp GZUNGZIP=zcat time -v uchaos.gz.sh | wc -c
+	Command being timed: "uchaos.gz.sh"
+	User time (seconds): 0.00
+	System time (seconds): 0.00
+	Percent of CPU this job got: 90%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0m 0.01s
+	Maximum resident set size (kbytes): 7520
+	Minor (reclaiming a frame) page faults: 566
+	Voluntary context switches: 17
+	Page size (bytes): 4096
+
+fi #############################################################################
 exit; fi # x--do-tests #########################################################
 ################################################################################
 
