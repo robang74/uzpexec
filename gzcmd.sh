@@ -437,7 +437,7 @@ gzcmd_main_func() {
   szeb=$(du -b "$gzelfle" | cut -f1)
   szek=$(( ( szeb + 512 ) >> 10 ))
   rtio=$(( ((100 * szeb) + (fsze >> 2)) / fsze ));
-  nhsh=$(sed -ne "/$EXITSTR/p" ./uchaos.gz.sh | tr -dc '#' | wc -c)
+  nhsh=$(sed -ne "/$EXITSTR/p" "$gzelfle" | tr -dc '#' | wc -c)
   printf "File: '%s', HEAD: %d (%d), GZIP: %d (%d Kb, %d %%)%s\n" \
     $(basename "$gzelfle") $headsze $nhsh $szeb $szek $rtio \
       "${ntl:+, SKIP: $nhd:$ntl}"
