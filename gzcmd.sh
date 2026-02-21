@@ -12,7 +12,7 @@
 #
 # musl-gcc -static -Os --fast-math -Wall -s -ffunction-sections -fdata-sections \
 #   -Wl,--gc-sections -Wl,--build-id=none -fno-asynchronous-unwind-tables \
-#   file.c -o uchaos; strip -R .comment -R .gnu.version uchaos
+#   uchaos.c -o uchaos; strip -R .comment -R .gnu.version uchaos
 #
 # Requires: sudo apt install musl-tools gcc-multilib
 #
