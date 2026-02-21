@@ -355,10 +355,10 @@ for d in "\${GZTMPDIR:-/run}" /dev/shm /tmp \$drn \$HOME/.tmp; do
 done; echo "DBG> tmp: \$d \$PPID \$\$" >&3
 
 dn="\$d/.gzcmd-\$BFN-\$(printf "%.6s" \$MD5)-\$(id -u || echo 1000)"
-fn="\$dn/\$BFN"; echo "DBG> fn: \$fn" >&3;
+fn="\$dn/\${GZDSTNME:-BFN}"; echo "DBG> fn: \$fn" >&3;
 if mdc; then exec "\$fn" "\$@"; else
-  for i in \${GZUNGZIP:-} pigz gzip zcat; do
-    uz=\$i; which \$uz >&3 && break
+  for i in \${GZUNGZIP:-} pigz gzip zcat gunzip; do
+    uz=\$i; command -v \$uz >&3 && break
   done
   wn="\$fn.\$(date +%N)"; gpm "tmpfs.*\$d" &&
     trap 'rm -f "\$wn" "\$fn"; rmdir "\$dn" 2>&3' EXIT INT TERM
