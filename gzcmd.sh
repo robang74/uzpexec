@@ -2,11 +2,11 @@
 #
 # (c) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
 #
-# Version : v0.1.4
 # Usage   : gzcmd.sh /path/elf-executable[.gz] [filename] [blocksize]
 # Hint    : set blocksize as headersize +2 from gzcmd.sh for min.size
 # Host    : [[export] GZTMPDIR=path GZUNGZIP=pigz;] [shell] elf.gz.sh
 # Install : sudo sh -c "[export] GZTMPDIR=/usr/local/bin; elf.gz.sh"
+  RVERSION="v0.1.5"
 #
 # Suggestion for minimal size with musl static compilation of a single file.c:
 #
@@ -324,6 +324,7 @@ gzelf=${1:-gzelf}
 ORIGNAME=$(basename "${2:-$gzelf}")
 ORIGNAME=$(echo "$ORIGNAME" | sed -e "s/\.gz$//" -e "s/\.sh$//")
 MD5CKSUM=$(md5sum "$gzelf"  | cut -d' ' -f1)
+ORIGSIZE=$(du -b "$gzelf"   | cut -f1)
 gzelfle="$ORIGNAME.gz.sh"
 BLKSIZE=${3:-32}
 ZCMPLVL=${4:-9}
@@ -331,37 +332,39 @@ EXITSTR="exit \$? ####"
 # md5sum check after gunzip was for debug only, a corrupted archive fails anyway.
 headstr=$(cat <<EOF
 #!/bin/sh
+#
 # (c) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
 #      URL: raw.githubusercontent.com/robang74/bare-minimal-linux-system/
-#      SRC: /refs/heads/main/gzcmd.sh
-#
-BFN="$ORIGNAME"
+#      SRC: /refs/heads/main/gzcmd.sh, VER: $RVERSION
+####
 MD5="$MD5CKSUM"
+BFN="$ORIGNAME"
+SZE="$ORIGSIZE"
 
-test -n "\$PATH" || export PATH=/bin:/usr/bin:/usr/local/bin
-test "\${GZDEBUG:-0}" -eq 0  && exec 3>/dev/null || { set -x; exec 3>&2; }
+test "\${GZDEBUG:-0}" -eq 0 && exec 3>/dev/null || { set -x; exec 3>&2; }
 test -r "\$0" || { echo "ERROR: '\$0' is not readable" >&2; exit 1; }
+test -n "\$PATH" || export PATH=/bin:/usr/bin:/usr/local/bin
 
 mdc() { [ -r "\$fn" ] && { md5sum "\$fn" | grep -qe "^\$MD5 "; }; }
 gpm() { grep -qe "\$@" /proc/mounts 2>&3; }
 
-for d in "\${GZTMPDIR:-}" /dev/shm /tmp \$HOME/.tmp; do
-  gpm "\$d.*noexec" || mkdir -p "\$d/" 2>&3 &&
+drn=\$(cd /var/run && pwd -P) 2>&3
+for d in "\${GZTMPDIR:-/run}" /dev/shm /tmp \$drn \$HOME/.tmp; do
+  gpm " \$d .*noexec" || mkdir -p "\$d/" 2>&3 &&
   test  -d "\$d/" -a -w "\$d/" && break
 done; echo "DBG> tmp: \$d \$PPID \$\$" >&3
 
-dn="\$d/.gzcmd-\$BFN-\$MD5-\$(id -u || echo 1000)"
+dn="\$d/.gzcmd-\$BFN-\$(printf "%.6s" \$MD5)-\$(id -u || echo 1000)"
 fn="\$dn/\$BFN"; echo "DBG> fn: \$fn" >&3;
 if mdc; then exec "\$fn" "\$@"; else
   for i in \${GZUNGZIP:-} pigz gzip zcat; do
     uz=\$i; which \$uz >&3 && break
   done
   wn="\$fn.\$(date +%N)"; gpm "tmpfs.*\$d" &&
-    trap 'rm -f "\$fn" "\$wn"; rmdir "\$dn" 2>&3' EXIT INT TERM
-  ( umask 007 2>&3; mkdir -p "\$dn" && touch "\$wn" &&
-    chmod 0700 "\$dn" "\$wn" ) || exit 1
-  dd if=\$0 skip=1 bs=HDRSIZE status=none | \$uz -dc >"\$wn" &&
-    mv -f "\$wn" "\$fn" || exit 1
+    trap 'rm -f "\$wn" "\$fn"; rmdir "\$dn" 2>&3' EXIT INT TERM
+  ( umask 007 2>&3; mkdir -p "\$dn" && touch "\$wn" && chmod -R 0700 "\$dn" ) &&
+    dd if=\$0 skip=1 bs=SIZE status=none | \$uz -dc >"\$wn" &&
+      mv -f "\$wn" "\$fn" || exit 1
   "\$fn" "\$@"
 fi; $EXITSTR
 ___
@@ -386,7 +389,6 @@ gzcmd_main_func() {
     echo "ERROR: executable '$gzelf' is not readable"
     return 1
   fi >&2
-  fsze=$(du -b "$gzelf" | cut -f1)
 
   # select the best-first binary for gzip compression
   for i in 1; do
@@ -394,12 +396,13 @@ gzcmd_main_func() {
     zp="gzip"; which $zp >&3 || return 1
   done
 
+  # top-half script is 64-bit chunked in size, always
+  headsze=$(( ( ($(phdr | wc -c) + 7 ) >> 3 ) << 3 ))
+  # replacing the string HDRSIZE with a 4 digits number
+  hdrtext=$(phdr | sed -e "s/1 bs=SIZE/1 bs=$headsze/")
+
   # create a monotonic enumered temporary file ext.
   atm=$(date +"%N"); wrkfle="$gzelfle.$atm"
-  # top-half script is 64-bit chunked in size, always
-  headsze=$(( ( ($(phdr | wc -c) ) >> 3 ) << 3 ))
-  # replacing the string HDRSIZE with a 4 digits number
-  hdrtext=$(phdr | sed -e "s/1 bs=HDRSIZE/1 bs=$headsze/")
   # setting privileges on target file before writing it
   ( rm -f "$wrkfle"; umask 0600 | touch "$wrkfle"; chmod 0600 "$wrkfle" )
   # initialising the target file with a the top-half
@@ -436,9 +439,9 @@ gzcmd_main_func() {
   # prepare and display a summary report
   szeb=$(du -b "$gzelfle" | cut -f1)
   szek=$(( ( szeb + 512 ) >> 10 ))
-  rtio=$(( ((100 * szeb) + (fsze >> 2)) / fsze ));
+  rtio=$(( ((100 * szeb) + (ORIGSIZE >> 2)) / ORIGSIZE ));
   nhsh=$(sed -ne "/$EXITSTR/p" "$gzelfle" | tr -dc '#' | wc -c)
-  printf "File: '%s', HEAD: %d (%d), GZIP: %d (%d Kb, %d %%)%s\n" \
+  printf "FILE: '%s', HEAD: %d (%d), GZIP: %d (%d Kb, %d %%)%s, GZSH: $RVERSION\n" \
     $(basename "$gzelfle") $headsze $nhsh $szeb $szek $rtio \
       "${ntl:+, SKIP: $nhd:$ntl}"
   # standard permissions + user-only execution
