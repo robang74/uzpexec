@@ -18,6 +18,26 @@
 #
 ################################################################################
 #
+# Purpose
+#
+# The Purpose is to have a functional PoC for proposing to add a "zelf" applet
+# in busybox and tinybox in such a way the can immediately interpreted such
+# self-unzipping archives by the magic number which would followed by encoded
+# parameters that you can see in the header of the 1.5Kb script.In practice:
+#
+# #!/bint/zelf
+# size, name, md5sum, etc.
+#
+# In such a way it would be possible to add the script because of zelf.
+# As general fall-back zelf would be a variant of current `headstr` script that
+# working as interpreter will do the work when /bin/zelf isn't built-in.
+#
+# Naturally, this breaks the idea of self-contained, hence the script has been
+# incorporated into the header since the beginning and .zelf format can be used
+# only in combination with static and built-in implementation of zelf applet.
+#
+################################################################################
+#
 # Rationale
 #
 # Both UPX and APE are powerful but troublesome [¹], in some cases also
