@@ -21,9 +21,9 @@
 # Purpose
 #
 # The purpose is to have a functional PoC for proposing to add a "zelf" applet
-# in busybox and tinybox in such a way the can immediately interpreted such
+# in busybox and tinybox in such a way they can immediately interpreter .zelf
 # self-unzipping archives by the magic number which would followed by encoded
-# parameters. Those parameter that are set as varuabkes in the <1,5 Kb script.
+# parameters. Those parameters that are set as varuabkes in the <1,5 Kb script.
 #
 # #!/bint/zelf
 # size, name, md5sum, etc.
@@ -32,9 +32,9 @@
 # In general, a fall-back of zelf would be a variant of current `headstr` script
 # which as interpreter will do the work when /bin/zelf isn't a built-in applet.
 #
-# Naturally, this breaks the idea of self-contained, hence the script has been
+# Naturally, this breaks the self-contained principle, hence the script has been
 # incorporated into the header since the beginning and .zelf format can be used
-# only in combination with static and built-in implementation of zelf applet.
+# only in combination with static and built-in implementations of zelf applet.
 #
 ################################################################################
 #
