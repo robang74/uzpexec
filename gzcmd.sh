@@ -36,6 +36,15 @@
 # incorporated into the header since the beginning and .zelf format can be used
 # only in combination with static and built-in implementations of zelf applet.
 #
+# Finally, also the kernel support deflate (gunzip), the anonymous file execution
+# and the file MISC executable format which means that ZELF can be registered to
+# be properly interpreted without the necessity of running to create a specific
+# support into busybox or tinyvox, even it would be useful.
+#
+# CONFIG_SHMEM=y, CONFIG_TMPFS=y, CONFIG_MEMFD_CREATE=y, CONFIG_BINFMT_MISC=y
+#
+# Which is extremely common among the most popular Linux distributions.
+#
 ################################################################################
 #
 # Rationale
