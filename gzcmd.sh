@@ -41,7 +41,8 @@
 # be properly interpreted without the necessity of running to create a specific
 # support into busybox or tinyvox, even it would be useful.
 #
-# CONFIG_SHMEM=y, CONFIG_TMPFS=y, CONFIG_MEMFD_CREATE=y, CONFIG_BINFMT_MISC=y
+#   CONFIG_SHMEM=y, CONFIG_TMPFS=y, CONFIG_BINFMT_MISC=y
+#   CONFIG_MEMFD_CREATE=y, CONFIG_ZLIB_INFLATE=y
 #
 # Which is extremely common among the most popular Linux distributions.
 #
