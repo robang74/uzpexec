@@ -6,7 +6,7 @@
 # Hint    : set blocksize as headersize +2 from gzcmd.sh for min.size
 # Host    : [[export] GZTMPDIR=path GZUNGZIP=pigz;] [shell] elf.gz.sh
 # Install : sudo sh -c "[export] GZTMPDIR=/usr/local/bin; elf.gz.sh"
-  RVERSION="v0.1.5"
+  RVERSION="v0.1.6"
 #
 # Suggestion for minimal size with musl static compilation of a single file.c:
 #
@@ -385,7 +385,7 @@ for d in "\${GZTMPDIR:-/run}" /dev/shm /tmp \$drn \$HOME/.tmp; do
 done; echo "DBG> tmp: \$d \$PPID \$\$" >&3
 
 dn="\$d/.gzcmd-\$BFN-\$(printf "%.6s" \$MD5)-\$(id -u || echo 1000)"
-fn="\$dn/\${GZDSTNME:-BFN}"; echo "DBG> fn: \$fn" >&3;
+fn="\$dn/\${GZDSTNME:-\$BFN}"; echo "DBG> fn: \$fn" >&3;
 if mdc; then exec "\$fn" "\$@"; else
   for i in \${GZUNGZIP:-} pigz gzip zcat gunzip; do
     uz=\$i; command -v \$uz >&3 && break
