@@ -6,7 +6,7 @@
 # Hint    : set blocksize as headersize +2 from gzcmd.sh for min.size
 # Host    : [[export] GZTMPDIR=path GZUNGZIP=pigz;] [shell] elf.gz.sh
 # Install : sudo sh -c "[export] GZTMPDIR=/usr/local/bin; elf.gz.sh"
-  RVERSION="v0.1.6"
+  RVERSION="v0.1.7"
 #
 # Suggestion for minimal size with musl static compilation of a single file.c:
 #
@@ -362,41 +362,28 @@ EXITSTR="exit \$? ####"
 # md5sum check after gunzip was for debug only, a corrupted archive fails anyway.
 headstr=$(cat <<EOF
 #!/bin/sh
-#
-# (c) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
-#      URL: raw.githubusercontent.com/robang74/bare-minimal-linux-system/
-#      SRC: /refs/heads/main/gzcmd.sh, VER: $RVERSION
+# (c) 2026, roberto.foglietta@gmail.com, MIT license, $RVERSION, git.new/s0vx2K1
 ####
 MD5="$MD5CKSUM"
 BFN="$ORIGNAME"
 SZE="$ORIGSIZE"
-
-test "\${GZDEBUG:-0}" -eq 0 && exec 3>/dev/null || { set -x; exec 3>&2; }
-test -r "\$0" || { echo "ERROR: '\$0' is not readable" >&2; exit 1; }
-test -n "\$PATH" || export PATH=/bin:/usr/bin:/usr/local/bin
-
-mdc() { [ -r "\$fn" ] && { md5sum "\$fn" | grep -qe "^\$MD5 "; }; }
-gpm() { grep -qe "\$@" /proc/mounts 2>&3; }
-
-drn=\$(cd /var/run && pwd -P) 2>&3
-for d in "\${GZTMPDIR:-/run}" /dev/shm /tmp \$drn \$HOME/.tmp; do
-  gpm " \$d .*noexec" || mkdir -p "\$d/" 2>&3 &&
-  test  -d "\$d/" -a -w "\$d/" && break
-done; echo "DBG> tmp: \$d \$PPID \$\$" >&3
-
-dn="\$d/.gzcmd-\$BFN-\$(printf "%.6s" \$MD5)-\$(id -u || echo 1000)"
-fn="\$dn/\${GZDSTNME:-\$BFN}"; echo "DBG> fn: \$fn" >&3;
-if mdc; then exec "\$fn" "\$@"; else
-  for i in \${GZUNGZIP:-} pigz gzip zcat gunzip; do
-    uz=\$i; command -v \$uz >&3 && break
-  done
-  wn="\$fn.\$(date +%N)"; gpm "tmpfs.*\$d" &&
-    trap 'rm -f "\$wn" "\$fn"; rmdir "\$dn" 2>&3' EXIT INT TERM
-  ( umask 007 2>&3; mkdir -p "\$dn" && touch "\$wn" && chmod -R 0700 "\$dn" ) &&
-    dd if=\$0 skip=1 bs=SIZE status=none | \$uz -dc >"\$wn" &&
-      mv -f "\$wn" "\$fn" || exit 1
-  "\$fn" "\$@"
-fi; $EXITSTR
+[ "\${GZDEBUG:-0}" -eq 0 ]&&exec 3>&-||{ set -x; exec 3>&2;}
+[ -r "\$0" ]||{ echo "ERROR: '\$0' read fail" >&2; exit 1;}
+: \${PATH:=/bin:/usr/bin:/usr/local/bin}
+mdc(){ [ -r "\$fn" ]&&{ md5sum "\$fn"|grep -qe "^\$MD5 ";};}
+gpm(){ grep -qe "\$@" /proc/mounts 2>&3;}
+drn=\$(cd /var/run&&pwd -P) 2>&3
+for d in "\${GZTMPDIR:-/run}" /dev/shm /tmp \$drn \$HOME/.tmp;do
+gpm " \$d .*noexec"||mkdir -p "\$d/" 2>&3 &&[ -d "\$d/" -a -w "\$d/" ]&&break
+done;echo "DBG> tmp: \$d \$PPID \$\$" >&3
+dn="\$d/.gzcmd-\$BFN-\$(printf "%.6s" \$MD5)-\$(id -u||echo 1000)"
+fn="\$dn/\${GZDSTNME:-\$BFN}"; echo "DBG> fn: \$fn" >&3;mdc||{
+for i in \${GZUNGZIP:-} pigz gzip zcat gunzip;do uz=\$i;command -v \$uz >&3 &&
+break;done;wn="\$fn.\$(date +%N)"; gpm "tmpfs.*\$d"&&trap 'rm -f "\$wn" "\$fn";
+rmdir "\$dn" 2>&3' EXIT INT TERM;( umask 007 2>&3;mkdir -p "\$dn"&&touch "\$wn"&&
+chmod -R 0700 "\$dn")&&dd if=\$0 skip=1 bs=SIZE status=none|\$uz -dc >"\$wn"&&
+mv -f "\$wn" "\$fn"||exit 1;};exec "\$fn" "\$@"
+$EXITSTR
 ___
 EOF
 )
