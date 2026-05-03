@@ -364,17 +364,18 @@ headstr=$(cat <<EOF
 #!/bin/sh
 # (c) 2026, roberto.foglietta@gmail.com, MIT license, $RVERSION, git.new/s0vx2K1
 MD5="$MD5CKSUM";BFN="$ORIGNAME";SZE="$((ORIGSIZE>>10))k";[ "\${GZCDBG:-0}" -eq 0 ]&&
-exec 2>&-;[ -r "\$0" ]||{ echo "ERR> '\$0' read fail";exit 1; }
-: \${PATH:=/bin:/usr/bin:/usr/local/bin};mdc(){ md5sum "\$fn"|grep -qe ^\$MD5; }
-gpm(){ grep -qe "\$@" /proc/mounts; }; dr=\$(cd /var/run&&pwd -P); for d in \\
+exec 2>&-;[ -r "\$0" ]||{ echo "ERR> '\$0' read fail";exit 1;}
+: \${PATH:=/bin:/usr/bin:/usr/local/bin};mdc(){ md5sum "\$fn"|grep -qe ^\$MD5;}
+gpm(){ grep -qe "\$@" /proc/mounts;};dr=\$(cd /var/run&&pwd -P);for d in \\
 "\${GZCTMP:-/run}" /dev/shm /tmp \$dr \$HOME/.tmp;do gpm " \$d .*noexec"||
 mkdir -p "\$d/" &&[ -d "\$d/" -a -w "\$d/" ]&&break;done;echo "DBG> tmp: \$d "\\
 "\$PPID \$\$" >&2;dn="\$d/.gzc-\$BFN-\$(printf "%.6s" \$MD5)-\$(id -u||echo 1000)"
 fn="\$dn/\${GZCNME:-\$BFN}";echo "DBG> fn: '\$fn'" >&2;mdc||{ for i in \\
 \${GZCUZB:-} pigz gzip zcat gunzip;do uz=\$i;command -v \$i>&-&& break;done
 wn="\$fn.\$(date +%N)";gpm "tmpfs.*\$d"&&trap 'rm -f "\$wn" "\$fn";rmdir "\$dn"' \\
-EXIT INT TERM;( umask 007; mkdir -p "\$dn"&&touch "\$wn"&&chmod -R 0700 "\$dn" )&&
-dd if=\$0 skip=2|\$uz -dc >"\$wn"&&mv -f "\$wn" "\$fn"||exit 1; }; exec "\$fn" "\$@"
+EXIT INT TERM;(umask 077;mkdir -p "\$dn"&&touch "\$wn"&&chmod -R 0700 "\$dn")&&
+dd if=\$0 skip=2|\$uz -dc >"\$wn"&&mv -f "\$wn" "\$fn"||exit 1;};exec "\$fn" "\$@"
+#123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 EOF
 )
@@ -382,8 +383,7 @@ EOF
 
 isgzipfile() { od -h ${1:-} | head -n1 | grep -q "8b1f 0808"; }
 
-md5c() { gzdd skip=1 count=1G if="$1" | $zp -dc | md5sum | -qe "^$MD5CKSUM "; }
-gzdd() { dd count=1 bs=$PAYLDSZ status=none "$@"; }
+md5c() { dd skip=2 status=none if="$1" | $zp -dc | md5sum | grep -qe "^$MD5CKSUM"; }
 phdr() { echo "$headstr" | head -c $((PAYLDSZ-1)); echo; }
 
 gzcmd_main_func() {
@@ -405,7 +405,7 @@ gzcmd_main_func() {
   done
 
   # top-half script is 64-bit chunked in size, always
-  headsze=$(phdr | head -n-1 | wc -c)
+  headsze=$(phdr | grep -ve "^#123" | wc -c)
 
   # create a monotonic enumered temporary file ext.
   atm=$(date +"%N"); wrkfle="$gzelfle.$atm"
@@ -418,7 +418,7 @@ gzcmd_main_func() {
   # to include everything gzip first then gzcmd over the .gz
   nme=$(basename $0); xdo="x--do";
   zip="$zp -${ZCMPLVL}c"; zpc="$zip \"$gzelf\""
-  if [ "$ORIGNAME" = "$nme" -o  "$ORIGNAME.sh" = "$nme" ]; then
+  if false && [ "$ORIGNAME" = "$nme" -o  "$ORIGNAME.sh" = "$nme" ]; then
     nhd=$(grep -ne " = \"$xdo-tests" "$gzelf" | cut -d: -f1)
     ntl=$(grep -ne "fi # $xdo-tests" "$gzelf" | cut -d: -f1)
     if [ -n "$nhd" -a -n "$ntl" ]; then
@@ -430,7 +430,8 @@ gzcmd_main_func() {
     zpc="$zp -dc \"$gzelf\" | $zip"
   fi
   # finalise the target file + an extra check about proper file creation
-  if ! eval "$zpc" | gzdd seek=1 count=1G of="$wrkfle" && md5c "$wrkfle"; then
+  eval "$zpc" >>"$wrkfle"
+  if ! md5c "$wrkfle"; then
     echo "ERROR: gzdata isn't where supposed to, report the bug" >&2
     echo "       sh -x <same command given> 2>&1 | grep -e '^+'" >&2
     return 1
