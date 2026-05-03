@@ -4,9 +4,9 @@
 #
 # Usage   : gzcmd.sh /path/elf-executable[.gz] [filename] [blocksize]
 # Hint    : set blocksize as headersize +2 from gzcmd.sh for min.size
-# Host    : [[export] GZTMPDIR=path GZUNGZIP=pigz;] [shell] elf.gz.sh
-# Install : sudo sh -c "[export] GZTMPDIR=/usr/local/bin; elf.gz.sh"
-  RVERSION="v0.1.7"
+# Host    : [[export] GZCTMP=path GZCUZB=pigz;] [shell] elf.gz.sh
+# Install : sudo sh -c "[export] GZCTMP=/usr/local/bin; elf.gz.sh"
+  RVERSION="v0.1.8"
 #
 # Suggestion for minimal size with musl static compilation of a single file.c:
 #
@@ -277,7 +277,7 @@ echo | time -v uchaos.upx | wc -c
 
 mkdir -p /tmp # This settings allows to optimize the 2nd+ starting time
 
-echo | GZTMPDIR=/tmp GZUNGZIP=zcat time -v uchaos.gz.sh | wc -c
+echo | GZCTMP=/tmp GZCUZB=zcat time -v uchaos.gz.sh | wc -c
 
 # Command being timed: "uchaos.gz.sh"
 # User time (seconds): 0.00
@@ -290,7 +290,7 @@ echo | GZTMPDIR=/tmp GZUNGZIP=zcat time -v uchaos.gz.sh | wc -c
 # Involuntary context switches: 7
 # Page size (bytes): 4096
 
-echo | GZTMPDIR=/tmp GZUNGZIP=zcat time -v uchaos.gz.sh | wc -c
+echo | GZCTMP=/tmp GZCUZB=zcat time -v uchaos.gz.sh | wc -c
 
 # Command being timed: "uchaos.gz.sh"
 # User time (seconds): 0.00
@@ -326,7 +326,7 @@ echo | time -v uchaos.upx >/dev/null
 # Voluntary context switches: 1
 # Involuntary context switches: 1
 
-echo | GZTMPDIR=/tmp GZUNGZIP=/bin/zcat time -v uchaos.gz.sh >/dev/null
+echo | GZCTMP=/tmp GZCUZB=/bin/zcat time -v uchaos.gz.sh >/dev/null
 
 # Real time (s): 0.021723
 # User time (s): 0.011403
@@ -336,7 +336,7 @@ echo | GZTMPDIR=/tmp GZUNGZIP=/bin/zcat time -v uchaos.gz.sh >/dev/null
 # Voluntary context switches: 33
 # Involuntary context switches: 3
 
-echo | GZTMPDIR=/tmp GZUNGZIP=/bin/zcat time -v uchaos.gz.sh >/dev/null
+echo | GZCTMP=/tmp GZCUZB=/bin/zcat time -v uchaos.gz.sh >/dev/null
 
 # Real time (s): 0.008651
 # User time (s): 0.007660
@@ -353,38 +353,29 @@ exit; fi # x--do-tests #########################################################
 gzelf=${1:-gzelf}
 ORIGNAME=$(basename "${2:-$gzelf}")
 ORIGNAME=$(echo "$ORIGNAME" | sed -e "s/\.gz$//" -e "s/\.sh$//")
-MD5CKSUM=$(md5sum "$gzelf"  | cut -d' ' -f1)
+MD5CKSUM=$(md5sum "$gzelf"  | head -c16)
 ORIGSIZE=$(du -b "$gzelf"   | cut -f1)
 gzelfle="$ORIGNAME.gz.sh"
 BLKSIZE=${3:-32}
 ZCMPLVL=${4:-9}
-EXITSTR="exit \$? ####"
+PAYLDSZ=1024
 # md5sum check after gunzip was for debug only, a corrupted archive fails anyway.
 headstr=$(cat <<EOF
 #!/bin/sh
 # (c) 2026, roberto.foglietta@gmail.com, MIT license, $RVERSION, git.new/s0vx2K1
-####
-MD5="$MD5CKSUM"
-BFN="$ORIGNAME"
-SZE="$ORIGSIZE"
-[ "\${GZDEBUG:-0}" -eq 0 ]&&exec 3>&-||{ set -x; exec 3>&2;}
-[ -r "\$0" ]||{ echo "ERROR: '\$0' read fail" >&2; exit 1;}
-: \${PATH:=/bin:/usr/bin:/usr/local/bin}
-mdc(){ [ -r "\$fn" ]&&{ md5sum "\$fn"|grep -qe "^\$MD5 ";};}
-gpm(){ grep -qe "\$@" /proc/mounts 2>&3;}
-drn=\$(cd /var/run&&pwd -P) 2>&3
-for d in "\${GZTMPDIR:-/run}" /dev/shm /tmp \$drn \$HOME/.tmp;do
-gpm " \$d .*noexec"||mkdir -p "\$d/" 2>&3 &&[ -d "\$d/" -a -w "\$d/" ]&&break
-done;echo "DBG> tmp: \$d \$PPID \$\$" >&3
-dn="\$d/.gzcmd-\$BFN-\$(printf "%.6s" \$MD5)-\$(id -u||echo 1000)"
-fn="\$dn/\${GZDSTNME:-\$BFN}"; echo "DBG> fn: \$fn" >&3;mdc||{
-for i in \${GZUNGZIP:-} pigz gzip zcat gunzip;do uz=\$i;command -v \$uz >&3 &&
-break;done;wn="\$fn.\$(date +%N)"; gpm "tmpfs.*\$d"&&trap 'rm -f "\$wn" "\$fn";
-rmdir "\$dn" 2>&3' EXIT INT TERM;( umask 007 2>&3;mkdir -p "\$dn"&&touch "\$wn"&&
-chmod -R 0700 "\$dn")&&dd if=\$0 skip=1 bs=SIZE status=none|\$uz -dc >"\$wn"&&
-mv -f "\$wn" "\$fn"||exit 1;};exec "\$fn" "\$@"
-$EXITSTR
-___
+MD5="$MD5CKSUM";BFN="$ORIGNAME";SZE="$((ORIGSIZE>>10))k";[ "\${GZCDBG:-0}" -eq 0 ]&&
+exec 2>&-;[ -r "\$0" ]||{ echo "ERR> '\$0' read fail";exit 1; }
+: \${PATH:=/bin:/usr/bin:/usr/local/bin};mdc(){ md5sum "\$fn"|grep -qe ^\$MD5; }
+gpm(){ grep -qe "\$@" /proc/mounts; }; dr=\$(cd /var/run&&pwd -P); for d in \\
+"\${GZCTMP:-/run}" /dev/shm /tmp \$dr \$HOME/.tmp;do gpm " \$d .*noexec"||
+mkdir -p "\$d/" &&[ -d "\$d/" -a -w "\$d/" ]&&break;done;echo "DBG> tmp: \$d "\\
+"\$PPID \$\$" >&2;dn="\$d/.gzc-\$BFN-\$(printf "%.6s" \$MD5)-\$(id -u||echo 1000)"
+fn="\$dn/\${GZCNME:-\$BFN}";echo "DBG> fn: '\$fn'" >&2;mdc||{ for i in \\
+\${GZCUZB:-} pigz gzip zcat gunzip;do uz=\$i;command -v \$i>&-&& break;done
+wn="\$fn.\$(date +%N)";gpm "tmpfs.*\$d"&&trap 'rm -f "\$wn" "\$fn";rmdir "\$dn"' \\
+EXIT INT TERM;( umask 007; mkdir -p "\$dn"&&touch "\$wn"&&chmod -R 0700 "\$dn" )&&
+dd if=\$0 skip=2|\$uz -dc >"\$wn"&&mv -f "\$wn" "\$fn"||exit 1; }; exec "\$fn" "\$@"
+#123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 EOF
 )
 ### ////////////////////////////////////////////////////////////////////////////
@@ -392,8 +383,8 @@ EOF
 isgzipfile() { od -h ${1:-} | head -n1 | grep -q "8b1f 0808"; }
 
 md5c() { gzdd skip=1 count=1G if="$1" | $zp -dc | md5sum | -qe "^$MD5CKSUM "; }
-gzdd() { dd count=1 bs=$headsze status=none "$@"; }
-phdr() { echo "$headstr"; }
+gzdd() { dd count=1 bs=$PAYLDSZ status=none "$@"; }
+phdr() { echo "$headstr" | head -c $((PAYLDSZ-1)); echo; }
 
 gzcmd_main_func() {
   exec 3>/dev/null
@@ -414,16 +405,14 @@ gzcmd_main_func() {
   done
 
   # top-half script is 64-bit chunked in size, always
-  headsze=$(( ( ($(phdr | wc -c) + 7 ) >> 3 ) << 3 ))
-  # replacing the string HDRSIZE with a 4 digits number
-  hdrtext=$(phdr | sed -e "s/1 bs=SIZE/1 bs=$headsze/")
+  headsze=$(phdr | head -n-1 | wc -c)
 
   # create a monotonic enumered temporary file ext.
   atm=$(date +"%N"); wrkfle="$gzelfle.$atm"
   # setting privileges on target file before writing it
   ( rm -f "$wrkfle"; umask 0600 | touch "$wrkfle"; chmod 0600 "$wrkfle" )
   # initialising the target file with a the top-half
-  echo "$hdrtext" | gzdd > "$wrkfle" || return 1
+  phdr > "$wrkfle" || return 1
   
   # self-compressing therefore leave behind the testing stuff
   # to include everything gzip first then gzcmd over the .gz
@@ -457,9 +446,8 @@ gzcmd_main_func() {
   szeb=$(du -b "$gzelfle" | cut -f1)
   szek=$(( ( szeb + 512 ) >> 10 ))
   rtio=$(( ((100 * szeb) + (ORIGSIZE >> 2)) / ORIGSIZE ));
-  nhsh=$(sed -ne "/$EXITSTR/p" "$gzelfle" | tr -dc '#' | wc -c)
   printf "FILE: '%s', HEAD: %d (%d), GZIP: %d (%d Kb, %d %%)%s, GZSH: $RVERSION\n" \
-    $(basename "$gzelfle") $headsze $nhsh $szeb $szek $rtio \
+    $(basename "$gzelfle") $headsze $PAYLDSZ $szeb $szek $rtio \
       "${ntl:+, SKIP: $nhd:$ntl}"
   # standard permissions + user-only execution
   chmod 0744 "$gzelfle"
