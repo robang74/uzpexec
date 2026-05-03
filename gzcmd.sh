@@ -351,10 +351,11 @@ exit; fi # x--do-tests #########################################################
 ################################################################################
 
 gzelf=${1:-gzelf}
+GZCSUMCK=${GZCSUMCK:-md5sum}
 ORIGNAME=$(basename "${2:-$gzelf}")
-ORIGNAME=$(echo "$ORIGNAME" | sed -e "s/\.gz$//" -e "s/\.sh$//")
-MD5CKSUM=$(md5sum "$gzelf"  | head -c16)
-ORIGSIZE=$(du -b "$gzelf"   | cut -f1)
+ORIGNAME=$(echo "$ORIGNAME"    | sed -e "s/\.gz$//" -e "s/\.sh$//")
+MD5CKSUM=$($GZCSUMCK  "$gzelf" | head -c16)
+ORIGSIZE=$(stat -Lc%s "$gzelf")
 gzelfle="$ORIGNAME.gz.sh"
 BLKSIZE=${3:-32}
 ZCMPLVL=${4:-9}
@@ -365,7 +366,7 @@ headstr=$(cat <<EOF
 # (c) 2026, roberto.foglietta@gmail.com, MIT license, $RVERSION, git.new/s0vx2K1
 MD5="$MD5CKSUM";BFN="$ORIGNAME";SZE="$((ORIGSIZE>>10))k";[ "\${GZCDBG:-0}" -eq 0 ]&&
 exec 2>&-;[ -r "\$0" ]||{ echo "ERR> '\$0' read fail";exit 1;}
-: \${PATH:=/bin:/usr/bin:/usr/local/bin};mdc(){ md5sum "\$fn"|grep -qe ^\$MD5;}
+: \${PATH:=/bin:/usr/bin:/usr/local/bin};mdc(){ $GZCSUMCK "\$fn"|grep -qe "^\$MD5";}
 gpm(){ grep -qe "\$@" /proc/mounts;};dr=\$(cd /var/run&&pwd -P);for d in \\
 "\${GZCTMP:-/run}" /dev/shm /tmp \$dr \$HOME/.tmp;do gpm " \$d .*noexec"||
 mkdir -p "\$d/" &&[ -d "\$d/" -a -w "\$d/" ]&&break;done;echo "DBG> tmp: \$d "\\
@@ -383,7 +384,7 @@ EOF
 
 isgzipfile() { od -h ${1:-} | head -n1 | grep -q "8b1f 0808"; }
 
-md5c() { dd skip=2 status=none if="$1" | $zp -dc | md5sum | grep -qe "^$MD5CKSUM"; }
+md5c() { dd skip=2 status=none if="$1" | $zp -dc | $GZCSUMCK | grep -qe "^$MD5CKSUM"; }
 phdr() { echo "$headstr" | head -c $((PAYLDSZ-1)); echo; }
 
 gzcmd_main_func() {
@@ -444,7 +445,7 @@ gzcmd_main_func() {
   fi
 
   # prepare and display a summary report
-  szeb=$(du -b "$gzelfle" | cut -f1)
+  szeb=$(stat -Lc%s "$gzelfle")
   szek=$(( ( szeb + 512 ) >> 10 ))
   rtio=$(( ((100 * szeb) + (ORIGSIZE >> 2)) / ORIGSIZE ));
   printf "FILE: '%s', HEAD: %d (%d), GZIP: %d (%d Kb, %d %%)%s, GZSH: $RVERSION\n" \
