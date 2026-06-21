@@ -373,17 +373,16 @@ gpm(){ grep -qe "\$1" /proc/mounts;}
 for d in \${GZCTMP:-/run} /dev/shm /tmp \$(cd /var/run&&pwd -P) \$HOME/.tmp;do
 { [ ! -w "\$d/" ]||gpm " \$d .*noexec";}||break
 done
-dbg td: \$d \$PPID \$\$
-_dn="\$d/.gzc-\$BFN-\$(printf '%.6s' \$MD5)-\$(id -u||echo \$\$)"
-_fn="\$_dn/\${GZCNME:-\$BFN}"
-dbg fn: \$f_n
+_fn="\$d/.gzc-\${GZCNME:-\$BFN}-\$(printf '%.6s' \$MD5)-\$(id -u||echo \$\$)"
+dbg fn: \$_fn \$PPID \$\$
 $GZCSUMCK "\$_fn"|grep -qe "^\$MD5"||{
 uz=\${GZCMDZ:-\$(command -v pigz gzip gunzip zcat|head -n1)}
 F="\$_fn.\$(date +%N)"
-gpm "tmpfs.*\$d"&&trap 'rm -f "\$_fn" "\$F";rmdir "\$_dn"' EXIT INT TERM
-(umask 077;mkdir -p "\$_dn"&&touch "\$F"&&chmod -R 0700 "\$_dn")&&
-dd if=\$0 skip=2|\$uz -dc >"\$F"&&mv -f "\$F" "\$_fn";}||exit 1
+gpm "tmpfs.*\$d"&&trap 'rm -f "\$_fn" "\$F"' EXIT INT TERM
+(umask 077;touch "\$F"&&chmod -R 0700 "\$F"&&dd if=\$0 skip=2|\$uz -dc >"\$F")&&
+mv -f "\$F" "\$_fn";}||exit 1
 F=;exec "\$_fn" "\$@"
+#123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 EOF
