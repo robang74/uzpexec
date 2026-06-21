@@ -368,15 +368,16 @@ MD5="$MD5CKSUM";BFN="$ORIGNAME";SZE="$((ORIGSIZE>>10))k"
 [ "\${GZCDBG:-0}" -eq 0 ]&&exec 2>&-
 [ -r "\$0" ]||{ echo "ERR> '\$0' read fail";exit 1;}
 : \${PATH:=/bin:/usr/bin:/usr/local/bin}
-mdc(){ $GZCSUMCK "\$fn"|grep -qe "^\$MD5";}
-gpm(){ grep -qe "\$@" /proc/mounts;}
+dbg(){ echo "DBG> \$@">&2;}
+gpm(){ grep -qe "\$1" /proc/mounts;}
 dr=\$(cd /var/run&&pwd -P)
 for d in "\${GZCTMP:-/run}" /dev/shm /tmp \$dr \$HOME/.tmp;do
 gpm " \$d .*noexec"||mkdir -p "\$d/" &&[ -d "\$d/" -a -w "\$d/" ]&&break;done
-echo "DBG> td: \$d \$PPID \$\$" >&2
+dbg td: \$d \$PPID \$\$
 dn="\$d/.gzc-\$BFN-\$(printf '%.6s' \$MD5)-\$(id -u||echo 1000)"
-fn="\$dn/\${GZCNME:-\$BFN}";echo "DBG> fn: \$fn" >&2
-mdc||{
+fn="\$dn/\${GZCNME:-\$BFN}"
+dbg fn: \$fn
+$GZCSUMCK "\$fn"|grep -qe "^\$MD5"||{
 uz=\${GZCMDZ:-\$(command -v pigz gzip gunzip zcat|head -n1)}
 wn="\$fn.\$(date +%N)"
 gpm "tmpfs.*\$d"&&trap 'rm -f "\$wn" "\$fn";rmdir "\$dn"' EXIT INT TERM
