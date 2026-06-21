@@ -375,16 +375,16 @@ for d in "\${GZCTMP:-/run}" /dev/shm /tmp \$dr \$HOME/.tmp;do
 gpm " \$d .*noexec"||{ mkdir -p "\$d/" &&[ -w "\$d/" ]&&break;}
 done
 dbg td: \$d \$PPID \$\$
-dn="\$d/.gzc-\$BFN-\$(printf '%.6s' \$MD5)-\$(id -u||echo \$\$)"
-fn="\$dn/\${GZCNME:-\$BFN}"
-dbg fn: \$fn
-$GZCSUMCK "\$fn"|grep -qe "^\$MD5"||{
+_dn="\$d/.gzc-\$BFN-\$(printf '%.6s' \$MD5)-\$(id -u||echo \$\$)"
+_fn="\$_dn/\${GZCNME:-\$BFN}"
+dbg fn: \$f_n
+$GZCSUMCK "\$_fn"|grep -qe "^\$MD5"||{
 uz=\${GZCMDZ:-\$(command -v pigz gzip gunzip zcat|head -n1)}
-wn="\$fn.\$(date +%N)"
-gpm "tmpfs.*\$d"&&trap 'rm -f "\$wn" "\$fn";rmdir "\$dn"' EXIT INT TERM
-(umask 077;mkdir -p "\$dn"&&touch "\$wn"&&chmod -R 0700 "\$dn")&&
-dd if=\$0 skip=2|\$uz -dc >"\$wn"&&mv -f "\$wn" "\$fn"||exit 1;}
-exec "\$fn" "\$@"
+F="\$_fn.\$(date +%N)"
+gpm "tmpfs.*\$d"&&trap 'rm -f "\$_fn" "\$F";rmdir "\$_dn"' EXIT INT TERM
+(umask 077;mkdir -p "\$_dn"&&touch "\$F"&&chmod -R 0700 "\$_dn")&&
+dd if=\$0 skip=2|\$uz -dc >"\$F"&&mv -f "\$F" "\$_fn";}||exit 1
+F=;exec "\$_fn" "\$@"
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 EOF
