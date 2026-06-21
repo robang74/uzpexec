@@ -1,10 +1,14 @@
 # gzcmd.sh
 
+`(c)` 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, text published under CC BY-NC-ND 4.0
+
+- &nbsp;Click on the button to know how to &nbsp;[![Sponsor me](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ff69b4?style=flat&logo=github)](https://github.com/sponsors/robang74)&nbsp; this project and get in touch with me.
+
 A shell script that converts any ELF in a self-extracting executable for standard Unix/POSIX systems
 
 - Initially written and committed in this repository [Bare Minimal Linux Kernel & RootFS](https://github.com/robang74/bare-minimal-linux-system) &nbsp;(2026-02-17)
 
-<br>
+---
 
 ### Usage
 
@@ -17,7 +21,7 @@ FILE: 'gzcmd.gz.sh', HEAD: 863 (1024), GZIP: 7439 (7 Kb, 42 %), GZSH: v0.2.0
 
 To use the converted file, launch it directly or by a shell because from the PoV of the Linux kernel is a shell script.
 
-<br>
+---
 
 ### Payload
 
@@ -27,15 +31,17 @@ The payload size is always 1024 (two 512 blocks) because such a default value al
 dd skip=2 if=${filename.gz.sh} | zcat - >${filenme}
 ```
 
+#### Customisations
+
 The payload is specific for every converted file but potentially can be generalised removing the following line:
 
-- `MD5="$MD5CKSUM";BFN="$ORIGNAME";SZE="$((ORIGSIZE>>10))k"` (remove)
+- `MD5="$MD5CKSUM";BFN="$ORIGNAME";SZE="$((ORIGSIZE>>10))k"` to remove
 
 and for a more shorter version replacing the following line with a graph `{` parentesys:
 
-- `$GZCSUMCK "\$_fn"|grep -qe "^\$MD5"||{` --> `{` (replace)
+- `$GZCSUMCK "\$_fn"|grep -qe "^\$MD5"||{` to replace with `{`
 
-I will be shorter and faster to execute but every time it will extract the ELF, therefore losing the install:
+It will be shorter and faster to execute but every time it will extract the ELF, therefore losing the install:
 
 - `GZCTMP=~/bin ./$namefile,gz.sh` --> install in ~/bin
 
