@@ -28,7 +28,7 @@ To use the converted file, launch it directly or by a shell because from the PoV
 The payload size is always 1024 (two 512 blocks) because such a default value allows a trivial extraction of the gzipped appended file:
 
 ```sh
-dd skip=2 if=${filename.gz.sh} | zcat - >${filenme}
+dd skip=2 if=${filename.gz.sh} | zcat - >${filename}
 ```
 
 #### Customisations
@@ -43,8 +43,8 @@ and for a more shorter version replacing the following line with a graph `{` par
 
 It will be shorter and faster to execute but every time it will extract the ELF, therefore losing the install:
 
-- `GZCTMP=~/bin ./$namefile,gz.sh` --> install in ~/bin
+- `GZCTMP=~/bin ./$filename.gz.sh` --> install in ~/bin
 
-The three padding lines provide `20 x 80 = 240` bytes to reach the 1024 fix size, shortening more the payload, requires adding more lines, unless the size drops below 512 bytes and in that case `bs skip=1` would be enough.
+The three padding lines provide `20 x 80 = 240` bytes to reach the 1024 fix size, shortening more the payload, requires adding more padding lines, unless the size drops below 512 bytes and in that case `bs skip=1` would be enough.
 
 On a fully controlled system the payload can be as shorter as the code used for extracting the gzipped load.
