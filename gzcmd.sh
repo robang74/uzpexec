@@ -365,16 +365,17 @@ headstr=$(cat <<EOF
 #!/bin/sh
 # (c) 2026, roberto.foglietta@gmail.com, MIT license, $RVERSION, git.new/ttRvFBu
 MD5="$MD5CKSUM";BFN="$ORIGNAME";SZE="$((ORIGSIZE>>10))k"
-[ "\${GZCDBG:-0}" -eq 0 ]&&exec 2>&-
-[ -r "\$0" ]||{ echo "ERR> '\$0' read fail";exit 1;}
 : \${PATH:=/bin:/usr/bin:/usr/local/bin}
-dbg(){ echo "DBG> \$@">&2;}
+dbg(){ echo "GZC> \$@">&2;}
+[ -r "\$0" ]||{ dbg "\$0 \!found";exit 1;}
+[ \${GZCDBG:-0} -eq 0 ]&&exec 2>&-
 gpm(){ grep -qe "\$1" /proc/mounts;}
 dr=\$(cd /var/run&&pwd -P)
 for d in "\${GZCTMP:-/run}" /dev/shm /tmp \$dr \$HOME/.tmp;do
-gpm " \$d .*noexec"||mkdir -p "\$d/" &&[ -d "\$d/" -a -w "\$d/" ]&&break;done
+gpm " \$d .*noexec"||{ mkdir -p "\$d/" &&[ -w "\$d/" ]&&break;}
+done
 dbg td: \$d \$PPID \$\$
-dn="\$d/.gzc-\$BFN-\$(printf '%.6s' \$MD5)-\$(id -u||echo 1000)"
+dn="\$d/.gzc-\$BFN-\$(printf '%.6s' \$MD5)-\$(id -u||echo \$\$)"
 fn="\$dn/\${GZCNME:-\$BFN}"
 dbg fn: \$fn
 $GZCSUMCK "\$fn"|grep -qe "^\$MD5"||{
