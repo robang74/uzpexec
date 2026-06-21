@@ -4,9 +4,9 @@
 #
 # Usage   : gzcmd.sh /path/elf-executable[.gz] [filename] [blocksize]
 # Hint    : set blocksize as headersize +2 from gzcmd.sh for min.size
-# Host    : [[export] GZCTMP=path GZCUZB=pigz;] [shell] elf.gz.sh
+# Host    : [[export] GZCTMP=path GZCMDZ=pigz;] [shell] elf.gz.sh
 # Install : sudo sh -c "[export] GZCTMP=/usr/local/bin; elf.gz.sh"
-  RVERSION="v0.1.8"
+  RVERSION="v0.1.9"
 #
 # Suggestion for minimal size with musl static compilation of a single file.c:
 #
@@ -277,7 +277,7 @@ echo | time -v uchaos.upx | wc -c
 
 mkdir -p /tmp # This settings allows to optimize the 2nd+ starting time
 
-echo | GZCTMP=/tmp GZCUZB=zcat time -v uchaos.gz.sh | wc -c
+echo | GZCTMP=/tmp GZCMDZ=zcat time -v uchaos.gz.sh | wc -c
 
 # Command being timed: "uchaos.gz.sh"
 # User time (seconds): 0.00
@@ -290,7 +290,7 @@ echo | GZCTMP=/tmp GZCUZB=zcat time -v uchaos.gz.sh | wc -c
 # Involuntary context switches: 7
 # Page size (bytes): 4096
 
-echo | GZCTMP=/tmp GZCUZB=zcat time -v uchaos.gz.sh | wc -c
+echo | GZCTMP=/tmp GZCMDZ=zcat time -v uchaos.gz.sh | wc -c
 
 # Command being timed: "uchaos.gz.sh"
 # User time (seconds): 0.00
@@ -326,7 +326,7 @@ echo | time -v uchaos.upx >/dev/null
 # Voluntary context switches: 1
 # Involuntary context switches: 1
 
-echo | GZCTMP=/tmp GZCUZB=/bin/zcat time -v uchaos.gz.sh >/dev/null
+echo | GZCTMP=/tmp GZCMDZ=/bin/zcat time -v uchaos.gz.sh >/dev/null
 
 # Real time (s): 0.021723
 # User time (s): 0.011403
@@ -336,7 +336,7 @@ echo | GZCTMP=/tmp GZCUZB=/bin/zcat time -v uchaos.gz.sh >/dev/null
 # Voluntary context switches: 33
 # Involuntary context switches: 3
 
-echo | GZCTMP=/tmp GZCUZB=/bin/zcat time -v uchaos.gz.sh >/dev/null
+echo | GZCTMP=/tmp GZCMDZ=/bin/zcat time -v uchaos.gz.sh >/dev/null
 
 # Real time (s): 0.008651
 # User time (s): 0.007660
@@ -363,19 +363,26 @@ PAYLDSZ=1024
 # md5sum check after gunzip was for debug only, a corrupted archive fails anyway.
 headstr=$(cat <<EOF
 #!/bin/sh
-# (c) 2026, roberto.foglietta@gmail.com, MIT license, $RVERSION, git.new/s0vx2K1
-MD5="$MD5CKSUM";BFN="$ORIGNAME";SZE="$((ORIGSIZE>>10))k";[ "\${GZCDBG:-0}" -eq 0 ]&&
-exec 2>&-;[ -r "\$0" ]||{ echo "ERR> '\$0' read fail";exit 1;}
-: \${PATH:=/bin:/usr/bin:/usr/local/bin};mdc(){ $GZCSUMCK "\$fn"|grep -qe "^\$MD5";}
-gpm(){ grep -qe "\$@" /proc/mounts;};dr=\$(cd /var/run&&pwd -P);for d in \\
-"\${GZCTMP:-/run}" /dev/shm /tmp \$dr \$HOME/.tmp;do gpm " \$d .*noexec"||
-mkdir -p "\$d/" &&[ -d "\$d/" -a -w "\$d/" ]&&break;done;echo "DBG> tmp: \$d "\\
-"\$PPID \$\$" >&2;dn="\$d/.gzc-\$BFN-\$(printf "%.6s" \$MD5)-\$(id -u||echo 1000)"
-fn="\$dn/\${GZCNME:-\$BFN}";echo "DBG> fn: '\$fn'" >&2;mdc||{ for i in \\
-\${GZCUZB:-} pigz gzip zcat gunzip;do uz=\$i;command -v \$i>&-&& break;done
-wn="\$fn.\$(date +%N)";gpm "tmpfs.*\$d"&&trap 'rm -f "\$wn" "\$fn";rmdir "\$dn"' \\
-EXIT INT TERM;(umask 077;mkdir -p "\$dn"&&touch "\$wn"&&chmod -R 0700 "\$dn")&&
-dd if=\$0 skip=2|\$uz -dc >"\$wn"&&mv -f "\$wn" "\$fn"||exit 1;};exec "\$fn" "\$@"
+# (c) 2026, roberto.foglietta@gmail.com, MIT license, $RVERSION, git.new/ttRvFBu
+MD5="$MD5CKSUM";BFN="$ORIGNAME";SZE="$((ORIGSIZE>>10))k"
+[ "\${GZCDBG:-0}" -eq 0 ]&&exec 2>&-
+[ -r "\$0" ]||{ echo "ERR> '\$0' read fail";exit 1;}
+: \${PATH:=/bin:/usr/bin:/usr/local/bin}
+mdc(){ $GZCSUMCK "\$fn"|grep -qe "^\$MD5";}
+gpm(){ grep -qe "\$@" /proc/mounts;}
+dr=\$(cd /var/run&&pwd -P)
+for d in "\${GZCTMP:-/run}" /dev/shm /tmp \$dr \$HOME/.tmp;do
+gpm " \$d .*noexec"||mkdir -p "\$d/" &&[ -d "\$d/" -a -w "\$d/" ]&&break;done
+echo "DBG> td: \$d \$PPID \$\$" >&2
+dn="\$d/.gzc-\$BFN-\$(printf '%.6s' \$MD5)-\$(id -u||echo 1000)"
+fn="\$dn/\${GZCNME:-\$BFN}";echo "DBG> fn: \$fn" >&2
+mdc||{
+uz=\${GZCMDZ:-\$(command -v pigz gzip gunzip zcat|head -n1)}
+wn="\$fn.\$(date +%N)"
+gpm "tmpfs.*\$d"&&trap 'rm -f "\$wn" "\$fn";rmdir "\$dn"' EXIT INT TERM
+(umask 077;mkdir -p "\$dn"&&touch "\$wn"&&chmod -R 0700 "\$dn")&&
+dd if=\$0 skip=2|\$uz -dc >"\$wn"&&mv -f "\$wn" "\$fn"||exit 1;}
+exec "\$fn" "\$@"
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 EOF
@@ -400,10 +407,8 @@ gzcmd_main_func() {
   fi >&2
 
   # select the best-first binary for gzip compression
-  for i in 1; do
-    zp="pigz"; which $zp >&3 && break
-    zp="gzip"; which $zp >&3 || return 1
-  done
+  zp=$(command pigz gzip 2>&- | head -n1)
+  zp=${zp:-gzip}
 
   # top-half script is 64-bit chunked in size, always
   headsze=$(phdr | grep -ve "^#123" | wc -c)
