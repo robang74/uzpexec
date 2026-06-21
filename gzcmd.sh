@@ -377,11 +377,11 @@ _fn="\$d/.gzc-\${GZCNME:-\$BFN}-\$(printf '%.6s' \$MD5)-\$(id -u||echo \$\$)"
 dbg fn: \$_fn \$PPID \$\$
 $GZCSUMCK "\$_fn"|grep -qe "^\$MD5"||{
 uz=\${GZCMDZ:-\$(command -v pigz gzip gunzip zcat|head -n1)}
-F="\$_fn.\$(date +%N)"
-gpm "tmpfs.*\$d"&&trap 'rm -f "\$_fn" "\$F"' EXIT INT TERM
-(umask 077;touch "\$F"&&chmod -R 0700 "\$F"&&dd if=\$0 skip=2|\$uz -dc >"\$F")&&
-mv -f "\$F" "\$_fn";}||exit 1
-F=;exec "\$_fn" "\$@"
+_tf="\$_fn.\$(date +%N)"
+gpm "tmpfs.*\$d"&&trap 'rm -f "\$_fn" "\$_tf"' EXIT INT TERM
+(umask 077;touch "\$_tf"&&chmod -R 0700 "\$_tf"&&dd if=\$0 skip=2|\$uz -dc >"\$_tf")&&
+mv -f "\$_tf" "\$_fn";}||exit 1
+_tf=;exec "\$_fn" "\$@"
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
