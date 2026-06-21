@@ -371,7 +371,7 @@ dbg(){ echo "GZC> \$@">&2;}
 [ \${GZCDBG:-0} -eq 0 ]&&exec 2>&-
 gpm(){ grep -qe "\$1" /proc/mounts;}
 for d in \${GZCTMP:-/run} /dev/shm /tmp \$(cd /var/run&&pwd -P) \$HOME/.tmp;do
-gpm " \$d .*noexec"||{ mkdir -p "\$d/" &&[ -w "\$d/" ]&&break;}
+{ [ ! -w "\$d/" ]||gpm " \$d .*noexec";}||break
 done
 dbg td: \$d \$PPID \$\$
 _dn="\$d/.gzc-\$BFN-\$(printf '%.6s' \$MD5)-\$(id -u||echo \$\$)"
