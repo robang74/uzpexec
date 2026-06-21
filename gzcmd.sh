@@ -6,7 +6,7 @@
 # Hint    : set blocksize as headersize +2 from gzcmd.sh for min.size
 # Host    : [[export] GZCTMP=path GZCMDZ=pigz;] [shell] elf.gz.sh
 # Install : sudo sh -c "[export] GZCTMP=/usr/local/bin; elf.gz.sh"
-  RVERSION="v0.1.9"
+  RVERSION="v0.2.0"
 #
 # Suggestion for minimal size with musl static compilation of a single file.c:
 #
