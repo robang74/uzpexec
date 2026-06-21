@@ -370,6 +370,7 @@ dbg(){ echo "GZC> \$@">&2;}
 [ -r "\$0" ]||{ dbg "\$0 \!found";exit 1;}
 [ \${GZCDBG:-0} -eq 0 ]&&exec 2>&-
 gpm(){ grep -qe "\$1" /proc/mounts;}
+trp(){ trap "\$1" EXIT INT TERM; }
 for d in \${GZCTMP:-/run} /dev/shm /tmp \$(cd /var/run&&pwd -P) \$HOME/.tmp
 do [ -w "\$d/" ] &&! gpm " \$d .*noexec"&&break
 done
@@ -378,12 +379,12 @@ dbg fn: \$_fn \$PPID \$\$
 {
 $GZCSUMCK "\$_fn"|grep -qe "^\$MD5"||{
 _tf="\$_fn.\$(date +%N)"
-gpm "tmpfs.*\$d"&&trap 'rm -f "\$_fn" "\$_tf"' EXIT INT TERM
+trp 'rm -f "\$_fn" "\$_tf"'
 (umask 077;touch "\$_tf"&&chmod -R 0700 "\$_tf"&&dd if=\$0 skip=2|
 \${GZCMDZ:-\$(command -v pigz gzip gunzip zcat|head -n1)} -dc >"\$_tf")&&
 mv -f "\$_tf" "\$_fn"
 }
-}&&{ _tf=;\$_fn "\$@";}
+}&&{ gpm "tmpfs.*\$d"||trp "";_tf=;(exec "\$_fn" "\$@");}
 exit
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
