@@ -1,15 +1,22 @@
 ; ==============================================================================
 ; (C) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
 ; ==============================================================================
-; Compile and test:
+; Rationale upexec (micro pipe exec)
+;
+; Utility for executing an ELF binary directly from stdin pipe:
+; - it runs binary via SSH/wget
+; - it runs compressed binary
+; without write it on the remote/local systems (memfd_create).
+;
+; Compile and test (simple example)
 ;
 ; printf '#include<stdio.h>\nint main() { puts("Hello World!"); return 0; }\n' |
-; cc -Os -s -x c - -o hi && du -b hi && gzip -f hi && du -b hi.gz
+; cc -Os -s -xc - -o hi && du -b hi && gzip -f hi && du -b hi.gz
 ; # 14472 hi
 ; #  1707 hi.gz
-; nasm -O2 -f bin loader.asm -o uldr && du -b uldr && chmod a+x uldr
-; #   242 uldr
-; zcat hello.gz | ./uldr; echo $?
+; nasm -O2 -f bin upexec.asm -o upexec && du -b upexec && chmod a+x upexec
+; #   244 upexec
+; zcat hi.gz | ./upexec; echo $?
 ; # Hello World!
 ; # 0
 ; ==============================================================================
@@ -48,7 +55,7 @@ phdr:
   dd 0x1000                   ; p_align (Standard page alignment)
 
 ; ==============================================================================
-; LOADER CODE (Execution starts here)
+; upexec CODE (Execution starts here)
 ; ==============================================================================
 code_start:
   ; 1. mfd = memfd_create("u", MFD_CLOEXEC)
@@ -144,7 +151,7 @@ exit_error:
 ; ==============================================================================
 ; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
-filename:     db "uldr", 0
+filename: db "upexec", 0      ; this is the /proc/self/cmdline executable name
 file_end:                     ; Physical end of the binary file!
 
 ; ==============================================================================
