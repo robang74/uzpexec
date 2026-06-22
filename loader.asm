@@ -52,7 +52,8 @@ read_block_setup:
 read_loop:
     ; 2. read(0, buffer, 512) legge da STDIN a blocchi da 512 byte (stile dd)
     mov eax, 3                  ; SYS_read
-    mov ebx, 0                  ; STDIN
+;   mov ebx, 0                  ; STDIN
+    xor ebx, ebx                ; STDIN is 0 = a^a (but shorter code)
     int 0x80
 
     test eax, eax
@@ -110,7 +111,7 @@ execute_now:
     ; Per brevità in questo schema passiamo argv e envp ereditati o nulli
     xor edx, edx                ; argv = NULL (o puntatore valido se vuoi inoltrare gli argomenti)
     xor esi, esi                ; envp = NULL
-    mov edi, 0x1000             ; AT_EMPTY_PATH (Flag obbligatorio per dire al kernel di ignorare il path)
+    mov edi, 0x1000             ; AT_EMPTY_PATH (dice al kernel di ignorare il path)
     int 0x80
 
 exit_error:
@@ -131,5 +132,5 @@ file_end:                       ; Fine fisica del file binario!
 ; ==============================================================================
 absolute_address equ $
 buffer equ absolute_address + 4 ; Il buffer inizia subito dopo la fine del file
-bss_end equ buffer + 512        ; Riserva 512 byte per il buffer in RAM
+bss_end equ buffer + 512         ; Riserva 512 byte per il buffer in RAM
 
