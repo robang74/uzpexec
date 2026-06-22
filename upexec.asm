@@ -19,10 +19,10 @@
 ; #  1868 hi.gz
 ; nasm -O2 -f bin upexec.asm -o upexec && du -b upexec && chmod a+x upexec
 ; #   242 upexec
-; export WORLD=beatyful; zcat hi.gz | ./upexec $WORLD; echo $?
-; # Hello beatyful World!
+; export WORLD=beautiful; zcat hi.gz | ./upexec $WORLD; echo $?
+; # Hello beautiful World!
 ; #   HOME:  /home/roberto
-; #   WORLD: beatyful
+; #   WORLD: beautiful
 ; # 0
 ; ==============================================================================
 

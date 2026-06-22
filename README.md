@@ -70,7 +70,7 @@ Utility for executing an ELF binary directly from stdin pipe:
 - it runs binary via SSH/wget
 - it runs compressed binary
 
-without write it on the remote/local systems (memfd_create).
+without writing it on the remote/local systems (memfd_create).
 
 ```sh
 # Compile and test (simple example)
@@ -83,9 +83,9 @@ nasm -O2 -f bin upexec.asm -o upexec && du -b upexec && chmod a+x upexec
 #   242 upexec
 
 export WORLD=beatyful; zcat hi.gz | ./upexec $WORLD; echo $?
-# Hello beatyful World!
+# Hello beautiful World!
 #   HOME:  /home/roberto
-#   WORLD: beatyful
+#   WORLD: beautiful
 # 0
 
 file upexec
