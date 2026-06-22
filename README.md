@@ -87,4 +87,8 @@ export WORLD=beatyful; zcat hi.gz | ./upexec $WORLD; echo $?
 #   HOME:  /home/roberto
 #   WORLD: beatyful
 # 0
+
+file upexec
+# upexec: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV),
+# statically linked, no section header
 ```
