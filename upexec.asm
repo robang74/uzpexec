@@ -95,7 +95,7 @@ read_loop:
   int 0x80
 
   test eax, eax
-  jz flush_and_execute        ; EAX == 0 is EOF: write last chunk and execute
+  jz flush                    ; EAX == 0 is EOF: write last chunk and execute
   cmp eax, -4                 ; EAX == -EINTR (interrupted system call)
   je read_loop                ; Ignore EINTR and retry the read
   js exit_error               ; Any other negative error: exit
@@ -119,21 +119,22 @@ read_loop:
 
   jmp read_block_setup        ; Reset and proceed to the next 512-byte block
 
-flush_and_execute:
+flush:
   ; If the pipe ends but we had accumulated a partial block in RAM,
   ; we must flush the remaining bytes before launching the executable.
   mov eax, 512
   sub eax, edx                ; Calculate partial block size
-  jz execute_now              ; 0: read completed, proceed to execution
+  jz execute                  ; 0: read completed, proceed to execution
 
   mov edx, eax                ; EDX = remaining bytes
-  mov eax, 4                  ; SYS_write
+  push 4                      ; SYS_write
+  pop eax
   mov ebx, edi                ; memfd
   mov ecx, buf                ; Beginning of the buffer
   int 0x80
   js exit_error
 
-execute_now:
+execute:
   ; Fix argv[0] to point to our custom name "upexec"
   mov eax, filename           ; Load address of "upexec"
   mov [esi], eax              ; Overwrite original argv[0]
@@ -163,8 +164,10 @@ find_envp_loop:
   int 0x80                    ; Invoke Linux kernel to replace process
 
 exit_error:
-  mov eax, 1                  ; SYS_exit
-  mov ebx, 1                  ; Exit code 1
+  push 1                      ; SYS_exit
+  pop eax
+  push 1                      ; Exit code 1
+  pop ebx
   int 0x80
 
 ; ==============================================================================
