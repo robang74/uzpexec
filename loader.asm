@@ -18,6 +18,8 @@ elf_header:
     dw 52                       ; e_ehsize (Dimensione di questa intestazione)
     dw 32                       ; e_phentsize (Dimensione della riga Program Header)
     dw 1                        ; e_phnum (Un solo segmento necessario)
+    ; Moltissimi parser ELF del kernel Linux ignorano completamente questi
+    ; 6 bytes quando offset delle sezioni e_shoff = 0, come in questo caso
     dw 0, 0, 0                  ; Info su sezioni (azzerate)
 
 phdr:
