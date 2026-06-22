@@ -381,9 +381,8 @@ dd if=\$0 skip=2||{
 echo "ERR> \$0 \!read";exit 1
 }
 }|\${GZCMDZ:-\$(command -v pigz gzip gunzip zcat|head -n1)} -dc >"\$F".&&{
-_fn="\$F"
-mv -f "\$F". "\$F"&&grep -qe "tmpfs.*\$d" /proc/mounts&&
-trap 'rm -f "\$_fn"' EXIT INT TERM;(exec "\$_fn" "\$@")
+grep -qe "tmpfs.*\$d" /proc/mounts&&trap 'rm -f "\$F"' EXIT INT TERM
+mv -f "\$F". "\$F"&&(F=;exec "\$d/.\$T" "\$@")
 }
 exit
 #1_3456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
