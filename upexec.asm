@@ -1,6 +1,9 @@
 ; ==============================================================================
 ; (C) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
 ; ==============================================================================
+;
+; Usage: zcat elf.gz | upexec [args]
+;
 ; Rationale upexec (micro pipe exec)
 ;
 ; Utility for executing an ELF binary directly from stdin pipe:
@@ -10,14 +13,13 @@
 ;
 ; Compile and test (simple example)
 ;
-; printf '#include<stdio.h>\nint main() { puts("Hello World!"); return 0; }\n' |
-; cc -Os -s -xc - -o hi && du -b hi && gzip -f hi && du -b hi.gz
+; cc -Os -s hello.c -o hi && du -b hi && gzip -f hi && du -b hi.gz
 ; # 14472 hi
-; #  1707 hi.gz
+; #  1762 hi.gz
 ; nasm -O2 -f bin upexec.asm -o upexec && du -b upexec && chmod a+x upexec
-; #   244 upexec
-; zcat hi.gz | ./upexec; echo $?
-; # Hello World!
+; #   247 upexec
+; zcat hi.gz | ./upexec beatyful; echo $?
+; # Hello beatyful World!
 ; # 0
 ; ==============================================================================
 BITS 32
@@ -58,7 +60,8 @@ phdr:
 ; upexec CODE (Execution starts here)
 ; ==============================================================================
 code_start:
-  ; 1. mfd = memfd_create("u", MFD_CLOEXEC)
+  ; mfd = memfd_create("upexec", MFD_CLOEXEC)
+  lea esi, [esp + 4]          ; ESI is poiting to the original argv[]
   ; Note: On 32-bit, the syscall number for memfd_create is 356
   mov eax, 356                ; SYS_memfd_create
   mov ebx, filename           ; Pointer to the anonymous filename
@@ -66,7 +69,7 @@ code_start:
   int 0x80                    ; Linux kernel call (int 0x80 is the 32-bit)
   test eax, eax
   js exit_error               ; < 0: there's an error (e.g., kernel too old)
-  mov edi, eax                ; Save the file descriptor into EDI for later
+  mov edi, eax                ; Save EDI = memfd for later
 
 read_block_setup:
   ; Prepare registers to accumulate an atomic 512-byte block
@@ -74,9 +77,9 @@ read_block_setup:
   mov edx, 512                ; Bytes remaining to be read for this block
 
 read_loop:
-  ; 2. read(0, buf, 512) reads from STDIN in 512-byte blocks (dd style)
+  ; read(0, buf, 512) reads from STDIN in 512-byte blocks (dd style)
   mov eax, 3                  ; SYS_read
-;   mov ebx, 0                  ; STDIN
+; mov ebx, 0                  ; STDIN
   xor ebx, ebx                ; STDIN is 0 = a^a (but shorter code)
   int 0x80
 
@@ -92,7 +95,6 @@ read_loop:
   test edx, edx
   jnz read_loop               ; edx > 0: partial 512-byte read, keep reading
 
-  ; --- THE 512-BYTE BLOCK IS NOW COMPLETE ---
   ; Write the entire block into the memfd
   mov eax, 4                  ; SYS_write
   mov ebx, edi                ; Our memfd
@@ -118,30 +120,21 @@ flush_and_execute:
   js exit_error
 
 execute_now:
-  ; 4. Minimum security setup of the stack for argv
-  ; Avoids kernel ENOEXEC rejection by injecting a fake argv[0]
-  push 0                      ; NULL terminator for envp
-  push 0                      ; NULL terminator for argv
-  mov ecx, esp                ; ECX points to the structure [filename, NULL]
-  mov eax, filename
-  push eax                    ; argv[0] = filename
+  ; Overwriting argv[0] pointed by ESI with our filename
+  mov eax, filename           ;
+  mov [esi], eax              ; argv[0] = filename
 
-  ; Now that the stack has changed, save the NEW stack pointer into EDX
-  mov edx, esp                ; EDX points to the structure [filename, NULL]
-  xor esi, esi                ; envp = NULL
-
-  ; 5. execveat(mfd, "", argv, envp, AT_EMPTY_PATH)
+  ; Registers setup for the execveat(ebx, ecx, edx, esi, edi) syscall
   mov eax, 358                ; SYS_execveat
   mov ebx, edi                ; Our memfd
-  
-  ; To order registers for the execveat(ebx, ecx, edx, esi, edi) syscall:
-  ; EBX = mfd  (edi)
-  ; ECX = ""   (preserved from the previous mov ecx, esp)
-  ; EDX = argv (moved to edx instead of ecx!)
-  ; ESI = envp (esi)
-  ; EDI = AT_EMPTY_PATH (0x1000)
+
+  ; Setup of the void string for AT_EMPTY_PATH using the zero on the stack
+  push 0                      ; Push a zero at the top of the stack
+  mov ecx, esp                ; ECX = "" (pointing to pushed zero)
+  mov edx, esi                ; EDX = argv (original argv for options)
+  xor esi, esi                ; envp = NULL (no enviroment passing)
   mov edi, 0x1000             ; AT_EMPTY_PATH
-  int 0x80
+  int 0x80                    ;
 
 exit_error:
   mov eax, 1                  ; SYS_exit
