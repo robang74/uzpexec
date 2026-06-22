@@ -71,7 +71,8 @@ code_start:
   ; mfd = memfd_create("upexec", MFD_CLOEXEC)
   mov eax, 356                ; SYS_memfd_create
   mov ebx, filename           ; Pointer to the anonymous filename "upexec"
-  mov ecx, 1                  ; MFD_CLOEXEC
+  push 1                      ; MFD_CLOEXEC
+  pop ecx
   int 0x80                    ; Linux kernel call
 
   test eax, eax
@@ -85,8 +86,10 @@ read_block_setup:
 
 read_loop:
   ; read(0, buf, 512) reads from STDIN in 512-byte blocks (dd style)
-  mov eax, 3                  ; SYS_read
-; mov ebx, 0                  ; STDIN
+  ; SPEED: mov eax,3 (1 ALU µop, 1 cycle) vs push/pop (2 µops, 4-5 cycles)
+  ; push 3                    ; 2 bytes: SYS_read
+  ; pop eax                   ; 1 byte
+  mov eax, 3                  ; 5 bytes: SYS_read
   xor ebx, ebx                ; STDIN is 0 = a^a (but shorter code)
   int 0x80
 
@@ -103,7 +106,10 @@ read_loop:
   jnz read_loop               ; edx > 0: partial 512-byte read, keep reading
 
   ; Write the entire block into the memfd
-  mov eax, 4                  ; SYS_write
+  ; SPEED: mov eax,4 (1 ALU µop, 1 cycle) vs push/pop (2 µops, 4-5 cycles)
+  ; push 4                    ; 2 bytes: SYS_write
+  ; pop eax                   ; 1 byte
+  mov eax, 4                  ; 5 bytes: SYS_write
   mov ebx, edi                ; Our memfd
   mov ecx, buf                ; Start from the beginning of the buffer
   mov edx, 512                ; Write exactly 512 bytes
