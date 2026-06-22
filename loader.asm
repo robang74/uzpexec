@@ -3,140 +3,139 @@ BITS 32
 org 0x08048000
 
 ; ==============================================================================
-; INTESTAZIONE ELF32 (Scritta a mano per azzerare l'overhead)
+; ELF32 HEADER (Handwritten to completely eliminate overhead)
 ; ==============================================================================
 elf_header:
-    db 0x7F, 'ELF', 1, 1, 1, 0  ; e_ident (Magic, Class 32bit, Data LSB, Version)
-    times 8 db 0                ; Padding di e_ident
-    dw 2                        ; e_type (Executable)
-    dw 3                        ; e_machine (Intel 80386)
-    dd 1                        ; e_version
-    dd code_start               ; e_entry (Il punto di inizio del nostro codice)
-    dd phdr - elf_header        ; e_phoff (Offset della Program Header Table)
-    dd 0                        ; e_shoff (Nessuna Section Header Table, risparmio byte!)
-    dd 0                        ; e_flags
-    dw 52                       ; e_ehsize (Dimensione di questa intestazione)
-    dw 32                       ; e_phentsize (Dimensione della riga Program Header)
-    dw 1                        ; e_phnum (Un solo segmento necessario)
-    ; Moltissimi parser ELF del kernel Linux ignorano completamente questi
-    ; 6 bytes quando offset delle sezioni e_shoff = 0, come in questo caso
-    dw 0, 0, 0                  ; Info su sezioni (azzerate)
+  db 0x7F, 'ELF', 1, 1, 1, 0  ; e_ident (Magic, Class 32bit, Data LSB, Version)
+  times 8 db 0                ; Padding for e_ident
+  dw 2                        ; e_type (Executable)
+  dw 3                        ; e_machine (Intel 80386)
+  dd 1                        ; e_version
+  dd code_start               ; e_entry (The starting point of our code)
+  dd phdr - elf_header        ; e_phoff (Offset of the Program Header Table)
+  dd 0                        ; e_shoff (No Section Header Table, saving bytes)
+  dd 0                        ; e_flags
+  dw 52                       ; e_ehsize (Size of this header)
+  dw 32                       ; e_phentsize (Size of a Program Header entry)
+  dw 1                        ; e_phnum (Only one segment needed)
+  ; Many Linux kernel ELF parsers completely ignore these
+  ; 6 bytes when section offset e_shoff = 0, as in this case
+  dw 0, 0, 0                  ; Section info (zeroed out)
 
 phdr:
-    dd 1                        ; p_type (PT_LOAD - Segmento da caricare)
-    dd 0                        ; p_offset
-    dd 0x08048000               ; p_vaddr (Indirizzo virtuale in memoria)
-    dd 0x08048000               ; p_paddr
-    dd file_end - elf_header    ; p_filesz (Dimensione del codice nel file)
-    dd bss_end - elf_header     ; p_memsz (Dimensione del codice in memoria)
-    dd 7                        ; p_flags (R+W+X - Lettura, Scrittura ed Esecuzione)
-    dd 0x1000                   ; p_align (Allineamento standard di pagina)
+  dd 1                        ; p_type (PT_LOAD - Segment to load)
+  dd 0                        ; p_offset
+  dd 0x08048000               ; p_vaddr (Virtual address in memory)
+  dd 0x08048000               ; p_paddr
+  dd file_end - elf_header    ; p_filesz (Size of the code within the file)
+  dd bss_end - elf_header     ; p_memsz (Size of the code within memory)
+  dd 7                        ; p_flags (R+W+X - Read, Write, and Execute)
+  dd 0x1000                   ; p_align (Standard page alignment)
 
 ; ==============================================================================
-; IL CODICE DEL LOADER (Inizio esecuzione)
+; LOADER CODE (Execution starts here)
 ; ==============================================================================
 code_start:
-    ; 1. mfd = memfd_create("u", MFD_CLOEXEC)
-    ; Nota: A 32-bit il numero della syscall memfd_create è 356
-    mov eax, 356                ; SYS_memfd_create
-    mov ebx, filename           ; Puntatore al nome del file anonimo (es: "u")
-    mov ecx, 1                  ; MFD_CLOEXEC (Evita leak del FD a processi figli non voluti)
-    int 0x80                    ; Chiamata al kernel Linux (A 32-bit si usa int 0x80)
-    test eax, eax
-    js exit_error               ; Se il valore è negativo, c'è un errore (es: kernel troppo vecchio)
-    mov edi, eax                ; Salva il File Descriptor ritornato in EDI per dopo
+  ; 1. mfd = memfd_create("u", MFD_CLOEXEC)
+  ; Note: On 32-bit, the syscall number for memfd_create is 356
+  mov eax, 356                ; SYS_memfd_create
+  mov ebx, filename           ; Pointer to the anonymous filename
+  mov ecx, 1                  ; MFD_CLOEXEC to !leaking FD to child processes
+  int 0x80                    ; Linux kernel call (int 0x80 is the 32-bit)
+  test eax, eax
+  js exit_error               ; < 0: there's an error (e.g., kernel too old)
+  mov edi, eax                ; Save the file descriptor into EDI for later
 
 read_block_setup:
-    ; Prepariamo i registri per accumulare un blocco atomico da 512 byte
-    mov ecx, buffer             ; Puntatore corrente nel buffer
-    mov edx, 512                ; Byte rimasti da leggere per questo blocco
+  ; Prepare registers to accumulate an atomic 512-byte block
+  mov ecx, buf                ; Current pointer inside the buffer
+  mov edx, 512                ; Bytes remaining to be read for this block
 
 read_loop:
-    ; 2. read(0, buffer, 512) legge da STDIN a blocchi da 512 byte (stile dd)
-    mov eax, 3                  ; SYS_read
+  ; 2. read(0, buf, 512) reads from STDIN in 512-byte blocks (dd style)
+  mov eax, 3                  ; SYS_read
 ;   mov ebx, 0                  ; STDIN
-    xor ebx, ebx                ; STDIN is 0 = a^a (but shorter code)
-    int 0x80
+  xor ebx, ebx                ; STDIN is 0 = a^a (but shorter code)
+  int 0x80
 
-    test eax, eax
-    jz flush_and_execute        ; EAX == 0 -> EOF. Scrivi l'ultimo residuo ed esegui!
-    cmp eax, -4                 ; EAX == -EINTR (Interrupted system call)
-    je read_loop                ; Se interrotto da segnale, ignora e riprova la read
-    js exit_error               ; Qualsiasi altro errore negativo (< 0) -> Muori.
+  test eax, eax
+  jz flush_and_execute        ; EAX == 0 is EOF: write last chunk and execute
+  cmp eax, -4                 ; EAX == -EINTR (interrupted system call)
+  je read_loop                ; Ignore EINTR and retry the read
+  js exit_error               ; Any other negative error: exit
 
-    ; Se siamo qui, abbiamo letto X byte (in EAX)
-    sub edx, eax                ; Sottrai i byte letti da quelli mancanti (512 - X)
-    add ecx, eax                ; Sposta il puntatore del buffer in avanti per la prossima lettura
-    test edx, edx
-    jnz read_loop               ; Se edx > 0, il blocco da 512 non è completo. Continua a leggere!
+  ; If we are here, we have read X bytes (in EAX)
+  sub edx, eax                ; Subtract bytes read from the missing (512-N)
+  add ecx, eax                ; Move buffer pointer forward for the next read
+  test edx, edx
+  jnz read_loop               ; edx > 0: partial 512-byte read, keep reading
 
-    ; --- IL BLOCCO DA 512 BYTE È ORA COMPLETO ---
-    ; Scriviamo l'intero blocco nel memfd
-    mov eax, 4                  ; SYS_write
-    mov ebx, edi                ; Il nostro memfd
-    mov ecx, buffer             ; Riparte dall'inizio del buffer
-    mov edx, 512                ; Scrive 512 byte esatti
-    int 0x80
-    js exit_error
+  ; --- THE 512-BYTE BLOCK IS NOW COMPLETE ---
+  ; Write the entire block into the memfd
+  mov eax, 4                  ; SYS_write
+  mov ebx, edi                ; Our memfd
+  mov ecx, buf                ; Start from the beginning of the buffer
+  mov edx, 512                ; Write exactly 512 bytes
+  int 0x80
+  js exit_error
 
-    jmp read_block_setup        ; Reset e passa al prossimo blocco da 512 byte
+  jmp read_block_setup        ; Reset and proceed to the next 512-byte block
 
 flush_and_execute:
-    ; Se la pipe finisce ma avevamo accumulato un blocco parziale in RAM,
-    ; dobbiamo fare il flush dei byte residui prima di lanciare l'eseguibile.
-    mov eax, 512
-    sub eax, edx                ; Calcola quanti byte effettivi c'erano nel blocco parziale
-    jz execute_now              ; Se zero, il blocco era perfettamente allineato. Passa all'esecuzione.
+  ; If the pipe ends but we had accumulated a partial block in RAM,
+  ; we must flush the remaining bytes before launching the executable.
+  mov eax, 512
+  sub eax, edx                ; Calculate partial block size
+  jz execute_now              ; 0: read completed, proceed to execution
 
-    mov edx, eax                ; EDX = byte residui
-    mov eax, 4                  ; SYS_write
-    mov ebx, edi                ; memfd
-    mov ecx, buffer             ; Inizio del buffer
-    int 0x80
-    js exit_error
+  mov edx, eax                ; EDX = remaining bytes
+  mov eax, 4                  ; SYS_write
+  mov ebx, edi                ; memfd
+  mov ecx, buf                ; Beginning of the buffer
+  int 0x80
+  js exit_error
 
 execute_now:
-    ; 4. Setup minimo di sicurezza dello stack per argv
-    ; Evita il rifiuto ENOEXEC del kernel iniettando un finto argv[0]
-    push 0                      ; Terminatore NULL per envp
-    push 0                      ; Terminatore NULL per argv
-    mov ecx, esp                ; ECX punta alla struttura [filename, NULL]
-    mov eax, filename
-    push eax                    ; argv[0] = filename
+  ; 4. Minimum security setup of the stack for argv
+  ; Avoids kernel ENOEXEC rejection by injecting a fake argv[0]
+  push 0                      ; NULL terminator for envp
+  push 0                      ; NULL terminator for argv
+  mov ecx, esp                ; ECX points to the structure [filename, NULL]
+  mov eax, filename
+  push eax                    ; argv[0] = filename
 
-    ; Ora lo stack è cambiato, salviamo il NUOVO puntatore dello stack in EDX
-    mov edx, esp                ; EDX punta alla struttura [filename, NULL]
-    xor esi, esi                ; envp = NULL
+  ; Now that the stack has changed, save the NEW stack pointer into EDX
+  mov edx, esp                ; EDX points to the structure [filename, NULL]
+  xor esi, esi                ; envp = NULL
 
-    ; 5. execveat(mfd, "", argv, envp, AT_EMPTY_PATH)
-    mov eax, 358                ; SYS_execveat
-    mov ebx, edi                ; Il nostro memfd
-    
-    ; Per fare ordine coi registri della syscall execveat(ebx, ecx, edx, esi, edi):
-    ; EBX = mfd  (edi)
-    ; ECX = ""   (preservato dal mov ecx, esp di prima)
-    ; EDX = argv (spostato in edx anziché ecx!)
-    ; ESI = envp (esi)
-    ; EDI = AT_EMPTY_PATH (0x1000)
-    mov edi, 0x1000             ; AT_EMPTY_PATH
-    int 0x80
+  ; 5. execveat(mfd, "", argv, envp, AT_EMPTY_PATH)
+  mov eax, 358                ; SYS_execveat
+  mov ebx, edi                ; Our memfd
+  
+  ; To order registers for the execveat(ebx, ecx, edx, esi, edi) syscall:
+  ; EBX = mfd  (edi)
+  ; ECX = ""   (preserved from the previous mov ecx, esp)
+  ; EDX = argv (moved to edx instead of ecx!)
+  ; ESI = envp (esi)
+  ; EDI = AT_EMPTY_PATH (0x1000)
+  mov edi, 0x1000             ; AT_EMPTY_PATH
+  int 0x80
 
 exit_error:
-    mov eax, 1                  ; SYS_exit
-    mov ebx, 1                  ; Exit code 1
-    int 0x80
+  mov eax, 1                  ; SYS_exit
+  mov ebx, 1                  ; Exit code 1
+  int 0x80
 
 ; ==============================================================================
-; SEZIONE DATI COMPATTA (In coda al codice)
+; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
 filename:     db "uldr", 0
-
-file_end:                       ; Fine fisica del file binario!
+file_end:                     ; Physical end of the binary file!
 
 ; ==============================================================================
-; SEZIONE BSS NON INIZIALIZZATA (Esiste SOLO in RAM, zero byte su disco)
+; UNINITIALIZED BSS SECTION (Exists ONLY in RAM, zero bytes on disk)
 ; ==============================================================================
 absolute_address equ $
-buffer equ absolute_address + 4 ; Il buffer inizia subito dopo la fine del file
-bss_end equ buffer + 512         ; Riserva 512 byte per il buffer in RAM
+buf equ absolute_address + 4  ; It starts immediately after the EOF
+bss_end equ buf + 512         ; Reserve 512 bytes for the buffer
 
