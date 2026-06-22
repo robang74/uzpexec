@@ -15,11 +15,13 @@
 ;
 ; cc -Os -s hello.c -o hi && du -b hi && gzip -f hi && du -b hi.gz
 ; # 14472 hi
-; #  1762 hi.gz
+; #  1868 hi.gz
 ; nasm -O2 -f bin upexec.asm -o upexec && du -b upexec && chmod a+x upexec
-; #   247 upexec
-; zcat hi.gz | ./upexec beatyful; echo $?
+; #   270 upexec
+; export WORLD=beatyful; zcat hi.gz | ./upexec $WORLD; echo $?
 ; # Hello beatyful World!
+; #   HOME:  /home/roberto
+; #   WORLD: beatyful
 ; # 0
 ; ==============================================================================
 BITS 32
@@ -60,16 +62,23 @@ phdr:
 ; upexec CODE (Execution starts here)
 ; ==============================================================================
 code_start:
+  ; Save original argv and calculate envp from the initial stack layout
+  lea esi, [esp + 4]          ; ESI = points to the original argv[0]
+
+  mov eax, [esp]              ; EAX = argc (number of arguments)
+  ; envp starts at: ESP + 4 + (argc * 4) + 4
+  ; Which simplifies to: argv + (argc * 4) + 4
+  lea edx, [esi + eax*4 + 4]  ; EDX = points to the start of envp[] array
+  push edx                    ; Save envp pointer on the stack to reuse it later
+
   ; mfd = memfd_create("upexec", MFD_CLOEXEC)
-  lea esi, [esp + 4]          ; ESI is poiting to the original argv[]
-  ; Note: On 32-bit, the syscall number for memfd_create is 356
   mov eax, 356                ; SYS_memfd_create
-  mov ebx, filename           ; Pointer to the anonymous filename
-  mov ecx, 1                  ; MFD_CLOEXEC to !leaking FD to child processes
-  int 0x80                    ; Linux kernel call (int 0x80 is the 32-bit)
+  mov ebx, filename           ; Pointer to the anonymous filename "upexec"
+  mov ecx, 1                  ; MFD_CLOEXEC
+  int 0x80                    ; Linux kernel call
   test eax, eax
-  js exit_error               ; < 0: there's an error (e.g., kernel too old)
-  mov edi, eax                ; Save EDI = memfd for later
+  js exit_error               ; < 0: error
+  mov edi, eax                ; Save EDI = memfd
 
 read_block_setup:
   ; Prepare registers to accumulate an atomic 512-byte block
@@ -120,21 +129,33 @@ flush_and_execute:
   js exit_error
 
 execute_now:
-  ; Overwriting argv[0] pointed by ESI with our filename
-  mov eax, filename           ;
-  mov [esi], eax              ; argv[0] = filename
+  ; Fix argv[0] to point to our custom name "upexec"
+  mov eax, filename           ; Load address of "upexec"
+  mov [esi], eax              ; Overwrite original argv[0]
 
-  ; Registers setup for the execveat(ebx, ecx, edx, esi, edi) syscall
-  mov eax, 358                ; SYS_execveat
-  mov ebx, edi                ; Our memfd
+  ; Find envp dynamically by scanning argv until the NULL terminator.
+  ; Using a safe copy in ECX to avoid clobbering ESI prematurely.
+  mov ecx, esi                ; ECX = copy of argv pointer
+
+find_envp_loop:
+  mov eax, [ecx]              ; Load current argv element
+  add ecx, 4                  ; Move to next argv slot
+  test eax, eax               ; Check if it is the NULL terminator
+  jnz find_envp_loop          ; If not NULL, keep scanning
+  ; ECX now points exactly to the start of the original envp[] array
+
+  ; Prepare registers for the execveat(ebx, ecx, edx, esi, edi) syscall
+  mov edx, esi                ; EDX = pointer to updated argv[]
+  mov esi, ecx                ; ESI = pointer to original envp[]
+  mov ebx, edi                ; EBX = anonymous memfd descriptor
 
   ; Setup of the void string for AT_EMPTY_PATH using the zero on the stack
-  push 0                      ; Push a zero at the top of the stack
-  mov ecx, esp                ; ECX = "" (pointing to pushed zero)
-  mov edx, esi                ; EDX = argv (original argv for options)
-  xor esi, esi                ; envp = NULL (no enviroment passing)
-  mov edi, 0x1000             ; AT_EMPTY_PATH
-  int 0x80                    ;
+  push 0                      ; Push NULL terminator for the empty path string
+  mov ecx, esp                ; ECX = pointer to empty path ""
+
+  mov edi, 0x1000             ; EDI = AT_EMPTY_PATH flag
+  mov eax, 358                ; SYS_execveat syscall number
+  int 0x80                    ; Invoke Linux kernel to replace process
 
 exit_error:
   mov eax, 1                  ; SYS_exit
