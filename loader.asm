@@ -98,20 +98,25 @@ execute_now:
     ; Evita il rifiuto ENOEXEC del kernel iniettando un finto argv[0]
     push 0                      ; Terminatore NULL per envp
     push 0                      ; Terminatore NULL per argv
+    mov ecx, esp                ; ECX punta alla struttura [filename, NULL]
     mov eax, filename
     push eax                    ; argv[0] = filename
-    mov ecx, esp                ; ECX punta alla struttura [filename, NULL]
-    xor edx, edx                ; envp = NULL
+
+    ; Ora lo stack è cambiato, salviamo il NUOVO puntatore dello stack in EDX
+    mov edx, esp                ; EDX punta alla struttura [filename, NULL]
+    xor esi, esi                ; envp = NULL
 
     ; 5. execveat(mfd, "", argv, envp, AT_EMPTY_PATH)
-    ; Questa syscall (numero 358 a 32-bit) permette di eseguire direttamente un FD
     mov eax, 358                ; SYS_execveat
     mov ebx, edi                ; Il nostro memfd
-    mov ecx, voidpath           ; Path vuoto "", perché usiamo AT_EMPTY_PATH
-    ; Per brevità in questo schema passiamo argv e envp ereditati o nulli
-    xor edx, edx                ; argv = NULL (o puntatore valido se vuoi inoltrare gli argomenti)
-    xor esi, esi                ; envp = NULL
-    mov edi, 0x1000             ; AT_EMPTY_PATH (dice al kernel di ignorare il path)
+    
+    ; Per fare ordine coi registri della syscall execveat(ebx, ecx, edx, esi, edi):
+    ; EBX = mfd  (edi)
+    ; ECX = ""   (preservato dal mov ecx, esp di prima)
+    ; EDX = argv (spostato in edx anziché ecx!)
+    ; ESI = envp (esi)
+    ; EDI = AT_EMPTY_PATH (0x1000)
+    mov edi, 0x1000             ; AT_EMPTY_PATH
     int 0x80
 
 exit_error:
@@ -123,7 +128,6 @@ exit_error:
 ; SEZIONE DATI COMPATTA (In coda al codice)
 ; ==============================================================================
 filename:     db "uldr", 0
-voidpath:     db 0
 
 file_end:                       ; Fine fisica del file binario!
 
