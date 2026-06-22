@@ -366,8 +366,7 @@ headstr=$(cat <<EOF
 # (c) 2026, roberto.foglietta@gmail.com, MIT license, $RVERSION, git.new/ttRvFBu
 MD5="$MD5CKSUM";BFN="$ORIGNAME";SZE="$((ORIGSIZE>>10))k"
 : \${PATH:=/bin:/usr/bin:/usr/local/bin}
-dbg(){ echo "GZC> \$@">&2;}
-[ -r "\$0" ]||{ dbg "\$0 \!found";exit 1;}
+[ -r "\$0" ]||{ echo "ERR> \$0 \!found";exit 1;}
 [ \${GZCDBG:-0} -eq 0 ]&&exec 2>&-
 T="gzc-\${GZCNME:-\$BFN}-\${USER:-\$(id -u)}-\$MD5"
 for d in "\${GZCTMP:-/dev/shm}" /run /tmp "\${HOME:-.}/.cache"
@@ -379,11 +378,13 @@ F=
 done
 dd if=\$0 skip=2|
 \${GZCMDZ:-\$(command -v pigz gzip gunzip zcat|head -n1)} -dc >"\$F".&&{
-dbg fn: \$_fn \$PPID \$\$;$GZCSUMCK "\$F".|grep -qe "^\$MD5"||rm -f "\$F".
-_fn="\$F";mv -f "\$F". "\$F"&&grep -qe "tmpfs.*\$d" /proc/mounts&&
+echo fn: \$_fn \$PPID \$\$>&2
+_fn="\$F"
+mv -f "\$F". "\$F"&&grep -qe "tmpfs.*\$d" /proc/mounts&&
 trap 'rm -f "\$_fn"' EXIT INT TERM;(exec "\$_fn" "\$@")
 }
 exit
+#123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
