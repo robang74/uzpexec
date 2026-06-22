@@ -6,7 +6,7 @@
 # Hint    : set blocksize as headersize +2 from gzcmd.sh for min.size
 # Host    : [[export] GZCTMP=path GZCMDZ=pigz;] [shell] elf.gz.sh
 # Install : sudo sh -c "[export] GZCTMP=/usr/local/bin; elf.gz.sh"
-  RVERSION="v0.2.1"
+  RVERSION="v0.3.0"
 #
 # Suggestion for minimal size with musl static compilation of a single file.c:
 #
@@ -369,25 +369,22 @@ MD5="$MD5CKSUM";BFN="$ORIGNAME";SZE="$((ORIGSIZE>>10))k"
 dbg(){ echo "GZC> \$@">&2;}
 [ -r "\$0" ]||{ dbg "\$0 \!found";exit 1;}
 [ \${GZCDBG:-0} -eq 0 ]&&exec 2>&-
-gpm(){ grep -qe "\$1" /proc/mounts;}
-trp(){ trap "\$1" EXIT INT TERM; }
+T="gzc-\${GZCNME:-\$BFN}-\${USER:-\$(id -u)}-\$MD5"
 for d in "\${GZCTMP:-/dev/shm}" /run /tmp "\${HOME:-.}/.cache"
-do [ -w "\$d/" ] &&! gpm " \$d .*noexec"&&break
+do
+F="\$d/.\$T"
+(umask 077;echo true >"\$F".&&chmod -R 0700 "\$F".&&exec "\$F".)&&break
+rm -f "\$F".
+F=
 done
-_fn="\$d/.gzc-\${GZCNME:-\$BFN}-\${USER:-\$(id -u)}-\$MD5"
-dbg fn: \$_fn \$PPID \$\$
-{
-$GZCSUMCK "\$_fn"|grep -qe "^\$MD5"||{
-_tf="\$_fn.\$(date +%N)"
-trp 'rm -f "\$_fn" "\$_tf"'
-(umask 077;touch "\$_tf"&&chmod -R 0700 "\$_tf"&&dd if=\$0 skip=2|
-\${GZCMDZ:-\$(command -v pigz gzip gunzip zcat|head -n1)} -dc >"\$_tf")&&
-mv -f "\$_tf" "\$_fn"
-}
-}&&{
-gpm "tmpfs.*\$d"||trp "";_tf=;(exec "\$_fn" "\$@")
+dd if=\$0 skip=2|
+\${GZCMDZ:-\$(command -v pigz gzip gunzip zcat|head -n1)} -dc >"\$F".&&{
+dbg fn: \$_fn \$PPID \$\$;$GZCSUMCK "\$F".|grep -qe "^\$MD5"||rm -f "\$F".
+_fn="\$F";mv -f "\$F". "\$F"&&grep -qe "tmpfs.*\$d" /proc/mounts&&
+trap 'rm -f "\$_fn"' EXIT INT TERM;(exec "\$_fn" "\$@")
 }
 exit
+#123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
