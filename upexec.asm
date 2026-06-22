@@ -63,19 +63,17 @@ phdr:
 ; ==============================================================================
 code_start:
   ; Save original argv and calculate envp from the initial stack layout
-  lea esi, [esp + 4]          ; ESI = points to the original argv[0]
-
-  mov eax, [esp]              ; EAX = argc (number of arguments)
-  ; envp starts at: ESP + 4 + (argc * 4) + 4
-  ; Which simplifies to: argv + (argc * 4) + 4
-  lea edx, [esi + eax*4 + 4]  ; EDX = points to the start of envp[] array
-  push edx                    ; Save envp pointer on the stack to reuse it later
+  ; Stack: [argc] [argv[0]] ... [argv[N]] [NULL] [envp...]
+  pop eax                 ; argc (was [esp])
+  mov esi, esp            ; ESI = argv
+  lea ebp, [esi+eax*4+4]  ; EBP = envp (callee-saved!)
 
   ; mfd = memfd_create("upexec", MFD_CLOEXEC)
   mov eax, 356                ; SYS_memfd_create
   mov ebx, filename           ; Pointer to the anonymous filename "upexec"
   mov ecx, 1                  ; MFD_CLOEXEC
   int 0x80                    ; Linux kernel call
+
   test eax, eax
   js exit_error               ; < 0: error
   mov edi, eax                ; Save EDI = memfd
@@ -172,6 +170,6 @@ file_end:                     ; Physical end of the binary file!
 ; UNINITIALIZED BSS SECTION (Exists ONLY in RAM, zero bytes on disk)
 ; ==============================================================================
 absolute_address equ $
-buf equ absolute_address + 4  ; It starts immediately after the EOF
+buf equ file_end + 4          ; It starts immediately after the EOF
 bss_end equ buf + 512         ; Reserve 512 bytes for the buffer
 
