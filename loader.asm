@@ -44,26 +44,53 @@ code_start:
     js exit_error               ; Se il valore è negativo, c'è un errore (es: kernel troppo vecchio)
     mov edi, eax                ; Salva il File Descriptor ritornato in EDI per dopo
 
+read_block_setup:
+    ; Prepariamo i registri per accumulare un blocco atomico da 512 byte
+    mov ecx, buffer             ; Puntatore corrente nel buffer
+    mov edx, 512                ; Byte rimasti da leggere per questo blocco
+
 read_loop:
     ; 2. read(0, buffer, 512) legge da STDIN a blocchi da 512 byte (stile dd)
     mov eax, 3                  ; SYS_read
-    mov ebx, 0                  ; STDIN (FD 0)
-    mov ecx, buffer             ; Puntatore all'area BSS (in RAM, non su disco)
-    mov edx, 512                ; Blocchi da 512 byte definiti da te
+    mov ebx, 0                  ; STDIN
     int 0x80
 
     test eax, eax
-    jz execute_now              ; Se ritorna 0, End-Of-File (pipe terminata). Esegui.
-    js exit_error               ; Se negativo, errore di lettura. Exit.
-    mov esi, eax                ; ESI = byte effettivamente letti
+    jz flush_and_execute        ; EAX == 0 -> EOF. Scrivi l'ultimo residuo ed esegui!
+    cmp eax, -4                 ; EAX == -EINTR (Interrupted system call)
+    je read_loop                ; Se interrotto da segnale, ignora e riprova la read
+    js exit_error               ; Qualsiasi altro errore negativo (< 0) -> Muori.
 
-    ; 3. write(mfd, buffer, byte_letti)
+    ; Se siamo qui, abbiamo letto X byte (in EAX)
+    sub edx, eax                ; Sottrai i byte letti da quelli mancanti (512 - X)
+    add ecx, eax                ; Sposta il puntatore del buffer in avanti per la prossima lettura
+    test edx, edx
+    jnz read_loop               ; Se edx > 0, il blocco da 512 non è completo. Continua a leggere!
+
+    ; --- IL BLOCCO DA 512 BYTE È ORA COMPLETO ---
+    ; Scriviamo l'intero blocco nel memfd
     mov eax, 4                  ; SYS_write
     mov ebx, edi                ; Il nostro memfd
-    mov ecx, buffer
-    mov edx, esi                ; Scrive esattamente il numero di byte letti
+    mov ecx, buffer             ; Riparte dall'inizio del buffer
+    mov edx, 512                ; Scrive 512 byte esatti
     int 0x80
-    jmp read_loop               ; Continua il ciclo
+    js exit_error
+
+    jmp read_block_setup        ; Reset e passa al prossimo blocco da 512 byte
+
+flush_and_execute:
+    ; Se la pipe finisce ma avevamo accumulato un blocco parziale in RAM,
+    ; dobbiamo fare il flush dei byte residui prima di lanciare l'eseguibile.
+    mov eax, 512
+    sub eax, edx                ; Calcola quanti byte effettivi c'erano nel blocco parziale
+    jz execute_now              ; Se zero, il blocco era perfettamente allineato. Passa all'esecuzione.
+
+    mov edx, eax                ; EDX = byte residui
+    mov eax, 4                  ; SYS_write
+    mov ebx, edi                ; memfd
+    mov ecx, buffer             ; Inizio del buffer
+    int 0x80
+    js exit_error
 
 execute_now:
     ; 4. Setup minimo di sicurezza dello stack per argv
@@ -104,5 +131,5 @@ file_end:                       ; Fine fisica del file binario!
 ; ==============================================================================
 absolute_address equ $
 buffer equ absolute_address + 4 ; Il buffer inizia subito dopo la fine del file
+bss_end equ buffer + 512        ; Riserva 512 byte per il buffer in RAM
 
-bss_end equ buffer + 512         ; Riserva 512 byte per il buffer in RAM
