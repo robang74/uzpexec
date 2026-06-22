@@ -53,22 +53,24 @@ read_setup:
   mov ecx, buf            ; 5 bytes: buffer pointer
 
 read_loop:
-  ; read(STDIN, buf, 512)
-  push 3                  ; 2 bytes: SYS_read
-  pop eax                 ; 1 byte
+  ; === HOT PATH: read() loop ===
+  ; SPEED: mov eax,3 (1 ALU µop, 1 cycle) vs push/pop (2 µops, 4-5 cycles)
+  mov eax, 3              ; 5 bytes: SYS_read
   xor ebx, ebx            ; 2 bytes: STDIN=0
   int 0x80                ; 2 bytes
   test eax, eax           ; 2 bytes
   jz flush                ; 2 bytes: EOF reached
+  cmp eax, -4             ; CORRECTNESS: EINTR check restored
+  je read_loop            ; restart immediately on interrupted syscall
   js exit_error           ; 2 bytes: error (includes EINTR=-4, rare but fatal)
   sub edx, eax            ; 2 bytes: remaining bytes
   add ecx, eax            ; 2 bytes: advance buffer pointer
   test edx, edx           ; 2 bytes
   jnz read_loop           ; 2 bytes: partial read, continue
 
-  ; write(memfd, buf, 512)
-  push 4                  ; 2 bytes: SYS_write
-  pop eax                 ; 1 byte
+  ; === HOT PATH: write() block ===
+  ; SPEED: mov eax,4 instead of push/pop
+  mov eax, 4              ; 5 bytes: SYS_write
   mov ebx, edi            ; 2 bytes
   mov ecx, buf            ; 5 bytes
   mov edx, 512            ; 5 bytes
