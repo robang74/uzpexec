@@ -352,26 +352,26 @@ exit; fi # x--do-tests #########################################################
 
 gzelf=${1:-gzelf}
 GZCSUMCK=${GZCSUMCK:-md5sum}
-ORIGNAME=$(basename "${2:-$gzelf}")
-ORIGNAME=$(echo "$ORIGNAME"    | sed -e "s/\.gz$//" -e "s/\.sh$//")
-MD5CKSUM=$($GZCSUMCK  "$gzelf" | head -c16)
+ORIGNAME=$(basename "${2:-$gzelf}" | head -c16)
+ORIGNAME=$(echo "$ORIGNAME"        | sed -e "s/\.gz$//" -e "s/\.sh$//")
+MD5CKSUM=$($GZCSUMCK  "$gzelf"     | head -c16)
 ORIGSIZE=$(stat -Lc%s "$gzelf")
 gzelfle="$ORIGNAME.gz.sh"
 BLKSIZE=${3:-32}
 ZCMPLVL=${4:-9}
 PAYLDSZ=1024
 # md5sum check after gunzip was for debug only, a corrupted archive fails anyway.
-headstr=$(cat <<EOF
+headstr=$(cat <<ZELF
 #!/bin/sh
-# (c) 2026, robang74, MIT l., $RVERSION, git.new/ttRvFBu
+# (c) 2026 robang74 l.MIT $RVERSION git.new/ttRvFBu
 MD5="$MD5CKSUM";BFN="$ORIGNAME";SZE="$((ORIGSIZE>>10))k"
 : \${PATH:=/bin:/usr/bin:/usr/local/bin}
 exec 2>&-
-T="gzc-\${GZCNME:-\$BFN}-\${USER:-\$(id -u)}-\$MD5"
-for d in "\${GZCTMP:-/dev/shm}" /run /tmp "\${HOME:-.}/.cache"
+T="gzc-\${BFN:-}-\${USER:-\$(id -u)}-\$MD5"
+for d in "\${TMPDIR:-/tmp}" /run /dev/shm "\${HOME:-.}/.cache"
 do
 F="\$d/.\$T"
-(umask 077;echo true >"\$F".&&chmod -R 0700 "\$F".&&exec "\$F".)&&break
+(umask 077;echo true>"\$F".&&chmod 700 "\$F".&&exec "\$F".)&&break
 rm -f "\$F".
 F=
 done
@@ -385,13 +385,14 @@ mv -f "\$F". "\$F"&&grep -qe "tmpfs.*\$d" /proc/mounts&&
 trap 'rm -f "\$_fn"' EXIT INT TERM;(exec "\$_fn" "\$@")
 }
 exit
-#123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
-#123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
-#123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
-#123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
-#123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
-#123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
-EOF
+#1_3456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
+#2_3456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
+#3_3456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
+#4_3456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
+#5_3456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
+#6_3456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
+#7_3456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
+ZELF
 )
 ### ////////////////////////////////////////////////////////////////////////////
 
@@ -417,7 +418,7 @@ gzcmd_main_func() {
   zp=${zp:-gzip}
 
   # top-half script is 64-bit chunked in size, always
-  headsze=$(phdr | grep -ve "^#123" | wc -c)
+  headsze=$(phdr | grep -ve "^#[0-9]_" | wc -c)
 
   # create a monotonic enumered temporary file ext.
   atm=$(date +"%N"); wrkfle="$gzelfle.$atm"
