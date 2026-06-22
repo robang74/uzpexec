@@ -1,6 +1,18 @@
 ; ==============================================================================
 ; (C) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
 ; ==============================================================================
+; Compile and test:
+;
+; printf '#include<stdio.h>\nint main() { puts("Hello World!"); return 0; }\n' |
+; cc -Os -s -x c - -o hi && du -b hi && gzip -f hi && du -b hi.gz
+; # 14472 hi
+; #  1707 hi.gz
+; nasm -O2 -f bin loader.asm -o uldr && du -b uldr && chmod a+x uldr
+; #   242 uldr
+; zcat hello.gz | ./uldr; echo $?
+; # Hello World!
+; # 0
+; ==============================================================================
 BITS 32
 
 org 0x08048000
