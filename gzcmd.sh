@@ -6,7 +6,7 @@
 # Hint    : set blocksize as headersize +2 from gzcmd.sh for min.size
 # Host    : [[export] GZCTMP=path GZCMDZ=pigz;] [shell] elf.gz.sh
 # Install : sudo sh -c "[export] GZCTMP=/usr/local/bin; elf.gz.sh"
-  RVERSION="v0.2.0"
+  RVERSION="v0.2.1"
 #
 # Suggestion for minimal size with musl static compilation of a single file.c:
 #
@@ -371,10 +371,10 @@ dbg(){ echo "GZC> \$@">&2;}
 [ \${GZCDBG:-0} -eq 0 ]&&exec 2>&-
 gpm(){ grep -qe "\$1" /proc/mounts;}
 trp(){ trap "\$1" EXIT INT TERM; }
-for d in \${GZCTMP:-/run} /dev/shm /tmp \$(cd /var/run&&pwd -P) \$HOME/.tmp
+for d in \${GZCTMP:-} /run /tmp /dev/shm \${HOME:-.}/.cache
 do [ -w "\$d/" ] &&! gpm " \$d .*noexec"&&break
 done
-_fn="\$d/.gzc-\${GZCNME:-\$BFN}-\$(printf '%.6s' \$MD5)-\$(id -u||echo \$\$)"
+_fn="\$d/.gzc-\${GZCNME:-\$BFN}-\${USER:-\$(id -u)}-\$MD5"
 dbg fn: \$_fn \$PPID \$\$
 {
 $GZCSUMCK "\$_fn"|grep -qe "^\$MD5"||{
