@@ -363,10 +363,9 @@ PAYLDSZ=1024
 # md5sum check after gunzip was for debug only, a corrupted archive fails anyway.
 headstr=$(cat <<EOF
 #!/bin/sh
-# (c) 2026, roberto.foglietta@gmail.com, MIT license, $RVERSION, git.new/ttRvFBu
+# (c) 2026, robang74, MIT l., $RVERSION, git.new/ttRvFBu
 MD5="$MD5CKSUM";BFN="$ORIGNAME";SZE="$((ORIGSIZE>>10))k"
 : \${PATH:=/bin:/usr/bin:/usr/local/bin}
-[ -r "\$0" ]||{ echo "ERR> \$0 \!found";exit 1;}
 exec 2>&-
 T="gzc-\${GZCNME:-\$BFN}-\${USER:-\$(id -u)}-\$MD5"
 for d in "\${GZCTMP:-/dev/shm}" /run /tmp "\${HOME:-.}/.cache"
@@ -376,13 +375,17 @@ F="\$d/.\$T"
 rm -f "\$F".
 F=
 done
-dd if=\$0 skip=2|
-\${GZCMDZ:-\$(command -v pigz gzip gunzip zcat|head -n1)} -dc >"\$F".&&{
+{
+dd if=\$0 skip=2||{
+echo "ERR> \$0 \!read";exit 1
+}
+}|\${GZCMDZ:-\$(command -v pigz gzip gunzip zcat|head -n1)} -dc >"\$F".&&{
 _fn="\$F"
 mv -f "\$F". "\$F"&&grep -qe "tmpfs.*\$d" /proc/mounts&&
 trap 'rm -f "\$_fn"' EXIT INT TERM;(exec "\$_fn" "\$@")
 }
 exit
+#123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #123456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
