@@ -1,5 +1,6 @@
 ; ==============================================================================
 ; (C) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
+;     Coded with the support of Gemini and then Kimi for the size reduction
 ; ==============================================================================
 ;
 ; Usage: zcat elf.gz | upexec [args]
@@ -24,12 +25,12 @@
 ; #   WORLD: beatyful
 ; # 0
 ; ==============================================================================
-BITS 32
 
+BITS 32
 org 0x08048000
 
 ; ==============================================================================
-; ELF32 HEADER (Handwritten to completely eliminate overhead)
+; ELF32 HEADER (Micro-Loader a 32-bit, Teeny ELF)
 ; ==============================================================================
 elf_header:
   db 0x7F, 'ELF', 1, 1, 1, 0  ; e_ident (Magic, Class 32bit, Data LSB, Version)
@@ -173,7 +174,7 @@ filename: db "upexec", 0      ; this is the /proc/self/cmdline executable name
 file_end:                     ; Physical end of the binary file!
 
 ; ==============================================================================
-; UNINITIALIZED BSS SECTION (Exists ONLY in RAM, zero bytes on disk)
+; UNINITIALIZED BSS SECTION (Exists ONLY in RAM)
 ; ==============================================================================
 absolute_address equ $
 buf equ file_end + 4          ; It starts immediately after the EOF
