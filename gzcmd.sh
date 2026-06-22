@@ -367,7 +367,7 @@ headstr=$(cat <<EOF
 MD5="$MD5CKSUM";BFN="$ORIGNAME";SZE="$((ORIGSIZE>>10))k"
 : \${PATH:=/bin:/usr/bin:/usr/local/bin}
 [ -r "\$0" ]||{ echo "ERR> \$0 \!found";exit 1;}
-[ \${GZCDBG:-0} -eq 0 ]&&exec 2>&-
+exec 2>&-
 T="gzc-\${GZCNME:-\$BFN}-\${USER:-\$(id -u)}-\$MD5"
 for d in "\${GZCTMP:-/dev/shm}" /run /tmp "\${HOME:-.}/.cache"
 do
@@ -378,7 +378,6 @@ F=
 done
 dd if=\$0 skip=2|
 \${GZCMDZ:-\$(command -v pigz gzip gunzip zcat|head -n1)} -dc >"\$F".&&{
-echo fn: \$_fn \$PPID \$\$>&2
 _fn="\$F"
 mv -f "\$F". "\$F"&&grep -qe "tmpfs.*\$d" /proc/mounts&&
 trap 'rm -f "\$_fn"' EXIT INT TERM;(exec "\$_fn" "\$@")
