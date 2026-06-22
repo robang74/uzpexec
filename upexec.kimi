@@ -1,0 +1,120 @@
+;
+; (C) 2026, Roberto A. Foglietta, MIT license
+; upexec.asm: 270 -> 233 bytes shrunk by Kimi
+;
+BITS 32
+org 0x08048000
+
+; ELF32 Header - 52 bytes
+elf_header:
+  db 0x7F, 'ELF', 1, 1, 1, 0
+  times 8 db 0
+  dw 2
+  dw 3
+  dd 1
+  dd code_start
+  dd phdr - elf_header
+  dd 0
+  dd 0
+  dw 52
+  dw 32
+  dw 1
+  dw 0, 0, 0              ; 6 ignored bytes when e_shoff=0
+
+; Program Header - 32 bytes
+phdr:
+  dd 1
+  dd 0
+  dd 0x08048000
+  dd 0x08048000
+  dd file_end - elf_header
+  dd bss_end - elf_header
+  dd 7
+  dd 0x1000
+
+code_start:
+  ; Stack: [argc] [argv[0]] ... [argv[N]] [NULL] [envp...]
+  pop eax                 ; 1 byte: argc (was [esp])
+  mov esi, esp            ; 2 bytes: ESI = argv
+  lea ebp, [esi+eax*4+4]  ; 4 bytes: EBP = envp (callee-saved!)
+
+  ; memfd_create("upexec", MFD_CLOEXEC)
+  mov eax, 356            ; 5 bytes: SYS_memfd_create
+  mov ebx, filename       ; 5 bytes: "upexec"
+  push 1                  ; 2 bytes: MFD_CLOEXEC
+  pop ecx                 ; 1 byte
+  int 0x80                ; 2 bytes
+  test eax, eax           ; 2 bytes
+  js exit_error           ; 2 bytes
+  mov edi, eax            ; 2 bytes: EDI = memfd (callee-saved!)
+
+read_setup:
+  mov edx, 512            ; 5 bytes: bytes to read
+  mov ecx, buf            ; 5 bytes: buffer pointer
+
+read_loop:
+  ; read(STDIN, buf, 512)
+  push 3                  ; 2 bytes: SYS_read
+  pop eax                 ; 1 byte
+  xor ebx, ebx            ; 2 bytes: STDIN=0
+  int 0x80                ; 2 bytes
+  test eax, eax           ; 2 bytes
+  jz flush                ; 2 bytes: EOF reached
+  js exit_error           ; 2 bytes: error (includes EINTR=-4, rare but fatal)
+  sub edx, eax            ; 2 bytes: remaining bytes
+  add ecx, eax            ; 2 bytes: advance buffer pointer
+  test edx, edx           ; 2 bytes
+  jnz read_loop           ; 2 bytes: partial read, continue
+
+  ; write(memfd, buf, 512)
+  push 4                  ; 2 bytes: SYS_write
+  pop eax                 ; 1 byte
+  mov ebx, edi            ; 2 bytes
+  mov ecx, buf            ; 5 bytes
+  mov edx, 512            ; 5 bytes
+  int 0x80                ; 2 bytes
+  js exit_error           ; 2 bytes
+  jmp read_setup          ; 2 bytes
+
+flush:
+  ; Write partial block: size = 512 - remaining
+  mov eax, 512            ; 5 bytes
+  sub eax, edx            ; 2 bytes: EAX = bytes accumulated
+  jz execute              ; 2 bytes: nothing to flush
+  mov edx, eax            ; 2 bytes: EDX = size for write
+  push 4                  ; 2 bytes
+  pop eax                 ; 1 byte
+  mov ebx, edi            ; 2 bytes
+  mov ecx, buf            ; 5 bytes
+  int 0x80                ; 2 bytes
+  js exit_error           ; 2 bytes
+
+execute:
+  ; Overwrite argv[0] with "upexec"
+  mov eax, filename       ; 5 bytes
+  mov [esi], eax          ; 2 bytes
+
+  ; execveat(memfd, "", argv, envp, AT_EMPTY_PATH)
+  mov eax, 358            ; 5 bytes: SYS_execveat
+  mov ebx, edi            ; 2 bytes: memfd
+  push 0                  ; 2 bytes: empty path ""
+  mov ecx, esp            ; 2 bytes: ECX = ""
+  mov edx, esi            ; 2 bytes: argv
+  mov esi, ebp            ; 2 bytes: envp (from EBP!)
+  mov edi, 0x1000         ; 5 bytes: AT_EMPTY_PATH
+  int 0x80                ; 2 bytes
+
+exit_error:
+  push 1                  ; 2 bytes
+  pop eax                 ; 1 byte: SYS_exit
+  push 1                  ; 2 bytes
+  pop ebx                 ; 1 byte: exit code 1
+  int 0x80                ; 2 bytes
+
+filename:
+  db "upexec", 0          ; 7 bytes
+file_end:
+
+; BSS section (zero bytes on disk)
+buf equ file_end + 4
+bss_end equ buf + 512
