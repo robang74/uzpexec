@@ -371,7 +371,7 @@ dbg(){ echo "GZC> \$@">&2;}
 [ \${GZCDBG:-0} -eq 0 ]&&exec 2>&-
 gpm(){ grep -qe "\$1" /proc/mounts;}
 trp(){ trap "\$1" EXIT INT TERM; }
-for d in \${GZCTMP:-} /run /tmp /dev/shm \${HOME:-.}/.cache
+for d in "\${GZCTMP:-/dev/shm}" /run /tmp "\${HOME:-.}/.cache"
 do [ -w "\$d/" ] &&! gpm " \$d .*noexec"&&break
 done
 _fn="\$d/.gzc-\${GZCNME:-\$BFN}-\${USER:-\$(id -u)}-\$MD5"
