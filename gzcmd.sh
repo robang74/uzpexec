@@ -364,7 +364,7 @@ PAYLDSZ=1024
 # md5sum check after gunzip was for debug only, a corrupted archive fails anyway.
 headstr=$(cat <<ZELF
 #!/bin/sh
-# (c) 2026 robang74 l.MIT $RVERSION git.new/ttRvFBu
+# (C) 2026 robang74 l.MIT $RVERSION git.new/ttRvFBu
 BFN="$BFN";SZE="$((ORIGSIZE>>10))k"
 : \${PATH:=/bin:/usr/bin:/usr/local/bin}
 exec 2>&-
@@ -372,7 +372,7 @@ T="gzc-\${BFN:-}-\${USER:-\$(id -u)}"
 for d in "\${TMPDIR:-/tmp}" /run /dev/shm "\${HOME:-.}/.cache"
 do
 F="\$d/.\$T"
-(umask 077;echo true>"\$F".&&chmod 700 "\$F".&&exec "\$F".)&&break
+(umask 077;echo>"\$F".&&chmod 700 "\$F".&&exec "\$F".)&&break
 rm -f "\$F".
 F=
 done
@@ -380,7 +380,7 @@ done
 dd if=\$0 skip=2||{
 echo "ERR> \$0 \!read";exit 1
 }
-}|\${GZCMDZ:-\$(command -v pigz gzip gunzip zcat|head -n1)} -dc >"\$F".&&{
+}|\$(command -v pigz gzip gunzip zcat|head -n1) -dc >"\$F".&&{
 grep -qe "tmpfs.*\$d" /proc/mounts&&trap 'rm -f "\$F"' EXIT INT TERM
 mv -f "\$F". "\$F"&&(F=;exec "\$d/.\$T" "\$@")
 }
