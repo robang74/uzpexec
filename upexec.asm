@@ -65,9 +65,9 @@ phdr:
 code_start:
   ; Save original argv and calculate envp from the initial stack layout
   ; Stack: [argc] [argv[0]] ... [argv[N]] [NULL] [envp...]
-  pop eax                 ; argc (was [esp])
-  mov esi, esp            ; ESI = argv
-  lea ebp, [esi+eax*4+4]  ; EBP = envp (callee-saved!)
+  pop eax                     ; argc (was [esp])
+  mov esi, esp                ; ESI = argv
+  lea ebp, [esi+eax*4+4]      ; EBP = envp (callee-saved!)
 
   ; mfd = memfd_create("upexec", MFD_CLOEXEC)
   mov eax, 356                ; SYS_memfd_create
@@ -80,7 +80,7 @@ code_start:
   js exit_error               ; < 0: error
   mov edi, eax                ; Save EDI = memfd
 
-read_block_setup:
+read_setup:
   ; Prepare registers to accumulate an atomic 512-byte block
   mov ecx, buf                ; Current pointer inside the buffer
   mov edx, 512                ; Bytes remaining to be read for this block
@@ -117,7 +117,7 @@ read_loop:
   int 0x80
   js exit_error
 
-  jmp read_block_setup        ; Reset and proceed to the next 512-byte block
+  jmp read_setup              ; Reset and proceed to the next 512-byte block
 
 flush:
   ; If the pipe ends but we had accumulated a partial block in RAM,
@@ -150,10 +150,14 @@ execute:
   int 0x80                    ; Invoke Linux kernel to replace process
 
 exit_error:
+; mov eax, 19                 ; SYS_lseek
+; mov ebx, edi                ; Our memfd
+; xor ecx, ecx                ; Offset = 0
+; mov edx, 1                  ; SEEK_CUR
+; int 0x80
+  ; as long as every jump here has eax != 0 we can save to set it
   push 1                      ; SYS_exit
   pop eax
-  push 1                      ; Exit code 1
-  pop ebx
   int 0x80
 
 ; ==============================================================================
