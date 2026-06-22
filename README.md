@@ -35,15 +35,21 @@ dd skip=2 if=${filename.gz.sh} | zcat - >${filename}
 
 The payload is specific for every converted file but potentially can be generalised removing the following line:
 
-- `MD5="$MD5CKSUM";BFN="$ORIGNAME";SZE="$((ORIGSIZE>>10))k"` to remove
+```sh
+MD5="$MD5CKSUM";BFN="$ORIGNAME";SZE="$((ORIGSIZE>>10))k"    # to remove
+```
 
 and for a more shorter version replacing the following line with a graph `{` parentesys:
 
-- `$GZCSUMCK "\$_fn"|grep -qe "^\$MD5"||{` to replace with `{`
+```sh
+$GZCSUMCK "\$_fn"|grep -qe "^\$MD5"||{    # to replace with {
+```
 
 It will be shorter and faster to execute but every time it will extract the ELF, therefore losing the install:
 
-- `GZCTMP=~/bin ./$filename.gz.sh` --> install in ~/bin
+```sh
+GZCTMP=~/bin ./$filename.gz.sh    # to install in ~/bin
+```
 
 The three padding lines provide `20 x 80 = 240` bytes to reach the 1024 fix size, shortening more the payload, requires adding more padding lines, unless the size drops below 512 bytes and in that case `bs skip=1` would be enough.
 
