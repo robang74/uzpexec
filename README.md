@@ -48,3 +48,37 @@ It will be shorter and faster to execute but every time it will extract the ELF,
 The three padding lines provide `20 x 80 = 240` bytes to reach the 1024 fix size, shortening more the payload, requires adding more padding lines, unless the size drops below 512 bytes and in that case `bs skip=1` would be enough.
 
 On a fully controlled system the payload can be as shorter as the code used for extracting the gzipped load.
+
+<br>
+
+# upexec
+
+```sh
+Usage: zcat elf.gz | upexec [args]
+```
+
+### Rationale upexec (micro pipe exec)
+
+Utility for executing an ELF binary directly from stdin pipe:
+
+- it runs binary via SSH/wget
+- it runs compressed binary
+
+without write it on the remote/local systems (memfd_create).
+
+```sh
+# Compile and test (simple example)
+
+cc -Os -s hello.c -o hi && du -b hi && gzip -f hi && du -b hi.gz
+# 14472 hi
+#  1868 hi.gz
+
+nasm -O2 -f bin upexec.asm -o upexec && du -b upexec && chmod a+x upexec
+#   270 upexec
+
+export WORLD=beatyful; zcat hi.gz | ./upexec $WORLD; echo $?
+# Hello beatyful World!
+#   HOME:  /home/roberto
+#   WORLD: beatyful
+# 0
+```
