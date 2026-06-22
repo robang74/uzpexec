@@ -26,7 +26,7 @@ phdr:
     dd 0x08048000               ; p_vaddr (Indirizzo virtuale in memoria)
     dd 0x08048000               ; p_paddr
     dd file_end - elf_header    ; p_filesz (Dimensione del codice nel file)
-    dd file_end - elf_header    ; p_memsz (Dimensione del codice in memoria)
+    dd bss_end - elf_header     ; p_memsz (Dimensione del codice in memoria)
     dd 7                        ; p_flags (R+W+X - Lettura, Scrittura ed Esecuzione)
     dd 0x1000                   ; p_align (Allineamento standard di pagina)
 
@@ -71,7 +71,7 @@ execute_now:
     push 0                      ; Terminatore NULL per envp
     push 0                      ; Terminatore NULL per argv
     mov eax, filename
-    push eax                    ; argv[0] = "u"
+    push eax                    ; argv[0] = filename
     mov ecx, esp                ; ECX punta alla struttura [filename, NULL]
     xor edx, edx                ; envp = NULL
 
@@ -94,7 +94,7 @@ exit_error:
 ; ==============================================================================
 ; SEZIONE DATI COMPATTA (In coda al codice)
 ; ==============================================================================
-filename:     db "u", 0
+filename:     db "uldr", 0
 voidpath:     db 0
 
 file_end:                       ; Fine fisica del file binario!
