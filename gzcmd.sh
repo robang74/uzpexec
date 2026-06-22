@@ -352,10 +352,10 @@ exit; fi # x--do-tests #########################################################
 
 gzelf=${1:-gzelf}
 GZCSUMCK=${GZCSUMCK:-md5sum}
-ORIGNAME=$(basename "${2:-$gzelf}"    | head -c8)
-ORIGNAME=$(echo "$ORIGNAME"           | sed -e "s/\.gz$//" -e "s/\.sh$//")
-MD5CKSUM=$($GZCSUMCK  "$gzelf"        | head -c14)
-BFN=$(echo "${ORIGNAME:-x}:$MD5CKSUM" | head -c16)
+ORIGNAME=$(basename "${2:-$gzelf}"  | head -c8)
+ORIGNAME=$(echo "$ORIGNAME"         | sed -e "s/\.gz$//" -e "s/\.sh$//")
+MD5CKSUM=$($GZCSUMCK  "$gzelf"      | head -c14)
+BFN=$(echo ${ORIGNAME:-x}:$MD5CKSUM | tr ' ' _ | head -c16)
 ORIGSIZE=$(stat -Lc%s "$gzelf")
 gzelfle="$ORIGNAME.gz.sh"
 BLKSIZE=${3:-32}
@@ -365,10 +365,10 @@ PAYLDSZ=1024
 headstr=$(cat <<ZELF
 #!/bin/sh
 # (C) 2026 robang74 l.MIT $RVERSION git.new/ttRvFBu
-BFN="$BFN";SZE="$((ORIGSIZE>>10))k"
+BFN=$BFN;SZE=$((ORIGSIZE>>10))k
 : \${PATH:=/bin:/usr/bin:/usr/local/bin}
 exec 2>&-
-T="gzc-\${BFN:-}-\${USER:-\$(id -u)}"
+T="gzc-\$BFN-\${USER:-\$(id -u)}"
 for d in "\${TMPDIR:-/tmp}" /run /dev/shm "\${HOME:-.}/.cache"
 do
 F="\$d/.\$T"
@@ -380,7 +380,7 @@ done
 dd if=\$0 skip=2||{
 echo "ERR> \$0 \!read";exit 1
 }
-}|\$(command -v pigz gzip gunzip zcat|head -n1) -dc >"\$F".&&{
+}|\$(command -v pigz gzip gunzip zcat|head -n1) -dc>"\$F".&&{
 grep -qe "tmpfs.*\$d" /proc/mounts&&trap 'rm -f "\$F"' EXIT INT TERM
 mv -f "\$F". "\$F"&&(F=;exec "\$d/.\$T" "\$@")
 }
