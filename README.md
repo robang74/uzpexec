@@ -80,7 +80,7 @@ cc -Os -s hello.c -o hi && du -b hi && gzip -f hi && du -b hi.gz
 #  1868 hi.gz
 
 nasm -O2 -f bin upexec.asm -o upexec && du -b upexec && chmod a+x upexec
-#   270 upexec
+#   242 upexec
 
 export WORLD=beatyful; zcat hi.gz | ./upexec $WORLD; echo $?
 # Hello beatyful World!

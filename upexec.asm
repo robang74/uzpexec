@@ -18,7 +18,7 @@
 ; # 14472 hi
 ; #  1868 hi.gz
 ; nasm -O2 -f bin upexec.asm -o upexec && du -b upexec && chmod a+x upexec
-; #   270 upexec
+; #   242 upexec
 ; export WORLD=beatyful; zcat hi.gz | ./upexec $WORLD; echo $?
 ; # Hello beatyful World!
 ; #   HOME:  /home/roberto
@@ -139,28 +139,14 @@ execute:
   mov eax, filename           ; Load address of "upexec"
   mov [esi], eax              ; Overwrite original argv[0]
 
-  ; Find envp dynamically by scanning argv until the NULL terminator.
-  ; Using a safe copy in ECX to avoid clobbering ESI prematurely.
-  mov ecx, esi                ; ECX = copy of argv pointer
-
-find_envp_loop:
-  mov eax, [ecx]              ; Load current argv element
-  add ecx, 4                  ; Move to next argv slot
-  test eax, eax               ; Check if it is the NULL terminator
-  jnz find_envp_loop          ; If not NULL, keep scanning
-  ; ECX now points exactly to the start of the original envp[] array
-
-  ; Prepare registers for the execveat(ebx, ecx, edx, esi, edi) syscall
-  mov edx, esi                ; EDX = pointer to updated argv[]
-  mov esi, ecx                ; ESI = pointer to original envp[]
-  mov ebx, edi                ; EBX = anonymous memfd descriptor
-
-  ; Setup of the void string for AT_EMPTY_PATH using the zero on the stack
-  push 0                      ; Push NULL terminator for the empty path string
-  mov ecx, esp                ; ECX = pointer to empty path ""
-
-  mov edi, 0x1000             ; EDI = AT_EMPTY_PATH flag
+  ; execveat(memfd, "", argv, envp, AT_EMPTY_PATH)
   mov eax, 358                ; SYS_execveat syscall number
+  mov ebx, edi                ; EBX = anonymous memfd descriptor
+  push 0                      ; set the empty path "" in stack
+  mov ecx, esp                ; ECX = pointer to empty path ""
+  mov edx, esi                ; ESI = pointer to original envp[]
+  mov esi, ebp                ;       envp from EBP!
+  mov edi, 0x1000             ; EDI = AT_EMPTY_PATH flag
   int 0x80                    ; Invoke Linux kernel to replace process
 
 exit_error:
