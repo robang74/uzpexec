@@ -25,8 +25,8 @@ phdr:
     dd 0                        ; p_offset
     dd 0x08048000               ; p_vaddr (Indirizzo virtuale in memoria)
     dd 0x08048000               ; p_paddr
-    dd _end - elf_header        ; p_filesz (Dimensione del codice nel file)
-    dd _end - elf_header        ; p_memsz (Dimensione del codice in memoria)
+    dd file_end - elf_header    ; p_filesz (Dimensione del codice nel file)
+    dd file_end - elf_header    ; p_memsz (Dimensione del codice in memoria)
     dd 7                        ; p_flags (R+W+X - Lettura, Scrittura ed Esecuzione)
     dd 0x1000                   ; p_align (Allineamento standard di pagina)
 
@@ -34,30 +34,52 @@ phdr:
 ; IL CODICE DEL LOADER (Inizio esecuzione)
 ; ==============================================================================
 code_start:
-
     ; 1. mfd = memfd_create("u", MFD_CLOEXEC)
     ; Nota: A 32-bit il numero della syscall memfd_create è 356
     mov eax, 356                ; SYS_memfd_create
     mov ebx, filename           ; Puntatore al nome del file anonimo (es: "u")
     mov ecx, 1                  ; MFD_CLOEXEC (Evita leak del FD a processi figli non voluti)
     int 0x80                    ; Chiamata al kernel Linux (A 32-bit si usa int 0x80)
-    
     test eax, eax
     js exit_error               ; Se il valore è negativo, c'è un errore (es: kernel troppo vecchio)
     mov edi, eax                ; Salva il File Descriptor ritornato in EDI per dopo
 
-    ; 2. write(mfd, payload_start, payload_size)
-    mov eax, 4                  ; SYS_write
-    mov ebx, edi                ; Il nostro memfd
-    mov ecx, payload_start      ; Puntatore all'inizio del payload gzip/binario allegato sotto
-    mov edx, payload_end - payload_start ; Lunghezza esatta del payload
+read_loop:
+    ; 2. read(0, buffer, 512) legge da STDIN a blocchi da 512 byte (stile dd)
+    mov eax, 3                  ; SYS_read
+    mov ebx, 0                  ; STDIN (FD 0)
+    mov ecx, buffer             ; Puntatore all'area BSS (in RAM, non su disco)
+    mov edx, 512                ; Blocchi da 512 byte definiti da te
     int 0x80
 
-    ; 3. execveat(mfd, "", argv, envp, AT_EMPTY_PATH)
+    test eax, eax
+    jz execute_now              ; Se ritorna 0, End-Of-File (pipe terminata). Esegui.
+    js exit_error               ; Se negativo, errore di lettura. Exit.
+    mov esi, eax                ; ESI = byte effettivamente letti
+
+    ; 3. write(mfd, buffer, byte_letti)
+    mov eax, 4                  ; SYS_write
+    mov ebx, edi                ; Il nostro memfd
+    mov ecx, buffer
+    mov edx, esi                ; Scrive esattamente il numero di byte letti
+    int 0x80
+    jmp read_loop               ; Continua il ciclo
+
+execute_now:
+    ; 4. Setup minimo di sicurezza dello stack per argv
+    ; Evita il rifiuto ENOEXEC del kernel iniettando un finto argv[0]
+    push 0                      ; Terminatore NULL per envp
+    push 0                      ; Terminatore NULL per argv
+    mov eax, filename
+    push eax                    ; argv[0] = "u"
+    mov ecx, esp                ; ECX punta alla struttura [filename, NULL]
+    xor edx, edx                ; envp = NULL
+
+    ; 5. execveat(mfd, "", argv, envp, AT_EMPTY_PATH)
     ; Questa syscall (numero 358 a 32-bit) permette di eseguire direttamente un FD
     mov eax, 358                ; SYS_execveat
     mov ebx, edi                ; Il nostro memfd
-    mov ecx, empty_string       ; Path vuoto "", perché usiamo AT_EMPTY_PATH
+    mov ecx, voidpath           ; Path vuoto "", perché usiamo AT_EMPTY_PATH
     ; Per brevità in questo schema passiamo argv e envp ereditati o nulli
     xor edx, edx                ; argv = NULL (o puntatore valido se vuoi inoltrare gli argomenti)
     xor esi, esi                ; envp = NULL
@@ -73,14 +95,14 @@ exit_error:
 ; SEZIONE DATI COMPATTA (In coda al codice)
 ; ==============================================================================
 filename:     db "u", 0
-empty_string: db 0
+voidpath:     db 0
+
+file_end:                       ; Fine fisica del file binario!
 
 ; ==============================================================================
-; PAYLOAD ALLEGATO (Il tuo binario umkaos32 scompattato o la pipe)
+; SEZIONE BSS NON INIZIALIZZATA (Esiste SOLO in RAM, zero byte su disco)
 ; ==============================================================================
-payload_start:
-    ; Qui il tuo script di build (o dd) concatenerà fisicamente i byte 
-    ; del binario pronto da eseguire.
-payload_end:
+absolute_address equ $
+buffer equ absolute_address + 4 ; Il buffer inizia subito dopo la fine del file
 
-_end:
+bss_end equ buffer + 512         ; Riserva 512 byte per il buffer in RAM
