@@ -34,8 +34,8 @@ phdr:
   dd 0
   dd 0x08048000
   dd 0x08048000
-  dd file_end - elf_header      ; p_filesz = 1024 (on disk)
-  dd bss_end - elf_header       ; p_memsz = 1024 + BSS (in RAM)
+  dd file_end - elf_header
+  dd bss_end - elf_header
   dd 7
   dd 0x1000
 
@@ -84,7 +84,7 @@ code_start:
   int 0x80
   test eax, eax
   js exit_error
-  jz .decompress      ; EOF before payload = empty, proceed (will fail later)
+  jz .decompress
   sub edx, eax
   jnz .discard
 
@@ -97,7 +97,7 @@ code_start:
   ; ==============================================================================
 .do_exec:
   mov eax, [saved_argv]
-  mov [eax], ebx      ; argv[0] = pkgname (EBX still points to pkgname from memfd_create)
+  mov [eax], ebx
   mov eax, 358
   mov ebx, [memfd]
   push 0
@@ -107,9 +107,6 @@ code_start:
   mov edi, 0x1000
   int 0x80
 
-; ==============================================================================
-; ERROR / EXIT
-; ==============================================================================
 exit_error:
   push 1
   pop eax
@@ -202,17 +199,16 @@ get_byte:
   jmp exit_error
 
 get_bit:
-  push eax
-  mov al, [nbits]
-  test al, al
+  test byte [nbits], 0xFF
   jnz .has
   call get_byte
-  mov [bit_buf], al           ; <--- Cambiato da [bits] a [bit_buf]
+  mov [bit_buf], al
   mov byte [nbits], 8
 .has:
-  shr byte [bit_buf], 1       ; <--- Cambiato da [bits] a [bit_buf]
+  mov al, [bit_buf]
+  shr al, 1
+  mov [bit_buf], al
   dec byte [nbits]
-  pop eax
   ret
 
 get_n_bits:
@@ -241,9 +237,9 @@ deflate_loop:
   jz stored_block
   dec al
   jz fixed_block
-  jmp exit_error        ; BTYPE=2 (dynamic) or 3 (reserved) not supported yet
+  jmp exit_error
 
-.check_final:
+check_final:
   test byte [bfinal], 1
   jz deflate_loop
   ret
@@ -254,10 +250,9 @@ deflate_loop:
 stored_block:
   mov byte [nbits], 0
   call get_byte
-  movzx ecx, al
+  mov cl, al
   call get_byte
-  shl ecx, 8
-  or cl, al
+  mov ch, al
   call get_byte
   call get_byte
 .copy_stored:
@@ -271,8 +266,9 @@ stored_block:
   mov edx, 1
   int 0x80
   pop ecx
-  loop .copy_stored
-  jmp .check_final
+  dec cx
+  jnz .copy_stored
+  jmp check_final
 
 ; ------------------------------------------------------------------------------
 ; FIXED HUFFMAN BLOCK (BTYPE=01)
@@ -307,7 +303,7 @@ fixed_block:
   popa
   jmp fixed_block
 .end_block:
-  jmp .check_final
+  jmp check_final
 
 ; ------------------------------------------------------------------------------
 ; FIXED HUFFMAN SYMBOL DECODER
@@ -479,20 +475,18 @@ file_end:
 times (1024 - ($ - $$)) db 0
 
 ; ==============================================================================
-; BSS (RAM only — these are absolute addresses, not in the file)
-; Must be AFTER file_end so they don't consume file bytes
+; BSS (RAM only — absolute addresses, not in the file)
 ; ==============================================================================
-bss_start equ $$ + 1024          ; or simply: bss_start equ file_end
+bss_start equ $$ + 1024
 
-bit_buf:    equ bss_start + 0    ; <--- Cambiato da bits: a bit_buf:
-nbits:      equ bit_buf + 4      ; <--- Cambiato da bits + 4 a bit_buf + 4
-in_ptr:     equ nbits + 1        ; resb 1
-in_end:     equ in_ptr + 4       ; resd 1
-memfd:      equ in_end + 4       ; resd 1
-flags:      equ memfd + 4        ; resb 1
-bfinal:     equ flags + 1        ; resb 1
-saved_argv: equ bfinal + 1       ; resd 1
-saved_envp: equ saved_argv + 4   ; resd 1
-buf:        equ saved_envp + 4   ; resb 1024
+bit_buf:    equ bss_start + 0
+nbits:      equ bit_buf + 4
+in_ptr:     equ nbits + 1
+in_end:     equ in_ptr + 4
+memfd:      equ in_end + 4
+flags:      equ memfd + 4
+bfinal:     equ flags + 1
+saved_argv: equ bfinal + 1
+saved_envp: equ saved_argv + 4
+buf:        equ saved_envp + 4
 bss_end:    equ buf + 1024
-
