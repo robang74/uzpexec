@@ -1,9 +1,9 @@
 ; ==============================================================================
-; upkg.asm - Micro pipe executor with gzip self-extraction (Phase 1: 1024 bytes)
+; upkg.asm - Micro pipe executor with gzip self-extraction (Phase 1: 1536 bytes)
 ; (C) 2026, based on upexec by Roberto A. Foglietta, MIT license
 ; ==============================================================================
-; Architecture: First-Read Discard (1024 bytes). The binary MUST be padded
-; to exactly 1024 bytes. The gzip payload is appended starting at byte 1024.
+; Architecture: First-Read Discard (1536 bytes). The binary MUST be padded
+; to exactly 1536 bytes. The gzip payload is appended starting at byte 1536.
 ; Compatible with: gzip -1 (fixed Huffman), stored blocks, pigz --fixed
 ; NOT yet compatible with: gzip -9 dynamic Huffman (BTYPE=10)
 ; ==============================================================================
@@ -179,7 +179,7 @@ get_byte:
   mov eax, 3
   mov ebx, edi
   mov ecx, buf
-  mov edx, 1024
+  mov edx, 1536               ; <--- Cambiato da 1024 a 1536
   int 0x80
   test eax, eax
   js exit_error
@@ -484,16 +484,16 @@ times (1536 - ($ - $$)) db 0   ; <--- Cambiato da 1024 a 1536
 ; ==============================================================================
 ; BSS (RAM only — absolute addresses, not in the file)
 ; ==============================================================================
-bss_start equ $$ + 1536        ; <--- Cambiato da 1024 a 1536
+bss_start equ $$ + 1536
 
 bit_buf:    equ bss_start + 0
 nbits:      equ bit_buf + 4
-in_ptr:     equ nbits + 1
+in_ptr:     equ nbits + 4        ; Se è 1 byte, 4 byte mantiene l'allineamento
 in_end:     equ in_ptr + 4
 memfd:      equ in_end + 4
-flags:      equ memfd + 4
+buf:        equ memfd + 4        ; Il buffer RAM inizia qui
+flags:      equ buf + 4
 bfinal:     equ flags + 1
 saved_argv: equ bfinal + 1
 saved_envp: equ saved_argv + 4
-buf:        equ saved_envp + 4
-bss_end:    equ buf + 1024
+bss_end:    equ saved_envp + 1536
