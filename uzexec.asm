@@ -78,26 +78,63 @@ code_start:
   mov esi, esp                  ; argv
   lea ebp, [esi+eax*4+4]        ; envp
 
-  ; 1. Open input (itself or stdin)
+  ; 1. Controllo di argv[0]
   mov ebx, [esi]
   test ebx, ebx
   jz .stdin
   cmp byte [ebx], 0
   jz .stdin
+
+  ; ------------ Trova la fine del percorso (basename) in argv[0] --------------
+  mov edx, ebx                  ; edx scorrerà la stringa argv[0]
+.find_basename_end:
+  mov al, [edx]
+  test al, al
+  jz .check_basename            ; Fine della stringa, andiamo al confronto
+  inc edx
+  jmp .find_basename_end
+
+.check_basename:
+  ; Ora torniamo indietro per trovare l'ultimo '/' o l'inizio di argv[0]
+.backtrack:
+  cmp edx, ebx                  ; Siamo tornati all'inizio di argv[0]?
+  je .do_strcmp                 ; Sì, confronta da qui
+  dec edx
+  cmp byte [edx], '/'           ; Abbiamo trovato un separatore di percorso?
+  jne .backtrack
+  inc edx                       ; Salta il '/' per puntare al nome del file
+
+.do_strcmp:
+  ; edx ora punta esattamente all'inizio del "basename" (es. "uzexec\0")
+  mov ecx, filename
+.strcmp_loop:
+  mov al, [edx]
+  mov ah, [ecx]
+  cmp al, ah
+  jne .not_uzexec               ; Se differisce, ha un payload embedded -> apri file
+  test al, al                   ; Siamo arrivati allo '\0'?
+  jz .is_uzexec_standalone      ; Corrispondenza esatta!
+  inc edx
+  inc ecx
+  jmp .strcmp_loop
+  ; ----------------------------------------------------------------------------
+
+.not_uzexec:
+  ; Se non è "uzexec", proviamo ad aprire il file (modalità embedded payload)
   xor ecx, ecx                  ; O_RDONLY
   push 5                        ; SYS_open
   pop eax
   int 0x80
   test eax, eax
   js exit_error
-  mov edi, eax                  ; EDI = input fd
+  mov edi, eax                  ; EDI = input fd (file aperto)
   jmp .memfd
 
 .stdin:
   xor edi, edi                  ; EDI = stdin (0)
 
-  ; 2. Create memfd
 .memfd:
+  ; 2. Create memfd
   mov eax, 356                  ; SYS_memfd_create
   mov ebx, filename
   push 1                        ; MFD_CLOEXEC
@@ -105,9 +142,9 @@ code_start:
   int 0x80
   test eax, eax
   js exit_error
-  mov [memfd_saved], eax        ; Save the memfd into the BSS
+  mov [memfd_saved], eax        ; Salva il memfd nel BSS
 
-  ; 3. Skip the initial 512-byte block directly from descriptor EDI
+  ; 3. Salta il blocco iniziale di 512 byte (solo per file con payload)
   mov ecx, buf
   mov edx, 512
 .skip_loop:
@@ -117,16 +154,32 @@ code_start:
   int 0x80
   test eax, eax
   js exit_error
-  jz exit_error                 ; Premature EOF if the file is smaller than 512 bytes
+  jz exit_error                 ; EOF prematuro se il file è più piccolo di 512 byte
   sub edx, eax
   jnz .skip_loop
+  jmp .fork_now
 
-  ; 4. Fork (Without having created any pipes!)
+.is_uzexec_standalone:
+  xor edi, edi                  ; EDI = stdin (0)
+
+  ; Crea direttamente il memfd senza passare dal ciclo skip_loop
+  mov eax, 356                  ; SYS_memfd_create
+  mov ebx, filename
+  push 1                        ; MFD_CLOEXEC
+  pop ecx
+  int 0x80
+  test eax, eax
+  js exit_error
+  mov [memfd_saved], eax
+  ; Flusso lineare: cade naturalmente dentro .fork_now senza salti cross-scope
+
+.fork_now:
+  ; 4. Fork (Senza allocare pipe!)
   push 2                        ; SYS_fork
   pop eax
   int 0x80
   test eax, eax
-  jz child                      ; If EAX == 0, go to child process
+  jz child                      ; Se EAX == 0, vai al processo figlio
 
   ; ============================================================================
   ; PARENT PROCESS
