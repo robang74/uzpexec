@@ -116,7 +116,7 @@ read_loop:
 
   ; Scrittura del blocco completo nel memfd
   mov eax, 4                  ; SYS_write
-  mov ebx, [esp]              ; Recupera il memfd dallo stack senza fare pop
+  mov ebx, [esp]              ; memfd from stack
   mov ecx, buf
   mov edx, 512
   int 0x80
