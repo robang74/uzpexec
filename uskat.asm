@@ -1,6 +1,6 @@
 ; ==============================================================================
-; upkg_step1.asm - Step 1: Cat with 1536-byte skip
-; Legge da argv[0] o stdin, scarta i primi 1536 byte, scrive il resto su stdout
+; upkg_step1.asm - Step 1: Cat with 512-byte skip
+; Legge da argv[0] o stdin, scarta i primi 512 byte, scrive il resto su stdout
 ; ==============================================================================
 
 BITS 32
@@ -58,10 +58,10 @@ code_start:
 .stdin:
   xor edi, edi                ; EDI = stdin
 
-  ; Discard first 1536 bytes
+  ; Discard first 512 bytes
 .discard:
   mov ecx, buf
-  mov edx, 1536
+  mov edx, 512
 .discard_loop:
   mov eax, 3                  ; SYS_read
   mov ebx, edi
@@ -77,7 +77,7 @@ code_start:
   mov eax, 3                  ; SYS_read
   mov ebx, edi
   mov ecx, buf
-  mov edx, 1536
+  mov edx, 512
   int 0x80
   test eax, eax
   js exit_error
@@ -98,15 +98,16 @@ exit_error:
   int 0x80
 
 ; ==============================================================================
-; FILE PADDING: forza esattamente 1536 byte su disco
+; FILE PADDING: forza esattamente 512 byte su disco
 ; ==============================================================================
+filename: db "uskat", 0       ; this is the /proc/self/cmdline executable name
 file_end:
-times (1536 - ($ - $$)) db 0   ;
+times (512 - ($ - $$)) db 0   ;
 
 ; ==============================================================================
 ; BSS (RAM only)
 ; ==============================================================================
-bss_start equ $$ + 1536
+bss_start equ $$ + 512
 buf:        equ bss_start + 0
-bss_end:    equ buf + 1536
+bss_end:    equ buf + 512
 
