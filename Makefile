@@ -49,4 +49,6 @@ tests: blkln $(TARGETS)
 	@echo === testing upexec ===
 	@echo
 	export WORLD=beatiful; $(ZDDCMD) | ./upexec $WORLD
+	@echo self-check:
+	./upexec<&-; test $$? -eq 0 && echo OK || echo KO
 	@echo

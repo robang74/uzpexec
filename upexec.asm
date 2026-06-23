@@ -84,6 +84,8 @@ read_setup:
   ; Prepare registers to accumulate an atomic 512-byte block
   mov ecx, buf                ; Current pointer inside the buffer
   mov edx, 512                ; Bytes remaining to be read for this block
+; push 512
+; pop edx                     ; alt.: +1b
 
 read_loop:
   ; read(0, buf, 512) reads from STDIN in 512-byte blocks (dd style)
@@ -123,6 +125,8 @@ flush:
   ; If the pipe ends but we had accumulated a partial block in RAM,
   ; we must flush the remaining bytes before launching the executable.
   mov eax, 512
+; push 512
+; pop eax                     ; alt.: +1b
   sub eax, edx                ; Calculate partial block size
   jz execute                  ; 0: read completed, proceed to execution
 
@@ -135,6 +139,18 @@ flush:
   js exit_error
 
 execute:
+; mov eax, 19                 ; SYS_lseek
+  push 19
+  pop eax                     ; alt.: -2b
+  xor ecx, ecx                ; Offset = 0
+  mov ebx, edi                ; EBX = memfd
+; mov edx, 1                  ; SEEK_CUR
+  push 1
+  pop edx                     ; alt.: -2b
+  int 0x80
+  test eax, eax
+  jz exit_error
+
   ; Fix argv[0] to point to our custom name "upexec"
   mov eax, filename           ; Load address of "upexec"
   mov [esi], eax              ; Overwrite original argv[0]
@@ -150,12 +166,7 @@ execute:
   int 0x80                    ; Invoke Linux kernel to replace process
 
 exit_error:
-; mov eax, 19                 ; SYS_lseek
-; mov ebx, edi                ; Our memfd
-; xor ecx, ecx                ; Offset = 0
-; mov edx, 1                  ; SEEK_CUR
-; int 0x80
-  ; as long as every jump here has eax != 0 we can save to set it
+  mov ebx, eax                ; set the error code
   push 1                      ; SYS_exit
   pop eax
   int 0x80
