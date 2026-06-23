@@ -1,11 +1,18 @@
 ; ==============================================================================
-; uskexz.asm - uskex + zcat popen (1024 byte, zcat --synchronous -f -)
-; Architettura: 2 pipe (input+output), fork, write-all -> close -> read-all
+; uskexz_fixed.asm - Fix dell'architettura a 2 pipe per zcat
+; 1. Legge se stesso (da argv[0] o stdin)
+; 2. Scarta i primi 1024 byte (skip dell'header/loader)
+; 3. Invia il resto a zcat tramite pipe
+; 4. Legge l'output spacchettato da zcat e lo carica in un memfd anonimo
+; 5. Esegue il codice dal memfd
 ; ==============================================================================
 
 BITS 32
 org 0x08048000
 
+; ==============================================================================
+; ELF32 HEADER
+; ==============================================================================
 elf_header:
   db 0x7F, 'ELF', 1, 1, 1, 0
   times 8 db 0
@@ -19,6 +26,7 @@ elf_header:
   dw 52
   dw 32
   dw 1
+  dw 0, 0, 0
 
 phdr:
   dd 1
@@ -30,19 +38,22 @@ phdr:
   dd 7
   dd 0x1000
 
+; ==============================================================================
+; CODE
+; ==============================================================================
 code_start:
-  pop eax
+  pop eax                     ; argc
   mov esi, esp                ; argv
   lea ebp, [esi+eax*4+4]      ; envp
 
-  ; Open input
+  ; Apertura input (se stesso o stdin)
   mov ebx, [esi]
   test ebx, ebx
   jz .stdin
   cmp byte [ebx], 0
   jz .stdin
-  xor ecx, ecx
-  push 5
+  xor ecx, ecx                ; O_RDONLY
+  push 5                      ; SYS_open
   pop eax
   int 0x80
   test eax, eax
@@ -51,13 +62,13 @@ code_start:
   jmp .pipes
 
 .stdin:
-  xor edi, edi
+  xor edi, edi                ; EDI = stdin
 
-  ; Create both pipes before fork, SAVE fd values to BSS
+  ; Creazione delle pipe prima della fork
 .pipes:
-  push 42
+  push 42                     ; SYS_pipe
   pop eax
-  mov ebx, pipefd             ; pipe for zcat input
+  mov ebx, pipefd             ; Pipe per input di zcat
   int 0x80
   js exit_error
   ; pipefd = [read_fd, write_fd] - save them
@@ -66,9 +77,9 @@ code_start:
   mov eax, [pipefd+4]
   mov [pipefd_wr], eax
 
-  push 42
+  push 42                     ; SYS_pipe
   pop eax
-  mov ebx, pipeout            ; pipe for zcat output
+  mov ebx, pipeout            ; Pipe per output di zcat
   int 0x80
   js exit_error
   ; pipeout = [read_fd, write_fd] - save them
@@ -77,42 +88,44 @@ code_start:
   mov eax, [pipeout+4]
   mov [pipeout_wr], eax
 
-  ; Create memfd
-  mov eax, 356
+  ; Creazione del descrittore di memoria anonimo (memfd)
+  mov eax, 356                ; SYS_memfd_create
   mov ebx, filename
-  push 1
+  push 1                      ; MFD_CLOEXEC
   pop ecx
   int 0x80
   test eax, eax
   js exit_error
   push eax                    ; [esp] = memfd
 
-  ; fork
-  push 2
+  ; Fork
+  push 2                      ; SYS_fork
   pop eax
   int 0x80
   test eax, eax
-  jz child
+  jz child                    ; Se EAX == 0, vai al processo figlio
 
-  ; === PARENT ===
-  ; close pipefd[0] (read end of zcat input)
-  push 6
+  ; ============================================================================
+  ; PARENT PROCESS
+  ; ============================================================================
+  ; CHIUSURA IMMEDIATA DEI DESCRITTORI LATO FIGLIO NEL PADRE
+  push 6                      ; SYS_close
   pop eax
-  mov ebx, [pipefd_rd]
+  mov ebx, [pipefd_rd]        ; Il padre non legge dalla pipe di input di zcat
   int 0x80
   ; close pipeout[1] (write end of zcat output)
-  push 6
+  push 6                      ; SYS_close
   pop eax
-  mov ebx, [pipeout_wr]
+  mov ebx, [pipeout_wr]       ; Il padre non scrive nella pipe di output di zcat
   int 0x80
 
-  ; Skip 1024 bytes from input
+  ; Salto dei primi 1024 byte dall'input di partenza (Richiesta: Blocco da 1024)
   mov ecx, buf
   mov edx, 1024
 .skip_loop:
-  push 3
+  push 3                      ; SYS_read
   pop eax
-  mov ebx, edi
+  mov ebx, edi                ; input fd
   int 0x80
   test eax, eax
   js exit_error
@@ -122,88 +135,105 @@ code_start:
 
   ; Write ALL remaining input to zcat stdin (pipefd[1])
 .write_loop:
-  push 3
+  push 3                      ; SYS_read
   pop eax
-  mov ebx, edi
+  mov ebx, edi                ; input fd
   mov ecx, buf
   mov edx, 1024
   int 0x80
   test eax, eax
   js exit_error
-  jz .close_input             ; EOF
-  mov edx, eax
-  push 4
+  jz .close_input             ; Finita la lettura (EOF)
+  
+  mov edx, eax                ; byte letti
+  push 4                      ; SYS_write
   pop eax
-  mov ebx, [pipefd_wr]
+  mov ebx, [pipefd_wr]        ; Scrive su zcat stdin
   mov ecx, buf
   int 0x80
   jmp .write_loop
 
 .close_input:
-  ; Close zcat input pipe to signal EOF
-  push 6
+  ; Chiude il lato di scrittura della pipe di input. 
+  ; Questo invia finalmente l'EOF a zcat!
+  push 6                      ; SYS_close
   pop eax
   mov ebx, [pipefd_wr]
   int 0x80
 
-  ; Read ALL output from zcat stdout (pipeout[0]), write to memfd
+  ; Se l'input era un file aperto (diverso da stdin), chiudilo
+  test edi, edi
+  jz .read_loop
+  push 6                      ; SYS_close
+  pop eax
+  mov ebx, edi
+  int 0x80
+
+  ; Lettura dell'output decompresso da zcat (pipeout_rd) e scrittura nel memfd
 .read_loop:
-  push 3
+  push 3                      ; SYS_read
   pop eax
   mov ebx, [pipeout_rd]
   mov ecx, buf
   mov edx, 1024
   int 0x80
   test eax, eax
-  jle execute
+  js exit_error
+  jz execute                  ; zcat ha finito ed è uscito regolarmente (EOF)
+
   mov edx, eax
-  push 4
+  push 4                      ; SYS_write
   pop eax
-  mov ebx, [esp+4]            ; memfd
+  mov ebx, [esp+4]            ; Recupera il memfd salvato nello stack
   mov ecx, buf
   int 0x80
   jmp .read_loop
 
 execute:
-  mov [esi], ebx              ; argv[0] = filename
-  mov eax, 358
-  pop ebx                     ; memfd
-  push 0
+  ; Configura argv[0] con il nome fittizio
+  mov [esi], ebx              
+  
+  mov eax, 358                ; SYS_execveat
+  pop ebx                     ; Preleva il memfd dallo stack (diventa EBX)
+  push 0                      ; Path vuoto "" per AT_EMPTY_PATH
   mov ecx, esp
-  mov edx, esi
-  mov esi, ebp
-  mov edi, 0x1000
+  mov edx, esi                ; argv
+  mov esi, ebp                ; envp
+  mov edi, 0x1000             ; AT_EMPTY_PATH
   int 0x80
+  jmp exit_error
 
-  ; === CHILD ===
+  ; ============================================================================
+  ; CHILD PROCESS (Esegue zcat)
+  ; ============================================================================
 child:
-  ; close pipefd[1] (write end of input)
-  push 6
+  ; IMPORTANTE: Chiude i descrittori del lato padre per evitare il blocco (hang)
+  push 6                      ; SYS_close
   pop eax
-  mov ebx, [pipefd_wr]
-  int 0x80
-  ; close pipeout[0] (read end of output)
-  push 6
-  pop eax
-  mov ebx, [pipeout_rd]
+  mov ebx, [pipefd_wr]        ; Chiude il lato di scrittura della pipe di input!
   int 0x80
 
-  ; dup2(pipefd[0], 0) - stdin
-  push 63
+  push 6                      ; SYS_close
+  pop eax
+  mov ebx, [pipeout_rd]       ; Chiude il lato di lettura della pipe di output!
+  int 0x80
+
+  ; Dup2: Collega pipefd_rd allo STDIN (fd 0)
+  push 63                     ; SYS_dup2
   pop eax
   mov ebx, [pipefd_rd]
-  xor ecx, ecx
+  xor ecx, ecx                ; 0 = stdin
   int 0x80
 
-  ; dup2(pipeout[1], 1) - stdout
-  push 63
+  ; Dup2: Collega pipeout_wr allo STDOUT (fd 1)
+  push 63                     ; SYS_dup2
   pop eax
   mov ebx, [pipeout_wr]
-  mov ecx, 1
+  mov ecx, 1                  ; 1 = stdout
   int 0x80
 
-  ; execve zcat --synchronous -f -
-  push 11
+  ; Esecuzione di: /bin/zcat --synchronous -f -
+  push 11                     ; SYS_execve
   pop eax
   mov ebx, zcat_path
   push 0
@@ -217,14 +247,14 @@ child:
   jmp exit_error
 
 exit_error:
-  push 1
+  push 1                      ; SYS_exit
   pop eax
   xor ebx, ebx
-  inc ebx
+  inc ebx                     ; Exit code 1
   int 0x80
 
 ; ==============================================================================
-; DATA
+; DATA SECTION
 ; ==============================================================================
 filename:   db "uzkex", 0
 zcat_path:  db "/bin/zcat", 0
@@ -233,21 +263,22 @@ f_arg:      db "-f", 0
 dash_arg:   db "-", 0
 
 ; ==============================================================================
-; PADDING: 1024 bytes
+; PADDING: Allineato esattamente a 1024 byte (come da richiesta skip)
 ; ==============================================================================
 file_end:
 times (1024 - ($ - $$)) db 0
 
 ; ==============================================================================
-; BSS
+; BSS SECTION (Solo in RAM)
 ; ==============================================================================
 bss_start equ $$ + 1024
 
-pipefd:     equ bss_start + 0    ; 2 dwords (raw from pipe syscall)
-pipeout:    equ pipefd + 8       ; 2 dwords (raw from pipe syscall)
-pipefd_rd:  equ pipeout + 8      ; saved read fd
-pipefd_wr:  equ pipefd_rd + 4    ; saved write fd
-pipeout_rd: equ pipefd_wr + 4    ; saved read fd
-pipeout_wr: equ pipeout_rd + 4   ; saved write fd
+pipefd:     equ bss_start + 0
+pipeout:    equ pipefd + 8
+pipefd_rd:  equ pipeout + 8
+pipefd_wr:  equ pipefd_rd + 4
+pipeout_rd: equ pipefd_wr + 4
+pipeout_wr: equ pipeout_rd + 4
 buf:        equ pipeout_wr + 4
 bss_end:    equ buf + 1024
+
