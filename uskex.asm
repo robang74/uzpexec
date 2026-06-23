@@ -38,12 +38,8 @@ phdr:
 ; ==============================================================================
 code_start:
   pop eax                     ; argc
-  mov esi, esp                ; argv
-  lea ebp, [esi+eax*4+4]      ; envp
-
-  ; Save argv/envp for execveat
-  mov [saved_argv], esi
-  mov [saved_envp], ebp
+  mov esi, esp                ; ESI = argv (PRESERVED throughout)
+  lea ebp, [esi+eax*4+4]      ; EBP = envp (PRESERVED throughout)
 
   ; Open argv[0] or use stdin
   mov ebx, [esi]
@@ -62,7 +58,7 @@ code_start:
 .stdin:
   xor edi, edi                ; EDI = stdin
 
-  ; Create memfd
+  ; Create memfd, save on stack
 .memfd:
   mov eax, 356                ; SYS_memfd_create
   mov ebx, pkgname
@@ -71,7 +67,7 @@ code_start:
   int 0x80
   test eax, eax
   js exit_error
-  mov [memfd], eax            ; Save memfd
+  push eax                    ; [esp] = memfd
 
   ; Discard first 1536 bytes
 .discard:
@@ -90,7 +86,7 @@ code_start:
   ; Copy loop: read from input, write to memfd
 .copy_loop:
   mov eax, 3                  ; SYS_read
-  mov ebx, edi
+  mov ebx, edi                ; input fd
   mov ecx, buf
   mov edx, 1536
   int 0x80
@@ -99,7 +95,7 @@ code_start:
   jz .execute                 ; EOF
   mov edx, eax                ; bytes read
   mov eax, 4                  ; SYS_write
-  mov ebx, [memfd]
+  mov ebx, [esp]              ; memfd from stack
   mov ecx, buf
   int 0x80
   js exit_error
@@ -107,15 +103,14 @@ code_start:
 
   ; Execute via execveat
 .execute:
-  mov eax, [saved_argv]
-  mov [eax], ebx              ; argv[0] = pkgname (EBX still points to pkgname)
+  mov [esi], ebx              ; argv[0] = pkgname (EBX still points to pkgname)
   mov eax, 358                ; SYS_execveat
-  mov ebx, [memfd]
+  pop ebx                     ; EBX = memfd
   push 0
-  mov ecx, esp                ; empty path
-  mov edx, [saved_argv]
-  mov esi, [saved_envp]
-  mov edi, 0x1000             ; AT_EMPTY_PATH
+  mov ecx, esp                ; ECX = ""
+  mov edx, esi                ; EDX = argv
+  mov esi, ebp                ; ESI = envp
+  mov edi, 0x1000             ; EDI = AT_EMPTY_PATH
   int 0x80
 
 exit_error:
@@ -140,9 +135,6 @@ times (1536 - ($ - $$)) db 0
 ; BSS (RAM only)
 ; ==============================================================================
 bss_start equ $$ + 1536
-
-memfd:      equ bss_start + 0
-saved_argv: equ memfd + 4
-saved_envp: equ saved_argv + 4
-buf:        equ saved_envp + 4
+buf:        equ bss_start + 0
 bss_end:    equ buf + 1536
+
