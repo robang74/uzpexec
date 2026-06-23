@@ -158,7 +158,7 @@ exit_error:
 ; ==============================================================================
 ; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
-filename: db "upexec", 0      ; this is the /proc/self/cmdline executable name
+filename: db "upexec", 0      ; This is the /proc/self/cmdline executable name
 file_end:                     ; Physical end of the binary file!
 
 ; ==============================================================================

@@ -98,16 +98,16 @@ exit_error:
   int 0x80
 
 ; ==============================================================================
-; FILE PADDING: forza esattamente 512 byte su disco
+; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
-filename: db "uskat", 0       ; this is the /proc/self/cmdline executable name
-file_end:
-times (512 - ($ - $$)) db 0   ;
+filename: db "uskat", 0       ; This is the /proc/self/cmdline executable name
+file_end:                     ; Physical end of the binary file!
+times (512 - ($ - $$)) db 0   ; Padding the file on disk up to 512 bytes of size
 
 ; ==============================================================================
-; BSS (RAM only)
+; UNINITIALIZED BSS SECTION (Exists ONLY in RAM)
 ; ==============================================================================
-bss_start equ $$ + 512
-buf:        equ bss_start + 0
-bss_end:    equ buf + 512
+absolute_address equ $
+buf equ file_end + 4          ; It starts immediately after the EOF
+bss_end equ buf + 512         ; Reserve 512 bytes for the buffer
 
