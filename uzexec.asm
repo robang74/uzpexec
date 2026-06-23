@@ -9,27 +9,27 @@
 ;
 ; ==============================================================================
 ;
-; Fix dell'architettura a 2 pipe per zcat:
-; - 1. Legge se stesso (da argv[0] o stdin)
-; - 2. Scarta i primi 512 byte (skip dell'header/loader)
-; - 3. Invia il resto a zcat tramite pipe
-; - 4. Legge l'output spacchettato da zcat e lo carica in un memfd anonimo
-; - 5. Esegue il codice dal memfd
+; Fix for the 2-pipe architecture for zcat:
+; - 1. Reads itself (from argv[0] or stdin)
+; - 2. Discards the first 512 bytes (skips the header/loader)
+; - 3. Sends the remainder to zcat via pipe
+; - 4. Reads the unpacked output from zcat and loads it into an anonymous memfd
+; - 5. Executes the code from the memfd
 ;
-; Ottimizzazione a Singola Pipe con Scrittura Diretta, Architettura:
-; - Solona pipe (input), fork, child scrive direttamente su memfd via dup2.
+; Single Pipe Optimization with Direct Writing, Architecture:
+; - Only one pipe (input), fork, child writes directly to memfd via dup2.
 ;
-; Ottimizzazione: versione ad Altissima Efficienza (Zero Pipes)
-; Supporta in modo trasparente sia file (argv[0]) che stdin senza allocare pipe.
+; Optimization: Ultra-High Efficiency version (Zero Pipes)
+; Transparently supports both files (argv[0]) and stdin without allocating pipes.
 ;
 ; Parent:
-; - open(argv[0]) → fd 3 (o stdin = 0)
+; - open(argv[0]) → fd 3 (or stdin = 0)
 ; - memfd_create() → fd 4
-; - skip 512 byte da fd 3 (read loop)
+; - skip 512 bytes from fd 3 (read loop)
 ; - fork()
 ;
 ; Child:
-; - dup2(fd 3, 0)    ; stdin = input (offset già avanzato di 512 byte!)
+; - dup2(fd 3, 0)    ; stdin = input (offset already advanced by 512 bytes!)
 ; - dup2(fd 4, 1)    ; stdout = memfd
 ; - execve("zcat", ["zcat", "-"], NULL)
 ;
@@ -78,7 +78,7 @@ code_start:
   mov esi, esp                  ; argv
   lea ebp, [esi+eax*4+4]        ; envp
 
-  ; 1. Apertura input (se stesso o stdin)
+  ; 1. Open input (itself or stdin)
   mov ebx, [esi]
   test ebx, ebx
   jz .stdin
@@ -96,7 +96,7 @@ code_start:
 .stdin:
   xor edi, edi                  ; EDI = stdin (0)
 
-  ; 2. Creazione memfd
+  ; 2. Create memfd
 .memfd:
   mov eax, 356                  ; SYS_memfd_create
   mov ebx, filename
@@ -105,9 +105,9 @@ code_start:
   int 0x80
   test eax, eax
   js exit_error
-  mov [memfd_saved], eax        ; Salviamo il memfd nel BSS
+  mov [memfd_saved], eax        ; Save the memfd into the BSS
 
-  ; 3. Skip del blocco iniziale da 512 byte direttamente dal descrittore EDI
+  ; 3. Skip the initial 512-byte block directly from descriptor EDI
   mov ecx, buf
   mov edx, 512
 .skip_loop:
@@ -117,21 +117,21 @@ code_start:
   int 0x80
   test eax, eax
   js exit_error
-  jz exit_error                 ; EOF prematuro se il file è minore di 512 byte
+  jz exit_error                 ; Premature EOF if the file is smaller than 512 bytes
   sub edx, eax
   jnz .skip_loop
 
-  ; 4. Fork (Senza aver creato nessuna pipe!)
+  ; 4. Fork (Without having created any pipes!)
   push 2                        ; SYS_fork
   pop eax
   int 0x80
   test eax, eax
-  jz child                      ; Se EAX == 0, vai al processo figlio
+  jz child                      ; If EAX == 0, go to child process
 
   ; ============================================================================
   ; PARENT PROCESS
   ; ============================================================================
-  ; Il padre deve solo attendere che il figlio (zcat) finisca di decomprimere
+  ; The parent only needs to wait for the child (zcat) to finish decompressing
 ; mov ebx, -1                   ; RAF: -2 bytes
   xor ebx, ebx
   dec ebx
@@ -141,44 +141,44 @@ code_start:
   pop eax
   int 0x80
 
-  ; Chiude l'input iniziale se era un file aperto (nel padre non serve più)
+  ; Closes the initial input if it was an open file (no longer needed in the parent)
   test edi, edi
   jz execute
   push 6                        ; SYS_close
   pop eax
-  mov ebx, edi                  ; Chiude l'input fd d'origine
+  mov ebx, edi                  ; Closes the origin input fd
   int 0x80
 
 execute:
-  ; Configura argv[0] ed esegue dal memfd
+  ; Configures argv[0] and executes from the memfd
   mov eax, filename
-  mov [esi], eax                ; ESI contiene il puntatore ad argv originario
+  mov [esi], eax                ; ESI contains the pointer to the original argv
 
-  ; Esecuzione dal memfd, che ora contiene l'intero binario spacchettato
-  ; Ripristino pulito dello stack prima dell'execveat per evitare EFAULT
+  ; Execution from the memfd, which now contains the entire unpacked binary
+  ; Clean restoration of the stack before execveat to avoid EFAULT
   mov eax, 358                  ; SYS_execveat
-  mov ebx, [memfd_saved]        ; EBX = memfd validato
-  push 0                        ; push stringa vuota "" nello stack
-  mov ecx, esp                  ; ECX = punta a ""
-  mov edx, esi                  ; EDX = argv originale intatto
-  mov esi, ebp                  ; ESI = envp (estratto da EBP)
+  mov ebx, [memfd_saved]        ; EBX = validated memfd
+  push 0                        ; push empty string "" to the stack
+  mov ecx, esp                  ; ECX = points to ""
+  mov edx, esi                  ; EDX = intact original argv
+  mov esi, ebp                  ; ESI = envp (extracted from EBP)
   mov edi, 0x1000               ; EDI = AT_EMPTY_PATH flag
   int 0x80
   jmp exit_error
 
   ; ============================================================================
-  ; CHILD PROCESS (Esegue zcat collegando i descrittori esistenti)
+  ; CHILD PROCESS (Executes zcat by connecting existing descriptors)
   ; ============================================================================
 child:
-  ; dup2: collega l'input fd (già posizionato a +512 byte) allo STDIN (0) di zcat
-  ; Nota: se EDI era già 0 (stdin d'origine), dup2(0, 0) è un no-op sicuro del kernel
+  ; dup2: connects the input fd (already positioned at +512 bytes) to the STDIN (0) of zcat
+  ; Note: if EDI was already 0 (original stdin), dup2(0, 0) is a safe kernel no-op
   push 63                       ; SYS_dup2
   pop eax
   mov ebx, edi
   xor ecx, ecx                  ; 0 = stdin
   int 0x80
 
-  ; dup2: collega il MEMFD direttamente allo STDOUT (1) di zcat
+  ; dup2: connects the MEMFD directly to the STDOUT (1) of zcat
   push 63                       ; SYS_dup2
   pop eax
   mov ebx, [memfd_saved]
@@ -186,7 +186,7 @@ child:
   pop ecx                       ; 1 = stdout
   int 0x80
 
-  ; Esecuzione pulita di zcat semplice (zcat -)
+  ; Clean execution of simple zcat (zcat -)
   push 11                       ; SYS_execve
   pop eax
   mov ebx, zcat_path
@@ -210,22 +210,22 @@ exit_error:
 ; ==============================================================================
 filename:   db "uzexec", 0
 zcat_path:  db "/bin/zcat", 0
-; RAF: this can be a seurity problem, a corrupted gzip archive should fail!
+; RAF: this can be a security problem, a corrupted gzip archive should fail!
 ; force_arg:  db "-f", 0        ; "zcat -f" is cat when input isn't gzip
 dash_arg:   db "-", 0
 
 ; ==============================================================================
-; PADDING: Allineato esattamente a 512 byte (come da richiesta skip)
+; PADDING: Aligned exactly to 512 bytes (as per skip request)
 ; ==============================================================================
 file_end:
-times (512 - ($ - $$)) db 0     ; Padding a 512 byte impostato come limite
+times (512 - ($ - $$)) db 0     ; Padding to 512 bytes set as limit
 
 ; ==============================================================================
-; BSS SECTION (Solo in RAM, allineato a 512 bytes)
+; BSS SECTION (RAM only, aligned to 512 bytes)
 ; ==============================================================================
 bss_start equ $$ + 512
 
-memfd_saved: equ bss_start + 0  ; Unica variabile necessaria oltre al buffer
+memfd_saved: equ bss_start + 0  ; Only variable needed besides the buffer
 buf:         equ memfd_saved + 4
 bss_end:     equ buf + 512
 
