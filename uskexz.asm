@@ -44,9 +44,9 @@ phdr:
 code_start:
   pop eax                     ; argc
   mov esi, esp                ; argv
-  lea ebp, [esi+eax*4+4]      ; envp
+  lea ebp, [esi+eax*4+4]      ; envp (salvato in EBP)
 
-  ; Apertura input (se stesso o stdin)
+  ; 1. Apertura input (se stesso o stdin)
   mov ebx, [esi]
   test ebx, ebx
   jz .stdin
@@ -62,16 +62,16 @@ code_start:
   jmp .pipes
 
 .stdin:
-  xor edi, edi                ; EDI = stdin
+  xor edi, edi                ; EDI = stdin (0)
 
-  ; Creazione delle pipe prima della fork
+  ; 2. Creazione Pipe
 .pipes:
   push 42                     ; SYS_pipe
   pop eax
   mov ebx, pipefd             ; Pipe per input di zcat
   int 0x80
   js exit_error
-  ; pipefd = [read_fd, write_fd] - save them
+; pipefd = [read_fd, write_fd] - save them
   mov eax, [pipefd]
   mov [pipefd_rd], eax
   mov eax, [pipefd+4]
@@ -82,13 +82,13 @@ code_start:
   mov ebx, pipeout            ; Pipe per output di zcat
   int 0x80
   js exit_error
-  ; pipeout = [read_fd, write_fd] - save them
+; pipeout = [read_fd, write_fd] - save them
   mov eax, [pipeout]
   mov [pipeout_rd], eax
   mov eax, [pipeout+4]
   mov [pipeout_wr], eax
 
-  ; Creazione del descrittore di memoria anonimo (memfd)
+  ; 3. Creazione memfd e salvataggio sicuro in BSS
   mov eax, 356                ; SYS_memfd_create
   mov ebx, filename
   push 1                      ; MFD_CLOEXEC
@@ -96,9 +96,9 @@ code_start:
   int 0x80
   test eax, eax
   js exit_error
-  push eax                    ; [esp] = memfd
+  mov [memfd_saved], eax      ; Salvataggio persistente senza dipendere dallo stack
 
-  ; Fork
+  ; 4. Fork
   push 2                      ; SYS_fork
   pop eax
   int 0x80
@@ -108,18 +108,19 @@ code_start:
   ; ============================================================================
   ; PARENT PROCESS
   ; ============================================================================
-  ; CHIUSURA IMMEDIATA DEI DESCRITTORI LATO FIGLIO NEL PADRE
+  ; Chiude i descrittori inutilizzati del figlio lato padre
   push 6                      ; SYS_close
   pop eax
   mov ebx, [pipefd_rd]        ; Il padre non legge dalla pipe di input di zcat
   int 0x80
-  ; close pipeout[1] (write end of zcat output)
+
+; close pipeout[1] (write end of zcat output)
   push 6                      ; SYS_close
   pop eax
   mov ebx, [pipeout_wr]       ; Il padre non scrive nella pipe di output di zcat
   int 0x80
 
-  ; Salto dei primi 1024 byte dall'input di partenza (Richiesta: Blocco da 1024)
+  ; Skip del primo blocco da 1024 byte
   mov ecx, buf
   mov edx, 1024
 .skip_loop:
@@ -158,7 +159,7 @@ code_start:
   ; Questo invia finalmente l'EOF a zcat!
   push 6                      ; SYS_close
   pop eax
-  mov ebx, [pipefd_wr]
+  mov ebx, [pipefd_wr]        ; Invia EOF a zcat
   int 0x80
 
   ; Se l'input era un file aperto (diverso da stdin), chiudilo
@@ -166,10 +167,10 @@ code_start:
   jz .read_loop
   push 6                      ; SYS_close
   pop eax
-  mov ebx, edi
+  mov ebx, edi                ; Chiude l'input fd d'origine
   int 0x80
 
-  ; Lettura dell'output decompresso da zcat (pipeout_rd) e scrittura nel memfd
+  ; Lettura da zcat e scrittura in memfd
 .read_loop:
   push 3                      ; SYS_read
   pop eax
@@ -179,27 +180,29 @@ code_start:
   int 0x80
   test eax, eax
   js exit_error
-  jz execute                  ; zcat ha finito ed è uscito regolarmente (EOF)
+  jz execute                  ; EOF ricevuto da zcat -> pronto ad eseguire
 
   mov edx, eax
   push 4                      ; SYS_write
   pop eax
-  mov ebx, [esp+4]            ; Recupera il memfd salvato nello stack
+  mov ebx, [memfd_saved]      ; Recupero sicuro dal BSS (Niente più EBADF!)
   mov ecx, buf
   int 0x80
   jmp .read_loop
 
 execute:
-  ; Configura argv[0] con il nome fittizio
-  mov [esi], ebx              
+  ; Ripristino e sovrascrittura corretta di argv[0]
+  mov eax, filename
+  mov [esi], eax              ; ESI contiene il puntatore ad argv originario
   
+  ; Ripristino pulito dello stack prima dell'execveat per evitare EFAULT
   mov eax, 358                ; SYS_execveat
-  pop ebx                     ; Preleva il memfd dallo stack (diventa EBX)
-  push 0                      ; Path vuoto "" per AT_EMPTY_PATH
-  mov ecx, esp
-  mov edx, esi                ; argv
-  mov esi, ebp                ; envp
-  mov edi, 0x1000             ; AT_EMPTY_PATH
+  mov ebx, [memfd_saved]      ; EBX = memfd validato
+  push 0                      ; push stringa vuota "" nello stack
+  mov ecx, esp                ; ECX = punta a ""
+  mov edx, esi                ; EDX = argv originale intatto (ripristinato in ESI)
+  mov esi, ebp                ; ESI = envp (estratto da EBP)
+  mov edi, 0x1000             ; EDI = AT_EMPTY_PATH flag
   int 0x80
   jmp exit_error
 
@@ -219,14 +222,14 @@ child:
   int 0x80
 
   ; Dup2: Collega pipefd_rd allo STDIN (fd 0)
-  push 63                     ; SYS_dup2
+  push 63                     ; SYS_dup2 (stdin)
   pop eax
   mov ebx, [pipefd_rd]
   xor ecx, ecx                ; 0 = stdin
   int 0x80
 
   ; Dup2: Collega pipeout_wr allo STDOUT (fd 1)
-  push 63                     ; SYS_dup2
+  push 63                     ; SYS_dup2 (stdout)
   pop eax
   mov ebx, [pipeout_wr]
   mov ecx, 1                  ; 1 = stdout
@@ -244,7 +247,6 @@ child:
   mov ecx, esp
   xor edx, edx
   int 0x80
-  jmp exit_error
 
 exit_error:
   push 1                      ; SYS_exit
@@ -256,7 +258,7 @@ exit_error:
 ; ==============================================================================
 ; DATA SECTION
 ; ==============================================================================
-filename:   db "uzkex", 0
+filename:   db "uskexz", 0
 zcat_path:  db "/bin/zcat", 0
 sync_arg:   db "--synchronous", 0
 f_arg:      db "-f", 0
@@ -269,7 +271,7 @@ file_end:
 times (1024 - ($ - $$)) db 0
 
 ; ==============================================================================
-; BSS SECTION (Solo in RAM)
+; BSS SECTION (Solo in RAM, allineato a 1024 bytes)
 ; ==============================================================================
 bss_start equ $$ + 1024
 
@@ -279,6 +281,7 @@ pipefd_rd:  equ pipeout + 8
 pipefd_wr:  equ pipefd_rd + 4
 pipeout_rd: equ pipefd_wr + 4
 pipeout_wr: equ pipeout_rd + 4
-buf:        equ pipeout_wr + 4
+memfd_saved: equ pipeout_wr + 4  ; Cella di memoria dedicata a salvare stabilmente il memfd
+buf:         equ memfd_saved + 4
 bss_end:    equ buf + 1024
 
