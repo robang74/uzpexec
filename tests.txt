@@ -1,0 +1,20 @@
+# temporary AMS apps, tests collection
+
+bin=uskex
+nasm -O2 -s -f bin $bin.asm -o $bin &&
+chmod +x $bin && du -b $bin
+# 512     uskex
+cat $(which ls) >> $bin &&
+./$bin -al $bin; echo $?
+# -rwxrwxr-x 1 roberto roberto 138728 Jun 23 14:19 uskex
+# 0
+
+bin=uskat
+nasm -O2 -s -f bin $bin.asm -o $bin &&
+chmod +x $bin && du -b $bin
+# 512     uskat
+echo 'Hello wonderful World!' >> $bin &&
+./$bin -al $bin; echo $?
+# Hello wonderful World!
+# 0
+
