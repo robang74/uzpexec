@@ -37,9 +37,10 @@ phdr:
 ; CODE
 ; ==============================================================================
 code_start:
+  ; Salva l'inizializzazione dello stack (argc, argv, envp)
   pop eax                     ; argc
-  mov esi, esp                ; ESI = argv (PRESERVED throughout)
-  lea ebp, [esi+eax*4+4]      ; EBP = envp (PRESERVED throughout)
+  mov esi, esp                ; ESI = argv
+  lea ebp, [esi+eax*4+4]      ; EBP = envp
 
   ; Open argv[0] or use stdin
   mov ebx, [esi]
@@ -53,42 +54,48 @@ code_start:
   test eax, eax
   js exit_error
   mov edi, eax                ; EDI = input fd
-  jmp .memfd
+  jmp .create_memfd
 
 .stdin:
-  xor edi, edi                ; EDI = stdin
+  xor edi, edi                ; EDI = 0 (stdin)
 
   ; Create memfd, save on stack
-.memfd:
+.create_memfd:
   mov eax, 356                ; SYS_memfd_create
-  mov ebx, pkgname
+  mov ebx, filename
   push 1                      ; MFD_CLOEXEC
   pop ecx
   int 0x80
   test eax, eax
   js exit_error
+  ; Ora abbiamo: EDI = input fd, mentre salviamo il memfd nello stack o in un altro registro.
+  ; Per comodità e fedeltà, teniamo il memfd in EDX temporaneamente o lo invertiamo.
+  ; Usiamo: EDI = input fd, edx = memfd -> spostiamo memfd in un registro stabile.
+  ; Scegliamo: EDI = input fd, EBX = memfd (ma ebx serve per le syscall, quindi usiamo una variabile o lo stack).
+  ; Per massimizzare i registri liberi: manteniamo EDI = input fd, ed usiamo una locazione in RAM o lo stack.
+  ; Optiamo per spingere il memfd nello stack temporaneamente per liberare i registri durante il loop.
   push eax                    ; [esp] = memfd
 
-  ; Discard first 1536 bytes
+  ; Discard first 512 bytes
 .discard:
   mov ecx, buf
-  mov edx, 1536
+  mov edx, 512
 .discard_loop:
   mov eax, 3                  ; SYS_read
-  mov ebx, edi
+  mov ebx, edi                ; input fd
   int 0x80
   test eax, eax
   js exit_error
-  jz .execute                 ; EOF during discard = nothing to execute
+  jz .execute                 ; premature EOF
   sub edx, eax
   jnz .discard_loop
 
-  ; Copy loop: read from input, write to memfd
+  ; 4. Copy loop: read from input, write to memfd
 .copy_loop:
   mov eax, 3                  ; SYS_read
   mov ebx, edi                ; input fd
-  mov ecx, buf
-  mov edx, 1536
+  mov ecx, buf                ; Ripristina il puntatore del buffer
+  mov edx, 512                ; Legge a blocchi di 512 byte
   int 0x80
   test eax, eax
   js exit_error
@@ -121,20 +128,16 @@ exit_error:
   int 0x80
 
 ; ==============================================================================
-; DATA
+; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
-pkgname: db "uskex", 0
+filename: db "uskex", 0       ; This is the /proc/self/cmdline executable name
+file_end:                     ; Physical end of the binary file!
+times (512 - ($ - $$)) db 0   ; Padding the file on disk up to 512 bytes of size
 
 ; ==============================================================================
-; PADDING: force exactly 1536 bytes on disk
+; UNINITIALIZED BSS SECTION (Exists ONLY in RAM)
 ; ==============================================================================
-file_end:
-times (1536 - ($ - $$)) db 0
-
-; ==============================================================================
-; BSS (RAM only)
-; ==============================================================================
-bss_start equ $$ + 1536
-buf:        equ bss_start + 0
-bss_end:    equ buf + 1536
+absolute_address equ $
+buf equ file_end + 4          ; It starts immediately after the EOF
+bss_end equ buf + 512         ; Reserve 512 bytes for the buffer
 
