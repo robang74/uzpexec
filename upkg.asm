@@ -214,14 +214,23 @@ get_bit:
 
 get_n_bits:
   push ecx
-  xor eax, eax
+  push ebx
+  xor ebx, ebx
 .loop:
-  push ecx
-  call get_bit
-  pop ecx
-  rcl eax, 1
+  call get_bit         ; Estrae il bit e lo mette nel Carry Flag (CF)
+  rcr ebx, 1           ; Inserisce CF nell'MSB di ebx e shifta a destra
   dec cl
   jnz .loop
+
+  ; I bit estratti si trovano ora nella parte alta di ebx.
+  ; Li shiftiamo a destra per portarli a inizio registro.
+  mov ecx, 32
+  mov eax, [esp+4]     ; Recupera il valore originale di cl dallo stack
+  and eax, 0xFF        ; Isola solo la parte byte
+  sub ecx, eax         ; ecx = 32 - cl_originale
+  shr ebx, cl          ; Sposta i bit in fondo
+  mov eax, ebx         ; Risultato finale in eax
+  pop ebx
   pop ecx
   ret
 
@@ -368,9 +377,6 @@ bitrev:
 ; ------------------------------------------------------------------------------
 ; LENGTH / DISTANCE DECODERS
 ; ------------------------------------------------------------------------------
-; ------------------------------------------------------------------------------
-; LENGTH / DISTANCE DECODERS
-; ------------------------------------------------------------------------------
 decode_length:
   cmp al, 8
   jb .direct
@@ -411,20 +417,20 @@ decode_distance:
   shr cl, 1           ; cl = extra_bits
   mov dl, al
   and dl, 1           ; dl = al & 1
-  
+
   push ecx            ; Salva extra_bits (cl) nello stack
-  
+
   shl dl, cl          ; Esegue lo shift valido (usa cl!)
-  
+
   inc cl              ; cl = extra_bits + 1
   mov al, 1
   shl al, cl          ; Altro shift valido (usa sempre cl!)
-  
+
   inc al              ; al = (1 << (extra_bits + 1)) + 1
   add al, dl          ; al = Valore base finale della distanza
-  
+
   pop ecx             ; Ripristina extra_bits in cl per la chiamata successiva
-  
+
   movzx edx, al
   push edx            ; Salva il valore base (sicuro a 32-bit)
   call get_n_bits     ; Ottiene i bit extra dal flusso gzip
@@ -488,12 +494,12 @@ bss_start equ $$ + 1536
 
 bit_buf:    equ bss_start + 0
 nbits:      equ bit_buf + 4
-in_ptr:     equ nbits + 4        ; Se è 1 byte, 4 byte mantiene l'allineamento
+in_ptr:     equ nbits + 4
 in_end:     equ in_ptr + 4
 memfd:      equ in_end + 4
-buf:        equ memfd + 4        ; Il buffer RAM inizia qui
-flags:      equ buf + 4
-bfinal:     equ flags + 1
-saved_argv: equ bfinal + 1
+flags:      equ memfd + 4        ; Variabili spostate PRIMA del buffer
+bfinal:     equ flags + 4
+saved_argv: equ bfinal + 4
 saved_envp: equ saved_argv + 4
-bss_end:    equ saved_envp + 1536
+buf:        equ saved_envp + 4   ; <--- Spostato in fondo, ora è sicuro!
+bss_end:    equ buf + 1536       ; <--- Alloca correttamente i 1536 byte per la RAM
