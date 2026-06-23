@@ -1,5 +1,5 @@
 ; ==============================================================================
-; uskexz.asm - uskex + zcat popen (1024 byte, zcat --synchronous)
+; uskexz.asm - uskex + zcat popen (1024 byte, zcat --synchronous -f -)
 ; Architettura: 2 pipe (input+output), fork, write-all -> close -> read-all
 ; ==============================================================================
 
@@ -198,6 +198,7 @@ child:
   mov ebx, zcat_path
   push 0
   push dash_arg
+  push f_arg
   push sync_arg
   push zcat_path
   mov ecx, esp
@@ -218,6 +219,7 @@ exit_error:
 filename:   db "uzkex", 0
 zcat_path:  db "/bin/zcat", 0
 sync_arg:   db "--synchronous", 0
+f_arg:      db "-f", 0
 dash_arg:   db "-", 0
 
 ; ==============================================================================
