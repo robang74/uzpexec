@@ -69,13 +69,13 @@ The padding line(s) provide(s) enough bytes to reach the fixed payload size, sho
 
 #### Minimum requirements
 
-In order to run the paylod, few minimum requirements are need:
+In order to run the paylod, a few minimum requirements are need:
 
-- a Unix/POSIX shell, even minimal, which has basic file descriptors management
-- shell internals: `echo`, `exec`, `for`, `command`, `exit` and possibly `trap`
-- utilities: `dd`, `rm`, `mv`, `head`, and possibly `grep`, `id`
-- alternatives: `zcat` or every equivalent, `umask` or `chmod` 
-- enviroment: `PATH`, and optional `HOME`, `USER`, `TMPDIR`
+- **a Unix/POSIX shell**: even minimal, with basic file descriptor management.
+- **shell internals**: `echo`, `exec`, `for`, `command`, `exit` and possibly `trap`
+- **utilities**: `dd`, `rm`, `mv`, `head`, and possibly `grep`, `id`
+- **alternatives**: `zcat` or every equivalent, `umask` or `chmod` 
+- **environment**: `PATH`, and optional `HOME`, `USER`, `TMPDIR`
 
 All of the requirements are almost always granted in every Unix/POSIX.
 
