@@ -16,7 +16,7 @@ Alternatively it can be used by activating the execution bit by `chmod +x gzcmd.
 
 ```sh
 $ sh gzcmd.sh gzcmd.sh
-FILE: 'gzcmd.gz.sh', HEAD: 502 (512), GZIP: 6780 (7 Kb, 38 %), GZSH: v0.3.0
+FILE: 'gzcmd.gz.sh', HEAD: 502 (512), GZIP: 6780 (7 Kb, 38 %), GZSH: v0.3.1
 ```
 
 #### Install
@@ -24,7 +24,7 @@ FILE: 'gzcmd.gz.sh', HEAD: 502 (512), GZIP: 6780 (7 Kb, 38 %), GZSH: v0.3.0
 An ELF binary compressed with gzcmd.sh can be installed permanently providing a directory which resides on a writable and executable disk space:
 
 ```sh
-TMPDIR=~/bin ./$filename.gz.sh    # to install in ~/bin
+TMPDIR=~/bin ./$filename.gz.sh    # to install in ~/bin
 ```
 
 To use the converted file, launch it directly or by a shell because from the PoV of the Linux kernel is a shell script.
@@ -33,7 +33,7 @@ To use the converted file, launch it directly or by a shell because from the PoV
 
 ### Payload
 
-Previous versions than v0.1.8 had the payload size variable, which was an optimisation in terms of overhead but confusing about indipendent extraction.
+Previous versions than **v0.1.8** had the payload size variable, which was an optimization in terms of overhead but confusing in doing an independent extraction.
 
 Therefore the payload size had been set fixed to 1024 (two 512 blocks) because such a default value allows a trivial extraction of the gzipped appended file:
 
@@ -41,11 +41,11 @@ Therefore the payload size had been set fixed to 1024 (two 512 blocks) because s
 dd skip=1 if=${filename.gz.sh} | zcat - >${filename}
 ```
 
-Starting from the v0.3.0 the payload size has reduced below the 512 (1 block) size. Hence `skip=1` instead `skip=2`. Moreover the `SZE` internal value, now it refers to the maximum memory pages (4kB) that the extracted ELF binary will take.
+Starting from the **v0.3.1** the payload size has reduced below the 512 (1 block) size. Hence `skip=1` instead of `skip=2`. Moreover the `SZE` internal value, now it refers to the maximum memory pages (4kB) that the extracted ELF binary will take.
 
 ```sh
 #!/bin/sh
-# (C) 2026 robang74 l.MIT v0.3.0 git.new/ttRvFBu
+# (C) 2026 robang74 l.MIT v0.3.1 git.new/ttRvFBu
 BFN=hello:d713d0d05c;SZE=4
 : ${PATH:=/bin:/usr/bin:/usr/local/bin}
 exec 2>&-
@@ -89,15 +89,15 @@ without writing it on the remote/local systems (memfd_create).
 
 cc -Os -s hello.c -o hi && du -b hi && gzip -f hi && du -b hi.gz
 # 14472 hi
-#  1868 hi.gz
+#  1868 hi.gz
 
 nasm -O2 -f bin upexec.asm -o upexec && du -b upexec && chmod a+x upexec
-#   261 upexec
+#   261 upexec
 
 export WORLD=beatyful; zcat hi.gz | ./upexec $WORLD; echo $?
 # Hello beautiful World!
-#   HOME:  /home/roberto
-#   WORLD: beautiful
+#   HOME:  /home/roberto
+#   WORLD: beautiful
 # 0
 
 ./upexec <&-; echo $?
