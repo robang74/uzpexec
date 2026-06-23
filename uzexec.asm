@@ -6,6 +6,7 @@
 ; USAGE:
 ; - a) { cat uzexec; gzip -c $elfbin; } > $self-extracting-executable
 ; - b) cp uzexec $zelfbin; gzip -c $elfbin >> $zelfbin (the same ^^^)
+; - c) wget $url/$elf.gz -O- | uzexec [args]
 ;
 ; ==============================================================================
 ;
@@ -78,7 +79,7 @@ code_start:
   mov esi, esp                  ; argv
   lea ebp, [esi+eax*4+4]        ; envp
 
-  ; 1. Controllo di argv[0]
+  ; 1. Checking argv[0] to open input (itself or stdin)
   mov ebx, [esi]
   test ebx, ebx
   jz .stdin
@@ -96,6 +97,7 @@ code_start:
 
 .check_basename:
   ; Ora torniamo indietro per trovare l'ultimo '/' o l'inizio di argv[0]
+  ; edx punta al terminatore '\0'
 .backtrack:
   cmp edx, ebx                  ; Siamo tornati all'inizio di argv[0]?
   je .do_strcmp                 ; Sì, confronta da qui
@@ -106,14 +108,15 @@ code_start:
 
 .do_strcmp:
   ; edx ora punta esattamente all'inizio del "basename" (es. "uzexec\0")
+  ; Lo confrontiamo carattere per carattere con `filename`
   mov ecx, filename
 .strcmp_loop:
   mov al, [edx]
   mov ah, [ecx]
   cmp al, ah
-  jne .not_uzexec               ; Se differisce, ha un payload embedded -> apri file
+  jne .not_uzexec               ; Se differisce, apri file
   test al, al                   ; Siamo arrivati allo '\0'?
-  jz .is_uzexec_standalone      ; Corrispondenza esatta!
+  jz .stdin                     ; Corrispondenza esatta!
   inc edx
   inc ecx
   jmp .strcmp_loop
@@ -128,21 +131,6 @@ code_start:
   test eax, eax
   js exit_error
   mov edi, eax                  ; EDI = input fd (file aperto)
-  jmp .memfd
-
-.stdin:
-  xor edi, edi                  ; EDI = stdin (0)
-
-.memfd:
-  ; 2. Create memfd
-  mov eax, 356                  ; SYS_memfd_create
-  mov ebx, filename
-  push 1                        ; MFD_CLOEXEC
-  pop ecx
-  int 0x80
-  test eax, eax
-  js exit_error
-  mov [memfd_saved], eax        ; Salva il memfd nel BSS
 
   ; 3. Salta il blocco iniziale di 512 byte (solo per file con payload)
   mov ecx, buf
@@ -154,14 +142,15 @@ code_start:
   int 0x80
   test eax, eax
   js exit_error
-  jz exit_error                 ; EOF prematuro se il file è più piccolo di 512 byte
+  jz exit_error                 ; Premature EOF if the file is smaller than 512 bytes
   sub edx, eax
   jnz .skip_loop
-  jmp .fork_now
+  jmp .memfd
 
-.is_uzexec_standalone:
+.stdin:
   xor edi, edi                  ; EDI = stdin (0)
 
+.memfd:
   ; Crea direttamente il memfd senza passare dal ciclo skip_loop
   mov eax, 356                  ; SYS_memfd_create
   mov ebx, filename
@@ -179,7 +168,7 @@ code_start:
   pop eax
   int 0x80
   test eax, eax
-  jz child                      ; Se EAX == 0, vai al processo figlio
+  jz child                      ; If EAX == 0, go to child process
 
   ; ============================================================================
   ; PARENT PROCESS

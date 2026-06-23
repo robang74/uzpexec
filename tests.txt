@@ -2,11 +2,15 @@
 
 bin=uzexec
 nasm -O2 -s -f bin $bin.asm -o $bin &&
-chmod +x $bin && du -b $bin
+chmod +x $bin && du -b $bin && gzip -c $(which ls) |
+uzexec -la ./uzexec; { cat uzexec; gzip -c $(which ls); } |
+dd of=ls.gz.elf && chmod +x ls.gz.elf && ls.gz.elf -al ls.gz.elf
 # 512	uzexec
-gzip -1nc $(which ls) >> $bin; ./$bin -la $bin; echo $?
-# -rwxrwxr-x 1 roberto roberto 62964 Jun 23 19:30 uzexec
-# 0
+# -rwxrwxr-x 1 roberto roberto 512 Jun 23 22:14 ./uzexec
+# 115+1 records in
+# 115+1 records out
+# 59230 bytes (59 kB, 58 KiB) copied, 0.0101535 s, 5.8 MB/s
+# -rwxrwxr-x 1 roberto roberto 59230 Jun 23 22:14 ls.gz.elf
 
 bin=uskex
 nasm -O2 -s -f bin $bin.asm -o $bin &&
