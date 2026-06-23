@@ -207,10 +207,10 @@ get_bit:
   test al, al
   jnz .has
   call get_byte
-  mov [bits], al
+  mov [bit_buf], al           ; <--- Cambiato da [bits] a [bit_buf]
   mov byte [nbits], 8
 .has:
-  shr byte [bits], 1
+  shr byte [bit_buf], 1       ; <--- Cambiato da [bits] a [bit_buf]
   dec byte [nbits]
   pop eax
   ret
@@ -484,9 +484,9 @@ times (1024 - ($ - $$)) db 0
 ; ==============================================================================
 bss_start equ $$ + 1024          ; or simply: bss_start equ file_end
 
-bits:       equ bss_start + 0    ; resd 1
-nbits:      equ bits + 4         ; resb 1
-in_ptr:     equ nbits + 1        ; resd 1
+bit_buf:    equ bss_start + 0    ; <--- Cambiato da bits: a bit_buf:
+nbits:      equ bit_buf + 4      ; <--- Cambiato da bits + 4 a bit_buf + 4
+in_ptr:     equ nbits + 1        ; resb 1
 in_end:     equ in_ptr + 4       ; resd 1
 memfd:      equ in_end + 4       ; resd 1
 flags:      equ memfd + 4        ; resb 1
@@ -495,3 +495,4 @@ saved_argv: equ bfinal + 1       ; resd 1
 saved_envp: equ saved_argv + 4   ; resd 1
 buf:        equ saved_envp + 4   ; resb 1024
 bss_end:    equ buf + 1024
+
