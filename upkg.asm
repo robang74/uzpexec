@@ -75,9 +75,10 @@ code_start:
   js exit_error
   mov [memfd], eax
 
-  ; First read discard: read exactly 1024 bytes and drop them
+  ; First read discard: leggi esattamente 1536 byte e scartali
   mov ecx, buf
-  mov edx, 1024
+  mov edx, 1536       ; <--- Cambiato da 1024 a 1536
+
 .discard:
   mov eax, 3
   mov ebx, edi
@@ -202,12 +203,12 @@ get_bit:
   test byte [nbits], 0xFF
   jnz .has
   call get_byte
-  mov [bit_buf], al
+  mov byte [bit_buf], al       ; <--- Aggiunto 'byte'
   mov byte [nbits], 8
 .has:
-  mov al, [bit_buf]
+  mov al, byte [bit_buf]       ; <--- Aggiunto 'byte'
   shr al, 1
-  mov [bit_buf], al
+  mov byte [bit_buf], al       ; <--- Aggiunto 'byte'
   dec byte [nbits]
   ret
 
@@ -378,16 +379,16 @@ decode_length:
   shr dl, 2
   and cl, 3
   mov al, 11
-  push dx
+  push edx            ; <--- Cambiato da dx a edx
   shl dl, 2
   add al, dl
   add al, cl
-  pop dx
+  pop edx             ; <--- Cambiato da dx a edx
   mov cl, dl
   inc cl
-  push ax
+  push eax            ; <--- Cambiato da ax a eax
   call get_n_bits
-  pop cx
+  pop ecx             ; <--- Cambiato da cx a ecx
   add al, cl
   movzx eax, al
   ret
@@ -407,7 +408,7 @@ decode_distance:
   shr cl, 1
   mov dl, al
   and dl, 1
-  push ax
+  ; Rimosso il 'push ax' errato che rompeva lo stack prima del ret
   mov al, 1
   mov ch, cl
   inc ch
@@ -418,9 +419,9 @@ decode_distance:
   add al, dl
   mov dl, al
   mov al, cl
-  push dx
+  push edx            ; <--- Cambiato da dx a edx
   call get_n_bits
-  pop dx
+  pop edx             ; <--- Cambiato da dx a edx
   add al, dl
   movzx eax, al
   ret
@@ -469,15 +470,15 @@ copy_match:
 pkgname: db "upkg", 0
 
 ; ==============================================================================
-; FILE PADDING: force exactly 1024 bytes on disk
+; FILE PADDING: forza esattamente 1536 byte su disco
 ; ==============================================================================
 file_end:
-times (1024 - ($ - $$)) db 0
+times (1536 - ($ - $$)) db 0   ; <--- Cambiato da 1024 a 1536
 
 ; ==============================================================================
 ; BSS (RAM only — absolute addresses, not in the file)
 ; ==============================================================================
-bss_start equ $$ + 1024
+bss_start equ $$ + 1536        ; <--- Cambiato da 1024 a 1536
 
 bit_buf:    equ bss_start + 0
 nbits:      equ bit_buf + 4
