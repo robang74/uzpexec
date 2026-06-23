@@ -1,5 +1,13 @@
 # temporary AMS apps, tests collection
 
+bin=uzexec
+nasm -O2 -s -f bin $bin.asm -o $bin &&
+chmod +x $bin && du -b $bin
+# 512	uzexec
+gzip -1nc $(which ls) >> $bin; ./$bin -la $bin; echo $?
+# -rwxrwxr-x 1 roberto roberto 62964 Jun 23 19:30 uzexec
+# 0
+
 bin=uskex
 nasm -O2 -s -f bin $bin.asm -o $bin &&
 chmod +x $bin && du -b $bin
