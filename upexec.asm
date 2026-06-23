@@ -3,7 +3,10 @@
 ;     Coded with the support of Gemini and then Kimi for the size reduction
 ; ==============================================================================
 ;
-; Usage: zcat elf.gz | upexec [args]
+; USAGE:
+; - a) zcat elf.gz | upexec [args]
+; - b)  cat uzexec | upexec [args] when upexec carries a gzip load
+; - c) wget $url/$elf.gz -O- | zcat -f - | upexec [args]
 ;
 ; Rationale upexec (micro pipe exec)
 ;
@@ -160,6 +163,8 @@ exit_error:
 ; ==============================================================================
 filename: db "upexec", 0      ; This is the /proc/self/cmdline executable name
 file_end:                     ; Physical end of the binary file!
+; this line payload the ELF up to 512 bytes, it serves for uzexec compatibility
+times (512 - ($ - $$)) db 0     ; Padding to 512 bytes set as limit
 
 ; ==============================================================================
 ; UNINITIALIZED BSS SECTION (Exists ONLY in RAM)
