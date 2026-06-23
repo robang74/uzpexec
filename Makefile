@@ -1,7 +1,7 @@
 .PHONY: blkln tests
 
 TARGETS := gzcmd.gz.sh upexec hello
-ZDDCMD  := dd if=hello.gz.sh skip=2 | zcat
+ZDDCMD  := dd if=hello.gz.sh skip=1 | zcat
 
 all: tests
 

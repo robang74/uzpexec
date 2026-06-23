@@ -360,29 +360,25 @@ ORIGSIZE=$(stat -Lc%s "$gzelf")
 gzelfle="$ORIGNAME.gz.sh"
 BLKSIZE=${3:-32}
 ZCMPLVL=${4:-9}
-PAYLDSZ=1024
+PAYLDSZ=512
 # md5sum check after gunzip was for debug only, a corrupted archive fails anyway.
 headstr=$(cat <<ZELF
 #!/bin/sh
 # (C) 2026 robang74 l.MIT $RVERSION git.new/ttRvFBu
-BFN=$BFN;SZE=$((ORIGSIZE>>10))k
+BFN=$BFN;SZE=$(((ORIGSIZE+4095)>>12))
 : \${PATH:=/bin:/usr/bin:/usr/local/bin}
 exec 2>&-
-T="gzc-\$BFN-\${USER:-\$(id -u)}"
+T=".gzc-\$BFN-\${USER:-\$(id -u)}"
 for d in "\${TMPDIR:-/tmp}" /run /dev/shm "\${HOME:-.}/.cache"
 do
-F="\$d/.\$T"
-(umask 077;echo>"\$F".&&chmod 700 "\$F".&&"\$F".)&&break
-rm -f "\$F".
+F="\$d/\$T"
+(umask 077;echo>"\$F"&&chmod 700 "\$F"&&"\$F")&&break
+rm -f "\$F"
 F=
 done
-{
-dd if=\$0 skip=2||{
-echo "ERR> \$0 \!read";exit 1
-}
-}|\$(command -v pigz gzip gunzip zcat|head -n1) -dc>"\$F".&&{
-grep -qe "tmpfs.*\$d" /proc/mounts&&trap 'rm -f "\$F"' EXIT INT TERM
-mv -f "\$F". "\$F"&&(F=;exec "\$d/.\$T" "\$@")
+dd if=\$0 skip=1|\$(command -v pigz gzip gunzip zcat|head -n1) -dc>"\$F"&&{
+grep -qe "tmpfs.*\$d" /proc/mounts&&trap 'rm -f "\$F"_' EXIT INT TERM
+mv -f "\$F" "\$F"_&&(F=;exec "\$d/\$T"_ "\$@")
 }
 exit
 #1_3456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
@@ -392,13 +388,14 @@ exit
 #5_3456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #6_3456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #7_3456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
+#8_3456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 ZELF
 )
 ### ////////////////////////////////////////////////////////////////////////////
 
 isgzipfile() { od -h ${1:-} | head -n1 | grep -q "8b1f 0808"; }
 
-md5c() { dd skip=2 status=none if="$1" | $zp -dc | $GZCSUMCK | grep -qe "^$MD5CKSUM"; }
+md5c() { dd skip=1 status=none if="$1" | $zp -dc | $GZCSUMCK | grep -qe "^$MD5CKSUM"; }
 phdr() { echo "$headstr" | head -c $((PAYLDSZ-1)); echo; }
 
 gzcmd_main_func() {
@@ -447,6 +444,7 @@ gzcmd_main_func() {
   if ! md5c "$wrkfle"; then
     echo "ERROR: gzdata isn't where supposed to, report the bug" >&2
     echo "       sh -x <same command given> 2>&1 | grep -e '^+'" >&2
+    rm -f "$wrkfle"
     return 1
   fi
   # atomic substitution

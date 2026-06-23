@@ -16,19 +16,7 @@ Alternatively it can be used by activating the execution bit by `chmod +x gzcmd.
 
 ```sh
 $ sh gzcmd.sh gzcmd.sh
-FILE: 'gzcmd.gz.sh', HEAD: 546 (1024), GZIP: 7307 (7 Kb, 42 %), GZSH: v0.3.0
-```
-
-To use the converted file, launch it directly or by a shell because from the PoV of the Linux kernel is a shell script.
-
----
-
-### Payload
-
-The payload size is always 1024 (two 512 blocks) because such a default value allows a trivial extraction of the gzipped appended file:
-
-```sh
-dd skip=2 if=${filename.gz.sh} | zcat - >${filename}
+FILE: 'gzcmd.gz.sh', HEAD: 502 (512), GZIP: 6780 (7 Kb, 38 %), GZSH: v0.3.0
 ```
 
 #### Install
@@ -39,9 +27,45 @@ An ELF binary compressed with gzcmd.sh can be installed permanently providing a 
 TMPDIR=~/bin ./$filename.gz.sh    # to install in ~/bin
 ```
 
-The seven padding lines provide `7 x 80 = 560` bytes to reach the 1024 fix size, shortening more the payload, requires adding more padding lines, unless the size drops below 512 bytes and in that case `bs skip=1` would be enough.
+To use the converted file, launch it directly or by a shell because from the PoV of the Linux kernel is a shell script.
 
-On a fully controlled system the payload can be as shorter as the code used for extracting the gzipped load.
+---
+
+### Payload
+
+Previous versions than v0.1.8 had the payload size variable, which was an optimisation in terms of overhead but confusing about indipendent extraction.
+
+Therefore the payload size had been set fixed to 1024 (two 512 blocks) because such a default value allows a trivial extraction of the gzipped appended file:
+
+```sh
+dd skip=1 if=${filename.gz.sh} | zcat - >${filename}
+```
+
+Starting from the v0.3.0 the payload size has reduced below the 512 (1 block) size. Hence `skip=1` instead `skip=2`. Moreover the `SZE` internal value, now it refers to the maximum memory pages (4kB) that the extracted ELF binary will take.
+
+```sh
+#!/bin/sh
+# (C) 2026 robang74 l.MIT v0.3.0 git.new/ttRvFBu
+BFN=hello:d713d0d05c;SZE=4
+: ${PATH:=/bin:/usr/bin:/usr/local/bin}
+exec 2>&-
+T=".gzc-$BFN-${USER:-$(id -u)}"
+for d in "${TMPDIR:-/tmp}" /run /dev/shm "${HOME:-.}/.cache"
+do
+F="$d/$T"
+(umask 077;echo>"$F"&&chmod 700 "$F"&&"$F")&&break
+rm -f "$F"
+F=
+done
+dd if=$0 skip=1|$(command -v pigz gzip gunzip zcat|head -n1) -dc>"$F"&&{
+grep -qe "tmpfs.*$d" /proc/mounts&&trap 'rm -f "$F"_' EXIT INT TERM
+mv -f "$F" "$F"_&&(F=;exec "$d/$T"_ "$@")
+}
+exit
+#1_345678
+```
+
+The padding line(s) provide(s) enough bytes to reach the fixed payload size, shortening more the payload, requires adding more padding lines, unless the size drops below 512 bytes and in that case `bs skip=1` would be enough.
 
 <br>
 
