@@ -53,19 +53,29 @@ code_start:
 .stdin:
   xor edi, edi
 
-  ; Create both pipes before fork
+  ; Create both pipes before fork, SAVE fd values to BSS
 .pipes:
   push 42
   pop eax
   mov ebx, pipefd             ; pipe for zcat input
   int 0x80
   js exit_error
+  ; pipefd = [read_fd, write_fd] - save them
+  mov eax, [pipefd]
+  mov [pipefd_rd], eax
+  mov eax, [pipefd+4]
+  mov [pipefd_wr], eax
 
   push 42
   pop eax
   mov ebx, pipeout            ; pipe for zcat output
   int 0x80
   js exit_error
+  ; pipeout = [read_fd, write_fd] - save them
+  mov eax, [pipeout]
+  mov [pipeout_rd], eax
+  mov eax, [pipeout+4]
+  mov [pipeout_wr], eax
 
   ; Create memfd
   mov eax, 356
@@ -88,12 +98,12 @@ code_start:
   ; close pipefd[0] (read end of zcat input)
   push 6
   pop eax
-  mov ebx, [pipefd]
+  mov ebx, [pipefd_rd]
   int 0x80
   ; close pipeout[1] (write end of zcat output)
   push 6
   pop eax
-  mov ebx, [pipeout+4]
+  mov ebx, [pipeout_wr]
   int 0x80
 
   ; Skip 1024 bytes from input
@@ -124,7 +134,7 @@ code_start:
   mov edx, eax
   push 4
   pop eax
-  mov ebx, [pipefd+4]
+  mov ebx, [pipefd_wr]
   mov ecx, buf
   int 0x80
   jmp .write_loop
@@ -133,14 +143,14 @@ code_start:
   ; Close zcat input pipe to signal EOF
   push 6
   pop eax
-  mov ebx, [pipefd+4]
+  mov ebx, [pipefd_wr]
   int 0x80
 
   ; Read ALL output from zcat stdout (pipeout[0]), write to memfd
 .read_loop:
   push 3
   pop eax
-  mov ebx, [pipeout]
+  mov ebx, [pipeout_rd]
   mov ecx, buf
   mov edx, 1024
   int 0x80
@@ -170,29 +180,29 @@ child:
   ; close pipefd[1] (write end of input)
   push 6
   pop eax
-  mov ebx, [pipefd+4]
+  mov ebx, [pipefd_wr]
   int 0x80
   ; close pipeout[0] (read end of output)
   push 6
   pop eax
-  mov ebx, [pipeout]
+  mov ebx, [pipeout_rd]
   int 0x80
 
   ; dup2(pipefd[0], 0) - stdin
   push 63
   pop eax
-  mov ebx, [pipefd]
+  mov ebx, [pipefd_rd]
   xor ecx, ecx
   int 0x80
 
   ; dup2(pipeout[1], 1) - stdout
   push 63
   pop eax
-  mov ebx, [pipeout+4]
+  mov ebx, [pipeout_wr]
   mov ecx, 1
   int 0x80
 
-  ; execve zcat --synchronous -
+  ; execve zcat --synchronous -f -
   push 11
   pop eax
   mov ebx, zcat_path
@@ -233,7 +243,11 @@ times (1024 - ($ - $$)) db 0
 ; ==============================================================================
 bss_start equ $$ + 1024
 
-pipefd:     equ bss_start + 0    ; 2 dwords
-pipeout:    equ pipefd + 8       ; 2 dwords
-buf:        equ pipeout + 8
+pipefd:     equ bss_start + 0    ; 2 dwords (raw from pipe syscall)
+pipeout:    equ pipefd + 8       ; 2 dwords (raw from pipe syscall)
+pipefd_rd:  equ pipeout + 8      ; saved read fd
+pipefd_wr:  equ pipefd_rd + 4    ; saved write fd
+pipeout_rd: equ pipefd_wr + 4    ; saved read fd
+pipeout_wr: equ pipeout_rd + 4   ; saved write fd
+buf:        equ pipeout_wr + 4
 bss_end:    equ buf + 1024
