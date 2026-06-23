@@ -34,8 +34,8 @@ phdr:
   dd 0
   dd 0x08048000
   dd 0x08048000
-  dd file_end - elf_header
-  dd bss_end - elf_header
+  dd file_end - elf_header      ; p_filesz = 1024 (on disk)
+  dd bss_end - elf_header       ; p_memsz = 1024 + BSS (in RAM)
   dd 7
   dd 0x1000
 
@@ -479,17 +479,19 @@ file_end:
 times (1024 - ($ - $$)) db 0
 
 ; ==============================================================================
-; BSS (RAM only, not in file)
+; BSS (RAM only — these are absolute addresses, not in the file)
+; Must be AFTER file_end so they don't consume file bytes
 ; ==============================================================================
-absolute $
-bits:       resd 1
-nbits:      resb 1
-in_ptr:     resd 1
-in_end:     resd 1
-memfd:      resd 1
-flags:      resb 1
-bfinal:     resb 1
-saved_argv: resd 1
-saved_envp: resd 1
-buf:        resb 1024
-bss_end:
+bss_start equ $$ + 1024          ; or simply: bss_start equ file_end
+
+bits:       equ bss_start + 0    ; resd 1
+nbits:      equ bits + 4         ; resb 1
+in_ptr:     equ nbits + 1        ; resd 1
+in_end:     equ in_ptr + 4       ; resd 1
+memfd:      equ in_end + 4       ; resd 1
+flags:      equ memfd + 4        ; resb 1
+bfinal:     equ flags + 1        ; resb 1
+saved_argv: equ bfinal + 1       ; resd 1
+saved_envp: equ saved_argv + 4   ; resd 1
+buf:        equ saved_envp + 4   ; resb 1024
+bss_end:    equ buf + 1024
