@@ -1,5 +1,5 @@
 ; ==============================================================================
-; uskex.asm - Mix di uskat e upexec
+; uskexec.asm - Mix di uskat e upexec
 ; 1. Legge da argv[0] o da stdin se argv[0] non è valido
 ; 2. Scarta i primi 512 byte (skip dell'header/loader)
 ; 3. Scrive il resto in un file descriptor anonimo (memfd)
@@ -95,24 +95,24 @@ code_start:
   jnz .discard_loop
 
   ; 4. Copy loop: read from input, write to memfd
-.read_setup:
+read_setup:
   mov ecx, buf                ; Ripristina il puntatore del buffer
   mov edx, 512                ; Legge a blocchi di 512 byte
 
-.read_loop:
+read_loop:
   mov eax, 3                  ; SYS_read
   mov ebx, edi                ; input fd
   int 0x80
   test eax, eax
-  jz .flush                   ; EOF -> flush dell'ultimo blocco residuo
+  jz flush                    ; EOF -> flush dell'ultimo blocco residuo
   cmp eax, -4                 ; -EINTR
-  je .read_loop
+  je read_loop
   js exit_error
 
   sub edx, eax
   add ecx, eax
   test edx, edx
-  jnz .read_loop              ; Continua finché non hai accumulato 512 byte
+  jnz read_loop               ; Continua finché non hai accumulato 512 byte
 
   ; Scrittura del blocco completo nel memfd
   mov eax, 4                  ; SYS_write
@@ -121,13 +121,13 @@ code_start:
   mov edx, 512
   int 0x80
   js exit_error
-  jmp .read_setup              ; Riparte per il prossimo blocco
+  jmp read_setup              ; Riparte per il prossimo blocco
 
-.flush:
+flush:
   ; Calcola quanti byte effettivi sono rimasti nell'ultimo blocco parziale
   mov eax, 512
   sub eax, edx
-  jz .execute                  ; Se 0, nessun residuo, vai all'esecuzione
+  jz execute                  ; Se 0, nessun residuo, vai all'esecuzione
 
   mov edx, eax                ; Lunghezza residua
   mov eax, 4                  ; SYS_write
@@ -137,7 +137,7 @@ code_start:
   js exit_error
 
   ; 5. Execute via execveat
-.execute:
+execute:
   ; Se l'input fd era un file aperto (diverso da stdin), chiudilo prima di fare exec
   test edi, edi
   jz .do_exec
@@ -171,7 +171,7 @@ exit_error:
 ; ==============================================================================
 ; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
-filename: db "uskex", 0       ; This is the /proc/self/cmdline executable name
+filename: db "uskexec", 0     ; This is the /proc/self/cmdline executable name
 file_end:                     ; Physical end of the binary file!
 times (512 - ($ - $$)) db 0   ; Padding the file on disk up to 512 bytes of size
 
