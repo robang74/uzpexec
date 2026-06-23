@@ -87,24 +87,35 @@ code_start:
   jz .stdin
 
   ; ------------ Trova la fine del percorso (basename) in argv[0] --------------
-  mov edx, ebx                  ; edx scorrerà la stringa argv[0]
+  mov edx, ebx                  ; edx = inizio di argv[0]
 .find_end:
   inc edx
   cmp byte [edx], 0
   jnz .find_end
-                                ; Fine della stringa, andiamo al confronto
-  mov ecx, zcat_path            ; zcat_path stays immediately after filename
+  ; Ora edx punta allo '\0' di argv[0]
+
+  mov ecx, zcat_path
   dec ecx                       ; ecx ora punta allo '\0' di filename
+
 .strcmp_loop:
   dec edx
   dec ecx
-  cmp byte [ecx], 0
-  jz .stdin                     ; Corrispondenza SUFFCIENTE, apri stdin
+  cmp byte [ecx], 0             ; Abbiamo verificato tutto filename?
+  jz .check_boundary            ; Controlliamo la corrispondenza esatta
+  
   mov al, [edx]
   mov ah, [ecx]
   cmp al, ah
-  jne .not_uzexec               ; Se differisce, apri file
+  jne .not_uzexec               ; Se differisce, non è lui -> modalità payload
   jmp .strcmp_loop
+
+.check_boundary:
+  inc edx
+  ; A questo punto, edx punta all'ipotetico inizio del basename dentro argv[0]. 
+  cmp edx, ebx                  ; EDX coincide con l'inizio assoluto di argv[0]?
+  je .stdin                     ; argv[0] è riportato senza alcuna path
+  cmp byte [edx-1], '/'         ; Il carattere precedente è uno slash?
+  je .stdin                     ; argv[0] ha una path
   ; ----------------------------------------------------------------------------
 
 .not_uzexec:
@@ -235,7 +246,7 @@ exit_error:
 ; ==============================================================================
 ; DATA SECTION
 ; ==============================================================================
-zero_pad:   db 0                ; this SHOULD STAY immediately before filename
+headzero:   db 0                ; this SHOULD STAY immediately before filename
 filename:   db "uzexec", 0
 zcat_path:  db "/bin/zcat", 0   ; this SHOULD STAY immediately after filename
 ; RAF: this can be a security problem, a corrupted gzip archive should fail!
