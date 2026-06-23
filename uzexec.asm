@@ -149,7 +149,7 @@ code_start:
 .memfd:
   ; Crea direttamente il memfd senza passare dal ciclo skip_loop
   mov eax, 356                  ; SYS_memfd_create
-  mov ebx, filename             ; (why not ESP, the original argv[0]?)
+  mov ebx, filename             ; fd owner's name
   push 1                        ; MFD_CLOEXEC
   pop ecx
   int 0x80
@@ -188,9 +188,9 @@ code_start:
   int 0x80
 
 execute:
-  ; Configures argv[0] and executes from the memfd (why do not leave argv[0]?)
-  mov eax, filename
-  mov [esi], eax                ; ESI contains the pointer to the original argv
+  ; Configures argv[0] and executes from the memfd
+  ; mov eax, filename
+  ; mov [esi], eax              ; ESI contains the pointer to the original argv
 
   ; Execution from the memfd, which now contains the entire unpacked binary
   ; Clean restoration of the stack before execveat to avoid EFAULT
