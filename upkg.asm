@@ -184,7 +184,7 @@ get_byte:
   test eax, eax
   js exit_error
   jz .eof
-  mov [in_ptr], buf
+  mov dword [in_ptr], buf     ; <--- RISOLTO: Specificato 'dword' esplicitamente
   add eax, buf
   mov [in_end], eax
   mov ecx, buf
@@ -368,6 +368,9 @@ bitrev:
 ; ------------------------------------------------------------------------------
 ; LENGTH / DISTANCE DECODERS
 ; ------------------------------------------------------------------------------
+; ------------------------------------------------------------------------------
+; LENGTH / DISTANCE DECODERS
+; ------------------------------------------------------------------------------
 decode_length:
   cmp al, 8
   jb .direct
@@ -379,16 +382,16 @@ decode_length:
   shr dl, 2
   and cl, 3
   mov al, 11
-  push edx            ; <--- Cambiato da dx a edx
+  push edx            ; Corretto a 32-bit
   shl dl, 2
   add al, dl
   add al, cl
-  pop edx             ; <--- Cambiato da dx a edx
+  pop edx             ; Corretto a 32-bit
   mov cl, dl
   inc cl
-  push eax            ; <--- Cambiato da ax a eax
+  push eax            ; Corretto a 32-bit
   call get_n_bits
-  pop ecx             ; <--- Cambiato da cx a ecx
+  pop ecx             ; Corretto a 32-bit
   add al, cl
   movzx eax, al
   ret
@@ -405,25 +408,28 @@ decode_distance:
   jb .direct
   mov cl, al
   sub cl, 2
-  shr cl, 1
+  shr cl, 1           ; cl = extra_bits
   mov dl, al
-  and dl, 1
-  ; Rimosso il 'push ax' errato che rompeva lo stack prima del ret
+  and dl, 1           ; dl = al & 1
+  
+  push ecx            ; Salva extra_bits (cl) nello stack
+  
+  shl dl, cl          ; Esegue lo shift valido (usa cl!)
+  
+  inc cl              ; cl = extra_bits + 1
   mov al, 1
-  mov ch, cl
-  inc ch
-  shl al, ch
-  inc al
-  mov ch, cl
-  shl dl, ch
-  add al, dl
-  mov dl, al
-  mov al, cl
-  push edx            ; <--- Cambiato da dx a edx
-  call get_n_bits
-  pop edx             ; <--- Cambiato da dx a edx
-  add al, dl
-  movzx eax, al
+  shl al, cl          ; Altro shift valido (usa sempre cl!)
+  
+  inc al              ; al = (1 << (extra_bits + 1)) + 1
+  add al, dl          ; al = Valore base finale della distanza
+  
+  pop ecx             ; Ripristina extra_bits in cl per la chiamata successiva
+  
+  movzx edx, al
+  push edx            ; Salva il valore base (sicuro a 32-bit)
+  call get_n_bits     ; Ottiene i bit extra dal flusso gzip
+  pop edx             ; Ripristina il valore base
+  add eax, edx        ; Distanza reale = base + bit extra
   ret
 .direct:
   inc eax
