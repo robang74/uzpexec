@@ -16,7 +16,7 @@ Alternatively it can be used by activating the execution bit by `chmod +x gzcmd.
 
 ```sh
 $ sh gzcmd.sh gzcmd.sh
-FILE: 'gzcmd.gz.sh', HEAD: 863 (1024), GZIP: 7439 (7 Kb, 42 %), GZSH: v0.2.0
+FILE: 'gzcmd.gz.sh', HEAD: 546 (1024), GZIP: 7307 (7 Kb, 42 %), GZSH: v0.3.0
 ```
 
 To use the converted file, launch it directly or by a shell because from the PoV of the Linux kernel is a shell script.
@@ -31,27 +31,15 @@ The payload size is always 1024 (two 512 blocks) because such a default value al
 dd skip=2 if=${filename.gz.sh} | zcat - >${filename}
 ```
 
-#### Customisations
+#### Install
 
-The payload is specific for every converted file but potentially can be generalised removing the following line:
-
-```sh
-MD5="$MD5CKSUM";BFN="$ORIGNAME";SZE="$((ORIGSIZE>>10))k"    # to remove
-```
-
-and for a more shorter version replacing the following line with a graph `{` parentesys:
+An ELF binary compressed with gzcmd.sh can be installed permanently providing a directory which resides on a writable and executable disk space:
 
 ```sh
-$GZCSUMCK "\$_fn"|grep -qe "^\$MD5"||{    # to replace with {
+TMPDIR=~/bin ./$filename.gz.sh    # to install in ~/bin
 ```
 
-It will be shorter and faster to execute but every time it will extract the ELF, therefore losing the install:
-
-```sh
-GZCTMP=~/bin ./$filename.gz.sh    # to install in ~/bin
-```
-
-The three padding lines provide `20 x 80 = 240` bytes to reach the 1024 fix size, shortening more the payload, requires adding more padding lines, unless the size drops below 512 bytes and in that case `bs skip=1` would be enough.
+The seven padding lines provide `7 x 80 = 560` bytes to reach the 1024 fix size, shortening more the payload, requires adding more padding lines, unless the size drops below 512 bytes and in that case `bs skip=1` would be enough.
 
 On a fully controlled system the payload can be as shorter as the code used for extracting the gzipped load.
 

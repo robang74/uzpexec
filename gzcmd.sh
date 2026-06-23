@@ -2,10 +2,10 @@
 #
 # (c) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
 #
-# Usage   : gzcmd.sh /path/elf-executable[.gz] [filename] [blocksize]
+# Usage   : gzcmd.sh /path/elf-executable[.gz] [filename] [aliasname]
 # Hint    : set blocksize as headersize +2 from gzcmd.sh for min.size
-# Host    : [[export] GZCTMP=path GZCMDZ=pigz;] [shell] elf.gz.sh
-# Install : sudo sh -c "[export] GZCTMP=/usr/local/bin; elf.gz.sh"
+# Host    : [[export] TMPDIR=path] [shell] elf.gz.sh
+# Install : sudo sh -c "[export] TMPDIR=/usr/local/bin; elf.gz.sh"
   RVERSION="v0.3.0"
 #
 # Suggestion for minimal size with musl static compilation of a single file.c:
@@ -277,7 +277,7 @@ echo | time -v uchaos.upx | wc -c
 
 mkdir -p /tmp # This settings allows to optimize the 2nd+ starting time
 
-echo | GZCTMP=/tmp GZCMDZ=zcat time -v uchaos.gz.sh | wc -c
+echo | TMPDIR=/tmp time -v uchaos.gz.sh | wc -c
 
 # Command being timed: "uchaos.gz.sh"
 # User time (seconds): 0.00
@@ -290,7 +290,7 @@ echo | GZCTMP=/tmp GZCMDZ=zcat time -v uchaos.gz.sh | wc -c
 # Involuntary context switches: 7
 # Page size (bytes): 4096
 
-echo | GZCTMP=/tmp GZCMDZ=zcat time -v uchaos.gz.sh | wc -c
+echo | TMPDIR=/tmp time -v uchaos.gz.sh | wc -c
 
 # Command being timed: "uchaos.gz.sh"
 # User time (seconds): 0.00
@@ -326,7 +326,7 @@ echo | time -v uchaos.upx >/dev/null
 # Voluntary context switches: 1
 # Involuntary context switches: 1
 
-echo | GZCTMP=/tmp GZCMDZ=/bin/zcat time -v uchaos.gz.sh >/dev/null
+echo | TMPDIR=/tmp time -v uchaos.gz.sh >/dev/null
 
 # Real time (s): 0.021723
 # User time (s): 0.011403
@@ -336,7 +336,7 @@ echo | GZCTMP=/tmp GZCMDZ=/bin/zcat time -v uchaos.gz.sh >/dev/null
 # Voluntary context switches: 33
 # Involuntary context switches: 3
 
-echo | GZCTMP=/tmp GZCMDZ=/bin/zcat time -v uchaos.gz.sh >/dev/null
+echo | TMPDIR=/tmp time -v uchaos.gz.sh >/dev/null
 
 # Real time (s): 0.008651
 # User time (s): 0.007660
@@ -372,7 +372,7 @@ T="gzc-\$BFN-\${USER:-\$(id -u)}"
 for d in "\${TMPDIR:-/tmp}" /run /dev/shm "\${HOME:-.}/.cache"
 do
 F="\$d/.\$T"
-(umask 077;echo>"\$F".&&chmod 700 "\$F".&&exec "\$F".)&&break
+(umask 077;echo>"\$F".&&chmod 700 "\$F".&&"\$F".)&&break
 rm -f "\$F".
 F=
 done
