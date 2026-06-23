@@ -35,7 +35,7 @@
 #endif
 
 #define SKIP_SIZE 4096
-#define CHUNK_SIZE 8192
+#define CHUNK_SIZE (4096 * 2)
 #define INITIAL_CAPACITY (256 * 1024)
 #define MAX_DECOMPRESSED_SIZE (32 * 1024 * 1024) // Limite di sicurezza a 32MB
 
@@ -408,7 +408,70 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    // 4. Decompressione in memoria
+// 4. Parsing dell'header GZIP (RFC 1952) per estrarre il DEFLATE raw
+    if (comp_size < 18) { // 10 byte header minimo + 8 byte footer minimo
+        fprintf(stderr, "Errore: payload troppo piccolo per essere un file GZIP valido.\n");
+        free(comp_buf);
+        return EXIT_FAILURE;
+    }
+
+    // Verifica il Magic Number di GZIP (0x1f 0x8b) e il metodo di compressione (8 = DEFLATE)
+    if (comp_buf[0] != 0x1f || comp_buf[1] != 0x8b) {
+        fprintf(stderr, "Errore: il payload non ha un magic number GZIP valido (atteso 1f 8b).\n");
+        fprintf(stderr, "\tcomp_buf[0]: 0x%02x, comp_buf[1]: 0x%02x\n", comp_buf[0], comp_buf[1]);
+        free(comp_buf);
+        return EXIT_FAILURE;
+    }
+    if (comp_buf[2] != 8) {
+        fprintf(stderr, "Errore: metodo di compressione non supportato (atteso DEFLATE = 8).\n");
+        free(comp_buf);
+        return EXIT_FAILURE;
+    }
+
+    unsigned char flags = comp_buf[3];
+    size_t header_len = 10; // Lunghezza minima dell'header GZIP
+
+    // Gestione flag FEXTRA
+    if (flags & 0x04) {
+        if (header_len + 2 > comp_size) { free(comp_buf); return EXIT_FAILURE; }
+        unsigned short xlen = comp_buf[header_len] | (comp_buf[header_len + 1] << 8);
+        header_len += 2 + xlen;
+    }
+
+    // Gestione flag FNAME (Nome del file originale terminato da \0)
+    // Questo flag viene tipicamente inserito da gzip quando comprimi un file specifico
+    if (flags & 0x08) {
+        while (header_len < comp_size && comp_buf[header_len] != '\0') {
+            header_len++;
+        }
+        header_len++; // Salta il byte nullo terminatore
+    }
+
+    // Gestione flag FCOMMENT
+    if (flags & 0x10) {
+        while (header_len < comp_size && comp_buf[header_len] != '\0') {
+            header_len++;
+        }
+        header_len++;
+    }
+
+    // Gestione flag FHCRC (CRC16 dell'header)
+    if (flags & 0x02) {
+        header_len += 2;
+    }
+
+    // Controllo di sicurezza sulle dimensioni calcolate
+    if (header_len + 8 > comp_size) {
+        fprintf(stderr, "Errore: l'header GZIP corrompe la struttura del file.\n");
+        free(comp_buf);
+        return EXIT_FAILURE;
+    }
+
+    // Calcola il puntatore d'inizio del DEFLATE raw e la sua dimensione reale (escludendo il footer di 8 byte)
+    unsigned char *raw_deflate_ptr = comp_buf + header_len;
+    unsigned int raw_deflate_size = (unsigned int)(comp_size - header_len - 8);
+
+    // Allocazione del buffer di destinazione per la decompressione
     unsigned int dest_size = MAX_DECOMPRESSED_SIZE;
     unsigned char *dest_buf = malloc(dest_size);
     if (!dest_buf) {
@@ -417,11 +480,12 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    int status = tinf_uncompress(dest_buf, &dest_size, comp_buf, (unsigned int)comp_size);
-    free(comp_buf); // Il vecchio buffer non serve piu
+    // Esegui la decompressione passando solo la porzione RAW
+    int status = tinf_uncompress(dest_buf, &dest_size, raw_deflate_ptr, raw_deflate_size);
+    free(comp_buf); // Il buffer compresso originario può essere liberato
 
     if (status != TINF_OK) {
-        fprintf(stderr, "Errore di decompressione (%d). Assicurarsi che il flusso sia DEFLATE raw.\n", status);
+        fprintf(stderr, "Errore di decompressione (%d) nel flusso interno DEFLATE.\n", status);
         free(dest_buf);
         return EXIT_FAILURE;
     }
