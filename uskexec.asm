@@ -90,7 +90,7 @@ code_start:
   int 0x80
   test eax, eax
   js exit_error
-  jz exit_ok                  ; premature EOF
+  jz exit_error               ; premature EOF
   sub edx, eax
   jnz .discard_loop
 
@@ -164,7 +164,6 @@ execute:
   int 0x80
 
 exit_error:
-exit_ok:
   push 1                      ; SYS_exit
   pop eax
   int 0x80

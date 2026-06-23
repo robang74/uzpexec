@@ -90,7 +90,7 @@ code_start:
   int 0x80
   test eax, eax
   js exit_error
-  jz .execute                 ; premature EOF
+  jz exit_error               ; premature EOF
   sub edx, eax
   jnz .discard_loop
 
@@ -99,20 +99,20 @@ code_start:
   mov ecx, buf                ; Ripristina il puntatore del buffer
   mov edx, 512                ; Legge a blocchi di 512 byte
 
-.copy_loop:
+.read_loop:
   mov eax, 3                  ; SYS_read
   mov ebx, edi                ; input fd
   int 0x80
   test eax, eax
   jz .flush                   ; EOF -> flush dell'ultimo blocco residuo
   cmp eax, -4                 ; -EINTR
-  je .copy_loop
+  je .read_loop
   js exit_error
 
   sub edx, eax
   add ecx, eax
   test edx, edx
-  jnz .copy_loop              ; Continua finché non hai accumulato 512 byte
+  jnz .read_loop              ; Continua finché non hai accumulato 512 byte
 
   ; Scrittura del blocco completo nel memfd
   mov eax, 4                  ; SYS_write
@@ -121,7 +121,7 @@ code_start:
   mov edx, 512
   int 0x80
   js exit_error
-  jmp .copy_loop
+  jmp .read_setup              ; Riparte per il prossimo blocco
 
 .flush:
   ; Calcola quanti byte effettivi sono rimasti nell'ultimo blocco parziale
@@ -164,10 +164,8 @@ code_start:
   int 0x80
 
 exit_error:
-  push 1
+  push 1                      ; SYS_exit
   pop eax
-  xor ebx, ebx
-  inc ebx
   int 0x80
 
 ; ==============================================================================
