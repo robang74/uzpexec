@@ -88,13 +88,11 @@ code_start:
 
   ; ------------ Trova la fine del percorso (basename) in argv[0] --------------
   mov edx, ebx                  ; edx scorrerà la stringa argv[0]
-.find_basename_end:
-  mov al, [edx]
-  test al, al
-  jz .check_basename            ; Fine della stringa, andiamo al confronto
+.find_end:
   inc edx
-  jmp .find_basename_end
-
+  cmp byte [edx], 0
+  jnz .find_end
+                                ; Fine della stringa, andiamo al confronto
 .check_basename:
   ; Ora torniamo indietro per trovare l'ultimo '/' o l'inizio di argv[0]
   ; edx punta al terminatore '\0'
