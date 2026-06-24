@@ -164,7 +164,7 @@ main_start:
 
 .memfd:
   mov ebx, filename             ; fd owner's name
-  movzx edx, byte [ebx+24]      ; EDX now holds the flag
+  movzx edx, byte [ebx+29]      ; EDX now holds the flag (offset: 29 !!!)
   test dl, dl                   ; Is the script flag 0?
   jnz .do_script                ; - N: call the /bin/sh
                                 ; - Y: exec an ELF binary
@@ -312,20 +312,20 @@ exit_error:
 ; ==============================================================================
 ; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
-copy_vers:  db "(c) github/robang74 v0.75", 0                        ; 26
+copy_vers:  db "(c) github/robang74 v0.76", 0                    ; 26
 ; filename can be changed by sed up to 7 chars + ending \0
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
-; /bin/zcat can be changed by sed up to 31 chars + ending \0
+; /bin/zcat can be changed by sed up to 41 chars + ending \0
 ; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
-; in do_script mode the 2 paths shrink to 15 chars + ending \0
+; in do_script mode the 2 paths shrink to 20 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
-filename:   db "uzpexec", 0                                          ;  8
-zcat_path:  db "/bin/zcat",    0,0,0, 0,0,0,0                        ; 16
-do_script:  db 0,"bin/sh",0, 0,0,0,0, 0,0,0,0                        ; 16
-force_arg:  db "-f",    0,0, 0,0,0,0                                 ;  8
-dash_arg:   db "-",   0,0,0                                          ;  4
-eof_strng:  db "elf_eof", 0                                          ;  8
-                                                                     ; 90 (tot)
+filename:   db "uzpexec", 0                                      ;  8 _ offset:
+zcat_path:  db "/bin/zcat",    0,0,0, 0,0,0,0, 0,0,0,0, 0        ; 21 _  +8
+do_script:  db 0,"bin/sh",0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0        ; 21 _ +29 !!!
+force_arg:  db "-f",    0,0, 0,0,                                ;  6
+dash_arg:   db "-",   0,0,0                                      ;  4
+eof_strng:  db "elf_eof", 0                                      ;  8
+                                                                 ; 90 (tot)
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (as per skip request)
 ; ==============================================================================
