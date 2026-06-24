@@ -9,6 +9,8 @@
 ; - c) { cat uzpexec | sed 's/zcat\x00/xzcat/'; xz -7c $elf; } > $elf.uxp
 ; - d) cat uzpexec | upexec [args] when upexec carries a gzip load
 ; - e) wget $url/$elf[.gz] -O- | uzpexec [args]
+; - f) printf '#!/bin/sh\necho Hello World!\n' | gzip -c | {
+;      f=uzpexec; sed -e 's,\x00\(/bin/sh\),\x01\1,' -i $f; $f; }
 ;
 ; ==============================================================================
 ;
@@ -215,8 +217,8 @@ parent:
   pop eax
   ; Per risparmiare byte e non aggiungere stringhe, possiamo spingere nello stack
   ; la stringa "/bin/sh\0" al volo, oppure tenerla in una piccola costante.
-  ; Ipotizziamo di avere un puntatore a shell_path:
-  mov ebx, shell_path           ; db "/bin/sh", 0
+  ; Ipotizziamo di avere un puntatore a do_script:
+  mov ebx, do_script+1          ; 1st char is the flag
   push 0                        ; envp / argv finale
   push ebx                      ; argv[0]
   mov ecx, esp                  ; argv
@@ -312,7 +314,7 @@ exit_error:
 ; ==============================================================================
 ; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
-;copy_vers:  db "(c) github/robang74 v0.74", 0                        ; 26
+copy_vers:  db "(c) github/robang74 v0.74", 0                        ; 26
 ; filename can be changed by sed up to 7 chars + ending \0
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
 ; /bin/zcat can be changed by sed up to 31 chars + ending \0
@@ -320,12 +322,11 @@ exit_error:
 ; eof_strng helps to find the EOF, and where \0 padding starts
 filename:   db "uzpexec", 0                                          ;  8
 zcat_path:  db "/bin/zcat",    0,0,0, 0,0,0,0                        ; 16
-shell_path: db "/bin/sh", 0, 0,0,0,0, 0,0,0,0                        ; 16
-do_script:  db 1, 0                                                  ;  2
+do_script:  db 0, "/bin/sh", 0,0,0,0, 0,0,0,0                        ; 16
 force_arg:  db "-f",    0,0, 0,0,0,0                                 ;  8
 dash_arg:   db "-",   0,0,0                                          ;  4
 eof_strng:  db "elf_eof",     0                                      ;  8
-                                                                     ; 92 (tot)
+                                                                     ; 90 (tot)
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (as per skip request)
 ; ==============================================================================
