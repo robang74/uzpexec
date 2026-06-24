@@ -222,14 +222,6 @@ parent:
   ; CHILD PROCESS (Executes zcat by connecting existing descriptors)
   ; ============================================================================
 child:
-  ; dup2: connects the input fd (already at +512 bytes) to zcat's STDIN (0)
-  ; Note: when EDI is STDIN (0), the dup2(0, 0) is a safe kernel no-op
-  push 63                       ; SYS_dup2
-  pop eax
-  mov ebx, edi
-  xor ecx, ecx                  ; 0 = stdin
-  int 0x80
-
   ; dup2: connects the MEMFD directly to the STDOUT (1) of zcat
   push 63                       ; SYS_dup2
   pop eax
@@ -240,6 +232,14 @@ child:
 ; previously unchecked errors for smaller code should fail here in the child
   test eax, eax
   js exit_error
+
+  ; dup2: connects the input fd (already at +512 bytes) to zcat's STDIN (0)
+  ; Note: when EDI is STDIN (0), the dup2(0, 0) is a safe kernel no-op
+  push 63                       ; SYS_dup2
+  pop eax
+  mov ebx, edi
+  dec ecx                       ; 0 = stdin
+  int 0x80
 
   ; Clean execution of simple zcat (zcat -)
   push 11                       ; SYS_execve
@@ -267,7 +267,7 @@ exit_error:
 ; ==============================================================================
 ; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
-copy_vers:  db "(c) 2026 robang74 l.MIT v0.70 git.new/ttRvFBu", 0
+copy_vers:  db "(c) 2026 robang74 l.MIT v0.71 git.new/ttRvFBu", 0
 ; filename can be changed by sed up to 7 chars + ending \0
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
 ; /bin/zcat can be changed by sed up to 31 chars + ending \0
