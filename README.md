@@ -83,6 +83,10 @@ All of the requirements are almost always granted in every Unix/POSIX.
 
 # uzpexec
 
+> [!NOTE]
+>
+> Suggested file extension: **`.uzp`**
+
 Utility for executing an ELF binary directly from stdin pipe:
 
 - it runs binary via SSH/wget
@@ -99,10 +103,9 @@ The [uzpexec](uzpexec.asm) (micro gzip pipe exec) replaces the previous `upexec`
 
 ```text
 ; USAGE:
-; - a) { cat uzpexec; gzip -c $elfbin; } > $self-extracting-executable
-; - b) cp uzpexec $zelfbin; gzip -c $elfbin >> $zelfbin (the same ^^^)
-; - c) cat uzpexec | upexec [args] when upexec carries a gzip load
-; - c) wget $url/$elf[.gz] -O- | uzpexec [args]
+; - a)  { cat uzpexec; gzip -7c $elf; }    > $elf.uzp
+; - b)  cp uzpexec $elf.uzp; gzip -c $elf >> $elf.uzp
+; - c)  wget $url/$elf[.gz] -O- | uzpexec [args]
 ```
 
 It works as single block 512-bytes self-inflating executable payload replacing also `gzcmd.sh` with the sole requirement of `/bin/zcat` available.
