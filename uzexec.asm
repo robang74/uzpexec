@@ -122,7 +122,6 @@ code_start:
 
 .not_uzexec:
   ; Proviamo ad aprire il file (modalità embedded payload)
-  mov byte [force_arg], 0       ; Only sane gzip here
   xor ecx, ecx                  ; O_RDONLY
   push 5                        ; SYS_open
   pop eax
@@ -233,8 +232,8 @@ child:
   mov ebx, zcat_path
   push 0
   push dash_arg
-  cmp byte [force_arg], 0
-  je pure_zcat
+  test edi, edi                 ; Stiamo usando lo stdin puro (edi == 0)?
+  jnz pure_zcat                 ; No, è un file -> salta il push di "-f"
   push force_arg
 pure_zcat:
   push zcat_path
