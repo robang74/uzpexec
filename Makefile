@@ -1,6 +1,6 @@
 .PHONY: blkln tests
 
-TARGETS := gzcmd.gz.sh upexec hello
+TARGETS := gzcmd.gz.sh uzpexec hello
 ZDDCMD  := dd if=hello.gz.sh skip=1 | zcat
 
 all: tests
@@ -16,7 +16,24 @@ gzcmd.gz.sh: gzcmd.sh
 	@echo
 
 upexec: upexec.asm
-	@echo === compiling $^ ===
+	@echo === compile $^ ===
+	@echo
+	nasm -O2 -f bin $^ -o $@
+	@chmod +x $@
+	file $@
+	du -b $@
+	@echo
+	@echo === testing $^ ===
+	@echo
+	export WORLD=beatiful; $(ZDDCMD) | ./upexec $WORLD
+	@echo self-check:
+	printf xyz | ./upexec; echo error: $$? | sed -e 's/: 4/& OK/'
+	printf 'x%.0s' {1..256} | ./upexec; echo error: $$? | sed -e 's/: 4/& OK/'
+	echo "error: 0 "$$(./upexec<&-; test $$? -eq 0 && echo OK || echo KO)
+	@echo
+
+uzpexec: uzpexec.asm
+	@echo === compile $^ ===
 	@echo
 	nasm -O2 -f bin $^ -o $@
 	@chmod +x $@
@@ -25,7 +42,7 @@ upexec: upexec.asm
 	@echo
 
 hello: hello.c
-	@echo === compiling $^ ===
+	@echo === compile $^ ===
 	@echo
 	cc -s -Os $^ -o $@ -Wl,--build-id=none
 	file $@ | sed -e "s/, int/,\n\t int/"
@@ -33,7 +50,7 @@ hello: hello.c
 	@echo
 
 clean: blkln
-	rm -f $(TARGETS)
+	rm -f $(TARGETS) hello.gz.sh ls.elf ls.gz.elf tests.res
 	@echo
 
 tests: blkln $(TARGETS)
@@ -46,11 +63,6 @@ tests: blkln $(TARGETS)
 	./gzcmd.gz.sh hello
 	./hello.gz.sh
 	@echo
-	@echo === testing upexec ===
+	@echo === testing uzpexec ===
 	@echo
-	export WORLD=beatiful; $(ZDDCMD) | ./upexec $WORLD
-	@echo self-check: 
-	printf xyz | ./upexec; echo error: $$? | sed -e 's/: 4/& OK/'
-	printf 'x%.0s' {1..256} | ./upexec; echo error: $$? | sed -e 's/: 4/& OK/'
-	echo "error: 0 "$$(./upexec<&-; test $$? -eq 0 && echo OK || echo KO)
-	@echo
+	sh tests.txt --tests-only

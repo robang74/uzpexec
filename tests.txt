@@ -2,32 +2,49 @@
 # temporary ASM apps, tests collection
 
 bin=uzpexec
-LS=$(which ls)
+LS=$(command -v ls)
+DD() { dd status=none "$@"; }
 
-nasm -O2 -s -f bin $bin.asm -o $bin &&
-chmod +x $bin && du -b $bin && gzip -c $LS |
-$bin -la ./$bin; { cat $bin; gzip -c $LS; } |
-dd of=ls.gz.elf && chmod +x ls.gz.elf && ls.gz.elf -al ls.gz.elf
+if test "x${1:-}" = "x"; then
+  echo
+  echo Binary size:
+  nasm -O2 -s -f bin $bin.asm -o $bin && chmod +x $bin && du -b $bin
+  test $? -eq 0 || { printf "nasm failed\n\n"; exit; }
+fi
 
-# 512	uzexec
-# -rwxrwxr-x 1 roberto roberto 512 Jun 23 22:14 ./uzexec
-# 115+1 records in
-# 115+1 records out
-# 59230 bytes (59 kB, 58 KiB) copied, 0.0101535 s, 5.8 MB/s
-# -rwxrwxr-x 1 roberto roberto 59230 Jun 23 22:14 ls.gz.elf
+( exec 2>&1
 
-cat $LS | $bin -la $bin
-cat $bin $LS | dd of=ls.elf && chmod +x ls.elf && ls.elf -la ls.elf
+  echo
+  echo "== TESTS TO PASS (3x) =="
+  echo
 
-# -rwxrwxr-x 1 roberto roberto 512 Jun 24 02:42 uzexec
-# 270+1 records in
-# 270+1 records out
-# 138728 bytes (139 kB, 135 KiB) copied, 0.000761876 s, 182 MB/s
-#
-# gzip: stdin: not in gzip format
+  gzip -c $LS | $bin -1 ./$bin
+  printf "ret:$?\n\n"
+
+  { cat $bin; gzip -c $LS; } | DD of=ls.gz.elf &&
+  chmod +x ls.gz.elf && ls.gz.elf -1 ls.gz.elf
+  printf "ret:$?\n\n"
+
+  cat $LS | $bin -1 $bin
+  printf "ret:$?\n\n"
+
+  echo "== TESTS TO FAIL (2x) =="
+
+  cat $bin $LS | DD of=ls.elf &&
+  chmod +x ls.elf && ls.elf -1 ls.elf
+  printf "ret:$?\n\n"
+
+  $bin <&-
+  printf "ret:$?\n\n"
+
+) | tee     tests.res
+printf "Tests final result: "
+sha1sum     tests.res | cut -d' ' -f1 |
+sed "s/71c0f5657d6352c551ca3c0f17edb89914743c01/uzpexec OK/" ||
+echo uzpexec FAILED
 
 ################################################################################
-exit 0
+echo;exit
 ################################################################################
 
 bin=uskex
