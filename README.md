@@ -101,13 +101,12 @@ make clean tests
 
 The [uzpexec](uzpexec.asm) (micro gzip pipe exec) replaces the previous `upexec` compared which it offers as extra the integrate support for `gzip` inflate on the standard input pipe.
 
-```text
-; USAGE:
-; - a)  { cat uzpexec; gzip -7c $elf; }    > $elf.uzp
-; - b)  cp uzpexec $elf.uzp; gzip -c $elf >> $elf.uzp
-; - c)  wget $url/$elf[.gz] -O- | uzpexec [args]
-```
+#### USAGE
 
+-  `{ cat uzpexec; gzip -7c $elf; }    > $elf.uzp`
+-  `cp uzpexec $elf.uzp; gzip -c $elf >> $elf.uzp`
+-  `wget $url/$elf[.gz] -O- | uzpexec [args]`
+ 
 It works as single block 512-bytes self-inflating executable payload replacing also `gzcmd.sh` with the sole requirement of `/bin/zcat` available.
 
 ---
