@@ -4,9 +4,10 @@
 ; ==============================================================================
 ;
 ; USAGE:
-; - a) { cat uzexec; gzip -c $elfbin; } > $self-extracting-executable
-; - b) cp uzexec $zelfbin; gzip -c $elfbin >> $zelfbin (the same ^^^)
-; - c) wget $url/$elf.gz -O- | uzexec [args]
+; - a) { cat uzpexec; gzip -c $elfbin; } > $self-extracting-executable
+; - b) cp uzpexec $zelfbin; gzip -c $elfbin >> $zelfbin (the same ^^^)
+; - c) cat uzpexec | upexec [args] when upexec carries a gzip load
+; - c) wget $url/$elf[.gz] -O- | uzpexec [args]
 ;
 ; ==============================================================================
 ;
@@ -30,8 +31,8 @@
 ; - fork()
 ;
 ; Child:
-; - dup2(fd 3, 0)    ; stdin = input (offset already advanced by 512 bytes!)
-; - dup2(fd 4, 1)    ; stdout = memfd
+; - dup2(fd 3, 0)   ; stdin = input (offset already advanced by 512 bytes!)
+; - dup2(fd 4, 1)   ; stdout = memfd
 ; - execve("zcat", ["zcat", "-"], NULL)
 ;
 ; Parent:
@@ -44,40 +45,44 @@ BITS 32
 org 0x08048000
 
 ; ==============================================================================
-; ELF32 HEADER
+; ELF32 HEADER (Micro-Loader a 32-bit, Teeny ELF)
 ; ==============================================================================
 elf_header:
-  db 0x7F, 'ELF', 1, 1, 1, 0
-  times 8 db 0
-  dw 2
-  dw 3
-  dd 1
-  dd code_start
-  dd phdr - elf_header
-  dd 0
-  dd 0
-  dw 52
-  dw 32
-  dw 1
-  dw 0, 0, 0
+  db 0x7F, 'ELF', 1, 1, 1, 0  ; e_ident (Magic, Class 32bit, Data LSB, Version)
+  times 8 db 0                ; Padding for e_ident
+  dw 2                        ; e_type (Executable)
+  dw 3                        ; e_machine (Intel 80386)
+  dd 1                        ; e_version
+  dd code_start               ; e_entry (The starting point of our code)
+  dd phdr - elf_header        ; e_phoff (Offset of the Program Header Table)
+  dd 0                        ; e_shoff (No Section Header Table, saving bytes)
+  dd 0                        ; e_flags
+  dw 52                       ; e_ehsize (Size of this header)
+  dw 32                       ; e_phentsize (Size of a Program Header entry)
+  dw 1                        ; e_phnum (Only one segment needed)
+  ; Many Linux kernel ELF parsers completely ignore these
+  ; 6 bytes when section offset e_shoff = 0, as in this case
+  dw 0, 0, 0                  ; Section info (zeroed out)
 
 phdr:
-  dd 1
-  dd 0
-  dd 0x08048000
-  dd 0x08048000
-  dd file_end - elf_header
-  dd bss_end - elf_header
-  dd 7
-  dd 0x1000
+  dd 1                        ; p_type (PT_LOAD - Segment to load)
+  dd 0                        ; p_offset
+  dd 0x08048000               ; p_vaddr (Virtual address in memory)
+  dd 0x08048000               ; p_paddr
+  dd file_end - elf_header    ; p_filesz (Size of the code within the file)
+  dd bss_end - elf_header     ; p_memsz (Size of the code within memory)
+  dd 7                        ; p_flags (R+W+X - Read, Write, and Execute)
+  dd 0x1000                   ; p_align (Standard page alignment)
 
 ; ==============================================================================
-; CODE
+; upexec CODE (Execution starts here)
 ; ==============================================================================
 code_start:
-  pop eax                       ; argc
-  mov esi, esp                  ; argv
-  lea ebp, [esi+eax*4+4]        ; envp
+  ; Save original argv and calculate envp from the initial stack layout
+  ; Stack: [argc] [argv[0]] ... [argv[N]] [NULL] [envp...]
+  pop eax                     ; argc (was [esp])
+  mov esi, esp                ; ESI = argv
+  lea ebp, [esi+eax*4+4]      ; EBP = envp (callee-saved!)
 
   ; 1. Checking argv[0] to open input (itself or stdin)
   mov ebx, [esi]
@@ -105,14 +110,14 @@ code_start:
   inc edx                       ; Salta il '/' per puntare al nome del file
 
 .do_strcmp:
-  ; edx ora punta esattamente all'inizio del "basename" (es. "uzexec\0")
+  ; edx ora punta esattamente all'inizio del "basename" (es. "uzpexec\0")
   ; Lo confrontiamo carattere per carattere con `filename`
   mov ecx, filename
 .strcmp_loop:
   mov al, [edx]
   mov ah, [ecx]
   cmp al, ah
-  jne .not_uzexec               ; Se differisce, apri file
+  jne .not_uzpexec              ; Se differisce, apri file
   test al, al                   ; Siamo arrivati allo '\0'?
   jz .stdin                     ; Corrispondenza esatta!
   inc edx
@@ -120,7 +125,7 @@ code_start:
   jmp .strcmp_loop
   ; ----------------------------------------------------------------------------
 
-.not_uzexec:
+.not_uzpexec:
   ; Proviamo ad aprire il file (modalità embedded payload)
   xor ecx, ecx                  ; O_RDONLY
   push 5                        ; SYS_open
@@ -157,7 +162,7 @@ code_start:
   int 0x80
   test eax, eax
   js exit_error
-  mov [memfd_saved], eax
+  mov [memfd], eax
   ; Flusso lineare: cade naturalmente dentro .fork_now senza salti cross-scope
 
 .fork_now:
@@ -190,20 +195,20 @@ code_start:
   int 0x80
 
 execute:
-  ; Configures argv[0] and executes from the memfd
-  ; mov eax, filename
-  ; mov [esi], eax              ; ESI contains the pointer to the original argv
+  ; Fix argv[0] to point to our custom name in filename
+  ; mov eax, filename           ; Load address of filename string
+  ; mov [esi], eax              ; Overwrite original argv[0]
 
   ; Execution from the memfd, which now contains the entire unpacked binary
   ; Clean restoration of the stack before execveat to avoid EFAULT
   mov eax, 358                  ; SYS_execveat
-  mov ebx, [memfd_saved]        ; EBX = validated memfd
+  mov ebx, [memfd]              ; EBX = validated memfd
   push 0                        ; push empty string "" to the stack
   mov ecx, esp                  ; ECX = points to ""
   mov edx, esi                  ; EDX = intact original argv
   mov esi, ebp                  ; ESI = envp (extracted from EBP)
   mov edi, 0x1000               ; EDI = AT_EMPTY_PATH flag
-  int 0x80
+  int 0x80                      ; Invoke Linux kernel to replace process
   jmp exit_error
 
   ; ============================================================================
@@ -221,7 +226,7 @@ child:
   ; dup2: connects the MEMFD directly to the STDOUT (1) of zcat
   push 63                       ; SYS_dup2
   pop eax
-  mov ebx, [memfd_saved]
+  mov ebx, [memfd]
   push 1
   pop ecx                       ; 1 = stdout
   int 0x80
@@ -249,17 +254,18 @@ exit_error:
   int 0x80
 
 ; ==============================================================================
-; DATA SECTION
+; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
-filename:   db "uzexec", 0
+filename:   db "uzpexec", 0      ; This is the /proc/self/cmdline executable name
 zcat_path:  db "/bin/zcat", 0
-force_arg:  db "-f", 0        ; "zcat -f" is cat when input isn't gzip
+force_arg:  db "-f", 0          ; "zcat -f" is cat when input isn't gzip
 dash_arg:   db "-", 0
 
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (as per skip request)
 ; ==============================================================================
-file_end:
+file_end:                       ; Physical end of the binary file!
+; this line payload the ELF up to 512 bytes, it serves for uzpexec compatibility
 times (512 - ($ - $$)) db 0     ; Padding to 512 bytes set as limit
 
 ; ==============================================================================
@@ -267,7 +273,7 @@ times (512 - ($ - $$)) db 0     ; Padding to 512 bytes set as limit
 ; ==============================================================================
 bss_start equ $$ + 512
 
-memfd_saved: equ bss_start + 0  ; Only variable needed besides the buffer
-buf:         equ memfd_saved + 4
-bss_end:     equ buf + 512
+memfd:    equ bss_start + 0     ; Only variable needed besides the buffer
+buf:      equ memfd + 4
+bss_end:  equ buf + 512         ; Reserve 512 bytes for the buffer
 
