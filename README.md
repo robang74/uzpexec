@@ -81,52 +81,28 @@ All of the requirements are almost always granted in every Unix/POSIX.
 
 <br>
 
-# upexec
-
-Soon, it will be replaced by [uzpexec](uzpexec.asm) which also offer the gzip inflate support on the standard input pipe and works as single block 512-bytes self-inflating executable payload replacing also `gzcmd.sh` with the sole requirement of `/bin/zcat` available.
-
-```sh
-Usage: zcat elf.gz | upexec [args]
-```
-
----
-
-### Rationale upexec (micro pipe exec)
+# uzpexec
 
 Utility for executing an ELF binary directly from stdin pipe:
 
 - it runs binary via SSH/wget
-- it runs compressed binary
+- it runs gzip compressed binary
+- it self-extract and execute
 
 without writing it on the remote/local systems (memfd_create).
-
-```sh
-# Compile and test (simple example)
-
-cc -Os -s hello.c -o hi && du -b hi && gzip -f hi && du -b hi.gz
-# 14472 hi
-#  1868 hi.gz
-
-nasm -O2 -f bin upexec.asm -o upexec && du -b upexec && chmod a+x upexec
-#   261 upexec
-
-export WORLD=beatyful; zcat hi.gz | ./upexec $WORLD; echo $?
-# Hello beautiful World!
-#   HOME:  /home/roberto
-#   WORLD: beautiful
-# 0
-
-./upexec <&-; echo $?
-# 0
-
-file upexec
-# upexec: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV),
-# statically linked, no section header
-```
-
-or even simpler:
 
 ```sh
 make clean tests
 ```
 
+The [uzpexec](uzpexec.asm) (micro gzip pipe exec) replaces the previous `upexec` compared which it offers as extra the integrate support for `gzip` inflate on the standard input pipe.
+
+```text
+; USAGE:
+; - a) { cat uzpexec; gzip -c $elfbin; } > $self-extracting-executable
+; - b) cp uzpexec $zelfbin; gzip -c $elfbin >> $zelfbin (the same ^^^)
+; - c) cat uzpexec | upexec [args] when upexec carries a gzip load
+; - c) wget $url/$elf[.gz] -O- | uzpexec [args]
+```
+
+It works as single block 512-bytes self-inflating executable payload replacing also `gzcmd.sh` with the sole requirement of `/bin/zcat` available.
