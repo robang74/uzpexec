@@ -4,10 +4,11 @@
 ; ==============================================================================
 ;
 ; USAGE:
-; - a) { cat uzpexec; gzip -c $elfbin; } > $self-extracting-executable
-; - b) cp uzpexec $zelfbin; gzip -c $elfbin >> $zelfbin (the same ^^^)
-; - c) cat uzpexec | upexec [args] when upexec carries a gzip load
-; - d) wget $url/$elf[.gz] -O- | uzpexec [args]
+; - a) { cat uzpexec; gzip -c $elfbin; } > $self-extracting-executable.uzp
+; - b) cp uzpexec $zelfbin; gzip -c $elfbin >> $zelfbin.uzp (the same ^^^)
+; - c) { cat uzpexec | sed 's/zcat\x00/xzcat/'; xz -7c $elf; } > $elf.uxp
+; - d) cat uzpexec | upexec [args] when upexec carries a gzip load
+; - e) wget $url/$elf[.gz] -O- | uzpexec [args]
 ;
 ; ==============================================================================
 ;
@@ -18,21 +19,23 @@
 ; - 4. Reads the unpacked output from zcat and loads it into an anonymous memfd
 ; - 5. Executes the code from the memfd
 ;
-; Single Pipe Optimization with Direct Writing, Architecture:
-; - Only one pipe (input), fork, child writes directly to memfd via dup2.
+; Optimization #1:
+; - Single pipe (input) with direct writing by design.
+; - Do fork: child writes directly to MEMFD via dup2.
 ;
-; Optimization: Ultra-High Efficiency version (Zero Pipes)
-; Transparently supports both files (argv[0]) and stdin without allocating pipes.
+; Optimization #2:
+; - Zero pipe is the highest efficient version.
+; - Transparently supports argv[0] or STDIN, both.
 ;
 ; Parent:
-; - open(argv[0]) → fd 3 (or stdin = 0)
-; - memfd_create() → fd 4
+; - open(argv[0])     → fd 3 (or stdin = 0)
+; - memfd_create()    → fd 4
 ; - skip 512 bytes from fd 3 (read loop)
 ; - fork()
 ;
 ; Child:
-; - dup2(fd 3, 0)   ; stdin = input (offset already advanced by 512 bytes!)
-; - dup2(fd 4, 1)   ; stdout = memfd
+; - dup2(fd 3, 0)  ; stdin = input (offset, already +512 bytes)
+; - dup2(fd 4, 1)  ; stdout = memfd
 ; - execve("zcat", ["zcat", "-"], NULL)
 ;
 ; Parent:
@@ -53,15 +56,15 @@ elf_header:
   dw 2                        ; e_type (Executable)
   dw 3                        ; e_machine (Intel 80386)
   dd 1                        ; e_version
-  dd code_start               ; e_entry (The starting point of our code)
+  dd main_start               ; e_entry (The starting point of our code)
   dd phdr - elf_header        ; e_phoff (Offset of the Program Header Table)
   dd 0                        ; e_shoff (No Section Header Table, saving bytes)
   dd 0                        ; e_flags
   dw 52                       ; e_ehsize (Size of this header)
   dw 32                       ; e_phentsize (Size of a Program Header entry)
   dw 1                        ; e_phnum (Only one segment needed)
-  ; Many Linux kernel ELF parsers completely ignore these
-  ; 6 bytes when section offset e_shoff = 0, as in this case
+  ; Many Linux kernel ELF parsers completely ignore these 6
+  ; bytes when section offset e_shoff = 0, as in this case.
   dw 0, 0, 0                  ; Section info (zeroed out)
 
 phdr:
@@ -77,7 +80,8 @@ phdr:
 ; ==============================================================================
 ; upexec CODE (Execution starts here)
 ; ==============================================================================
-code_start:
+main_start:
+  ; This would be the main() in a C-language sourcemain_start
   ; Save original argv and calculate envp from the initial stack layout
   ; Stack: [argc] [argv[0]] ... [argv[N]] [NULL] [envp...]
   pop eax                     ; argc (was [esp])
@@ -91,51 +95,52 @@ code_start:
   cmp byte [ebx], 0
   jz .stdin
 
-  ; ------------ Trova la fine del percorso (basename) in argv[0] --------------
-  mov edx, ebx                  ; edx = inizio di argv[0]
+  ; ----------------------------------------------------------------------------
+  ; Seek for the basename of argv[0]
+  mov edx, ebx                  ; edx is set at the argv[0] start
 .find_end:
   inc edx
   cmp byte [edx], 0
   jnz .find_end
-                                ; Fine della stringa, andiamo al confronto
-.check_basename:
-  ; Ora torniamo indietro per trovare l'ultimo '/' o l'inizio di argv[0]
-  ; edx punta al terminatore '\0'
-.backtrack:
-  cmp edx, ebx                  ; Siamo tornati all'inizio di argv[0]?
-  je .do_strcmp                 ; Sì, confronta da qui
-  dec edx
-  cmp byte [edx], '/'           ; Abbiamo trovato un separatore di percorso?
-  jne .backtrack
-  inc edx                       ; Salta il '/' per puntare al nome del file
 
+  ; EDX is pointing to the argv[0]'s ending '\0'
+  ; Once at the EOT, proceeding with the check
+  ; Seeking back for the last '/' or argv[0] start
+.backtrack:
+  cmp edx, ebx                  ; Do we reach the argv[0]'s begin?
+  je .do_strcmp                 ; - Y: do the confrontation from here
+  dec edx                       ; - N: continue
+  cmp byte [edx], '/'           ; Do we reach a '/' slash path-div?
+  jne .backtrack                ; - N: loop again
+  inc edx                       ; - Y: set EDX to basename 1st char
+
+  ; EDX is pointing to the basename 1st char (eg. "uzpexec\0")
+  ; Let's start the byte-by-byte comparison with filename var
 .do_strcmp:
-  ; edx ora punta esattamente all'inizio del "basename" (es. "uzpexec\0")
-  ; Lo confrontiamo carattere per carattere con `filename`
   mov ecx, filename
 .strcmp_loop:
   mov al, [edx]
   mov ah, [ecx]
   cmp al, ah
-  jne .not_uzpexec              ; Se differisce, apri file
-  test al, al                   ; Siamo arrivati allo '\0'?
-  jz .stdin                     ; Corrispondenza esatta!
+  jne .not_uzpexec              ; If basename != filename, open the file
+  test al, al                   ; Are we seeing the ending '\0'?
+  jz .stdin                     ; - Y: perfect match
   inc edx
   inc ecx
-  jmp .strcmp_loop
+  jmp .strcmp_loop              ; - N: loop again
   ; ----------------------------------------------------------------------------
 
 .not_uzpexec:
-  ; Proviamo ad aprire il file (modalità embedded payload)
+  ; 2. Try to open itself (embedded payload mode, only)
   xor ecx, ecx                  ; O_RDONLY
   push 5                        ; SYS_open
   pop eax
   int 0x80
   test eax, eax
   js exit_error
-  mov edi, eax                  ; EDI = input fd (file aperto)
+  mov edi, eax                  ; EDI = input fd (opened file)
 
-  ; 3. Salta il blocco iniziale di 512 byte (solo per file con payload)
+  ; 3. Skip the fixed 512-bytes initial block (!stdin, only self-read)
   mov ecx, buf
   mov edx, 512
 .skip_loop:
@@ -145,7 +150,7 @@ code_start:
   int 0x80
   test eax, eax
   js exit_error
-  jz exit_error                 ; Premature EOF if the file is smaller than 512 bytes
+  jz exit_error                 ; Premature EOF
   sub edx, eax
   jnz .skip_loop
   jmp .memfd
@@ -154,7 +159,7 @@ code_start:
   xor edi, edi                  ; EDI = stdin (0)
 
 .memfd:
-  ; Crea direttamente il memfd senza passare dal ciclo skip_loop
+  ; 4. Create the memfd by the specific system call
   mov eax, 356                  ; SYS_memfd_create
   mov ebx, filename             ; fd owner's name
   push 1                        ; MFD_CLOEXEC
@@ -163,10 +168,9 @@ code_start:
   test eax, eax
   js exit_error
   mov [memfd], eax
-  ; Flusso lineare: cade naturalmente dentro .fork_now senza salti cross-scope
 
 .fork_now:
-  ; 4. Fork (Senza allocare pipe!)
+  ; 5. Do a fork without do any pipe (lighter fork)
   push 2                        ; SYS_fork
   pop eax
   int 0x80
@@ -177,6 +181,7 @@ code_start:
   ; PARENT PROCESS
   ; ============================================================================
   ; The parent only needs to wait for the child (zcat) to finish decompressing
+parent:
 ; mov ebx, -1                   ; RAF: -2 bytes
   xor ebx, ebx
   dec ebx
@@ -186,20 +191,19 @@ code_start:
   pop eax
   int 0x80
 
-  ; Closes the initial input if it was an open file (no longer needed in the parent)
+  ; Closes the initial input (no longer needed in the parent), if !stdin
   test edi, edi
-  jz execute
+  jz .execute                   ; From stdin has file openedmain_start
   push 6                        ; SYS_close
   pop eax
-  mov ebx, edi                  ; Closes the origin input fd
+  mov ebx, edi                  ; Closes the opened file fd
   int 0x80
 
-execute:
+.execute:
+  ; 6. Execution from the memfd, which now contains the entire unpacked binary
   ; Fix argv[0] to point to our custom name in filename
   ; mov eax, filename           ; Load address of filename string
   ; mov [esi], eax              ; Overwrite original argv[0]
-
-  ; Execution from the memfd, which now contains the entire unpacked binary
   ; Clean restoration of the stack before execveat to avoid EFAULT
   mov eax, 358                  ; SYS_execveat
   mov ebx, [memfd]              ; EBX = validated memfd
@@ -215,8 +219,8 @@ execute:
   ; CHILD PROCESS (Executes zcat by connecting existing descriptors)
   ; ============================================================================
 child:
-  ; dup2: connects the input fd (already positioned at +512 bytes) to the STDIN (0) of zcat
-  ; Note: if EDI was already 0 (original stdin), dup2(0, 0) is a safe kernel no-op
+  ; dup2: connects the input fd (already at +512 bytes) to zcat's STDIN (0)
+  ; Note: when EDI is STDIN (0), the dup2(0, 0) is a safe kernel no-op
   push 63                       ; SYS_dup2
   pop eax
   mov ebx, edi
@@ -237,15 +241,16 @@ child:
   mov ebx, zcat_path
   push 0
   push dash_arg
-  test edi, edi                 ; Stiamo usando lo stdin puro (edi == 0)?
-  jnz pure_zcat                 ; No, è un file -> salta il push di "-f"
+  test edi, edi                 ; Are we reading from STDIN (edi == 0)?
+  jnz .pure_zcat                ; No, it is a file, then skip '-f' push
   push force_arg
-pure_zcat:
+.pure_zcat:
   push zcat_path
   mov ecx, esp
   xor edx, edx
   int 0x80
 
+  ; ============================================================================
 exit_error:
   push 1                        ; SYS_exit
   pop eax
@@ -256,7 +261,7 @@ exit_error:
 ; ==============================================================================
 ; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
-copy_vers:  db "(c) 2026 robang74 l.MIT v0.68 git.new/ttRvFBu", 0
+copy_vers:  db "(c) 2026 robang74 l.MIT v0.69 git.new/ttRvFBu", 0
 ; filename can be changed by sed up to 7 chars + ending \0
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
 ; /bin/zcat can be changed by sed up to 31 chars + ending \0
