@@ -116,6 +116,12 @@ It works as single block 512-bytes self-inflating executable payload replacing a
 
 Quick customisations by `sed` and other stings-based editor is supported:
 
+- `{ cat uzpexec | sed 's/zcat\x00/xzcat/'; xz -7c $elf; } > $elf.uxp`
+
+Alternative to `zcat` are `xzcat` for XZ compression, or `lzcat` for LZMA.
+
+The alternatives that are natively compatible with `-f -` are fully supported.
+
 ```
 ; ==============================================================================
 ; COMPACT DATA SECTION (Appended to code)
@@ -138,6 +144,33 @@ file_end:                       ; Physical end of the binary file!
 times (512 - ($ - $$)) db 0     ; Padding to 512 bytes for skip=1
 ```
 
-Alternative to `zcat` are `xzcat` for XZ compression, or `lzcat` for LZMA.
+Since `zcat` is a shell script, it can be changed to pair the input with the proper decompressing tool. While a tiny `xcat` binary in ASM would be much faster in properly pairing the matches.
 
-The alternatives that are natively compatible with `-f -` are fully supported.
+> [!WARNING]
+>
+> The following script is provided **untested** AS-IS, just for example
+
+```sh
+#!/bin/sh
+HEADER=$(dd bs=1 count=4 2>/dev/null)
+HEX=$(printf '%s' "$HEADER" | od -An -tx1 | tr -d ' \n')
+case "$HEX" in
+  1f8b*)     # GZIP
+      (printf '%s' "$HEADER"; cat) | gzip -d -c "$@"
+      ;;
+  fd377a58)  # XZ (\xfd7zX)
+      (printf '%s' "$HEADER"; cat) | xz -d -c "$@"
+      ;;
+  425a68*)   # BZIP2 (BZh)
+      (printf '%s' "$HEADER"; cat) | bzip2 -d -c "$@"
+      ;;
+  28b52ffd)  # ZSTD
+      (printf '%s' "$HEADER"; cat) | zstd -d -c "$@"
+      ;;
+  *)         # to support -f / --force
+      (printf '%s' "$HEADER"; cat)
+      ;;
+esac
+```
+
+
