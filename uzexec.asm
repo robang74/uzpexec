@@ -121,7 +121,8 @@ code_start:
   ; ----------------------------------------------------------------------------
 
 .not_uzexec:
-  ; Se non è "uzexec", proviamo ad aprire il file (modalità embedded payload)
+  ; Proviamo ad aprire il file (modalità embedded payload)
+  mov byte [force_arg], 0       ; Only sane gzip here
   xor ecx, ecx                  ; O_RDONLY
   push 5                        ; SYS_open
   pop eax
@@ -232,7 +233,10 @@ child:
   mov ebx, zcat_path
   push 0
   push dash_arg
-; push force_arg
+  cmp byte [force_arg], 0
+  je pure_zcat
+  push force_arg
+pure_zcat:
   push zcat_path
   mov ecx, esp
   xor edx, edx
@@ -250,8 +254,7 @@ exit_error:
 ; ==============================================================================
 filename:   db "uzexec", 0
 zcat_path:  db "/bin/zcat", 0
-; RAF: this can be a security problem, a corrupted gzip archive should fail!
-; force_arg:  db "-f", 0        ; "zcat -f" is cat when input isn't gzip
+force_arg:  db "-f", 0        ; "zcat -f" is cat when input isn't gzip
 dash_arg:   db "-", 0
 
 ; ==============================================================================
