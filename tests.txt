@@ -1,6 +1,7 @@
-# temporary AMS apps, tests collection
+#!/bin/sh
+# temporary ASM apps, tests collection
 
-bin=uzexec
+bin=uzpexec
 LS=$(which ls)
 
 nasm -O2 -s -f bin $bin.asm -o $bin &&
@@ -25,6 +26,8 @@ cat $bin $LS | dd of=ls.elf && chmod +x ls.elf && ls.elf -la ls.elf
 #
 # gzip: stdin: not in gzip format
 
+################################################################################
+exit 0
 ################################################################################
 
 bin=uskex

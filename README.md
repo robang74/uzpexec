@@ -87,6 +87,8 @@ All of the requirements are almost always granted in every Unix/POSIX.
 Usage: zcat elf.gz | upexec [args]
 ```
 
+Soon, it will be replaced by [uzpexec](uzpexec.asm) which also offer the gzip inflate support on the standard input pipe and works as single block 512-bytes self-inflating executable payload replacing also `gzcmd.sh` with the sole requirement of `/bin/zcat` available.
+
 ### Rationale upexec (micro pipe exec)
 
 Utility for executing an ELF binary directly from stdin pipe:
