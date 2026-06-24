@@ -122,6 +122,7 @@ main_start:
   ; Let's start the byte-by-byte comparison with filename var
 .do_strcmp:
   mov ecx, filename
+
 .strcmp_loop:
   mov al, [edx]
   mov ah, [ecx]
@@ -164,8 +165,9 @@ main_start:
   xor edi, edi                  ; EDI = stdin (0)
 
 .memfd:
-  cmp byte [esp], 0             ; script mode is set to 0?
-  jne .do_script                ; - N: call the /bin/sh
+  pop edx                       ; EDX now holds the flag
+  test dl, dl                   ; Is the script flag 0?
+  jnz .do_script                ; - N: call the /bin/sh
                                 ; - Y: exec an ELF binary
   mov eax, 356                  ; SYS_memfd_create
   mov ebx, filename             ; fd owner's name
@@ -197,8 +199,8 @@ main_start:
   ; PARENT PROCESS
   ; ============================================================================
 parent:
-  cmp byte [esp], 0             ; Is it ELF mode?
-  je elf_mode                   ; - Y: standard waitpid execution
+  test dl, dl                   ; Is it ELF mode (0)?
+  jz elf_mode                   ; - Y: standard waitpid execution
                                 ; - N: spawn the alt. interpreter
   ; It closes an useless pipe
   push 6                        ; SYS_close
@@ -226,7 +228,6 @@ parent:
 
   ; The parent only needs to wait for the child (zcat) to finish decompressing
 elf_mode:
-; mov ebx, -1                   ; RAF: -2 bytes
   xor ebx, ebx
   dec ebx
   xor ecx, ecx
@@ -273,8 +274,8 @@ child:
 
   ; Select the correct output descriptor based on mode
   mov ebx, [memfd]              ; Default: assume ELF mode destination
-  cmp byte [esp], 0             ; Are we in ELF mode?
-  je .do_stdout                 ; - Y: skip to stdout redirection
+  test dl, dl                   ; Is it ELF mode (0)?
+  jz .do_stdout                 ; - Y: skip to stdout redirection
   mov ebx, [buf+4]              ; - N: overwrite with pipe write_fd
 
 .do_stdout:
@@ -295,6 +296,7 @@ child:
   test edi, edi                 ; Are we reading from STDIN (edi == 0)?
   jnz .pure_zcat                ; No, it is a file, then skip '-f' push
   push force_arg
+
 .pure_zcat:
   push zcat_path
   mov ecx, esp
