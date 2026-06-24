@@ -92,30 +92,32 @@ code_start:
   inc edx
   cmp byte [edx], 0
   jnz .find_end
-  ; Ora edx punta allo '\0' di argv[0]
-
-  mov ecx, zcat_path
-  dec ecx                       ; ecx ora punta allo '\0' di filename
-
-.strcmp_loop:
+                                ; Fine della stringa, andiamo al confronto
+.check_basename:
+  ; Ora torniamo indietro per trovare l'ultimo '/' o l'inizio di argv[0]
+  ; edx punta al terminatore '\0'
+.backtrack:
+  cmp edx, ebx                  ; Siamo tornati all'inizio di argv[0]?
+  je .do_strcmp                 ; Sì, confronta da qui
   dec edx
-  dec ecx
-  cmp byte [ecx], 0             ; Abbiamo verificato tutto filename?
-  jz .check_boundary            ; Controlliamo la corrispondenza esatta
-  
+  cmp byte [edx], '/'           ; Abbiamo trovato un separatore di percorso?
+  jne .backtrack
+  inc edx                       ; Salta il '/' per puntare al nome del file
+
+.do_strcmp:
+  ; edx ora punta esattamente all'inizio del "basename" (es. "uzexec\0")
+  ; Lo confrontiamo carattere per carattere con `filename`
+  mov ecx, filename
+.strcmp_loop:
   mov al, [edx]
   mov ah, [ecx]
   cmp al, ah
-  jne .not_uzexec               ; Se differisce, non è lui -> modalità payload
-  jmp .strcmp_loop
-
-.check_boundary:
+  jne .not_uzexec               ; Se differisce, apri file
+  test al, al                   ; Siamo arrivati allo '\0'?
+  jz .stdin                     ; Corrispondenza esatta!
   inc edx
-  ; A questo punto, edx punta all'ipotetico inizio del basename dentro argv[0]. 
-  cmp edx, ebx                  ; EDX coincide con l'inizio assoluto di argv[0]?
-  je .stdin                     ; argv[0] è riportato senza alcuna path
-  cmp byte [edx-1], '/'         ; Il carattere precedente è uno slash?
-  je .stdin                     ; argv[0] ha una path
+  inc ecx
+  jmp .strcmp_loop
   ; ----------------------------------------------------------------------------
 
 .not_uzexec:
@@ -246,9 +248,8 @@ exit_error:
 ; ==============================================================================
 ; DATA SECTION
 ; ==============================================================================
-headzero:   db 0                ; this SHOULD STAY immediately before filename
 filename:   db "uzexec", 0
-zcat_path:  db "/bin/zcat", 0   ; this SHOULD STAY immediately after filename
+zcat_path:  db "/bin/zcat", 0
 ; RAF: this can be a security problem, a corrupted gzip archive should fail!
 ; force_arg:  db "-f", 0        ; "zcat -f" is cat when input isn't gzip
 dash_arg:   db "-", 0
