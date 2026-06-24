@@ -319,13 +319,14 @@ copy_vers:  db "(c) github/robang74 v0.74", 0                        ; 26
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
 ; /bin/zcat can be changed by sed up to 31 chars + ending \0
 ; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
+; in do_script mode the 2 paths shrink to 15 && 14 + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
 filename:   db "uzpexec", 0                                          ;  8
 zcat_path:  db "/bin/zcat",    0,0,0, 0,0,0,0                        ; 16
 do_script:  db 0, "/bin/sh", 0,0,0,0, 0,0,0,0                        ; 16
 force_arg:  db "-f",    0,0, 0,0,0,0                                 ;  8
 dash_arg:   db "-",   0,0,0                                          ;  4
-eof_strng:  db "elf_eof",     0                                      ;  8
+eof_strng:  db "elf_eof", 0                                          ;  8
                                                                      ; 90 (tot)
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (as per skip request)
