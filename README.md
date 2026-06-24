@@ -89,9 +89,10 @@ All of the requirements are almost always granted in every Unix/POSIX.
 
 Utility for executing an ELF binary directly from stdin pipe:
 
-- it runs binary via SSH/wget
+- it runs binary via `ssh` or `wget`
 - it runs gzip compressed binary
-- it self-extract and execute
+- it self-extracts and executes
+- it runs un/compressed scripts ([v0.74](https://github.com/robang74/gzcmd.sh/releases/tag/v0.74) or +)
 
 without writing it on the remote/local systems (memfd_create).
 
@@ -111,6 +112,26 @@ It works as a single block 512-bytes self-inflating executable payload replacing
 
 ---
 
+### Script to ELF32
+
+Activating the `do_script` mode, it converts any script into an ELF32:
+
+```sh
+bin="uzpexec"
+HI() { printf '#!/bin/sh\necho Hello World!\n' | gzip -c; }
+do_script() { sed -e 's,\x00\(/bin/sh\),\x01\1,' -i $bin; }
+no_script() { sed -e 's,\x01\(/bin/sh\),\x00\1,' -i $bin; }
+
+do_script # set the script mode
+{ cat $bin; HI; }  > $bin.uzp &&
+chmod +x $bin.uzp && $bin.uzp
+no_script # reset back original
+```
+
+Appending a compressed script is easy and reversible without recompiling.
+
+---
+
 ### Quick customisations
 
 Quick customisations by `sed` and other stings-based editor is supported:
@@ -121,22 +142,23 @@ Alternative to `zcat` are `xzcat` for XZ compression, or `lzcat` for LZMA.
 
 The alternatives that are natively compatible with `-f -` are fully supported.
 
-```
+```asm
 ; ==============================================================================
 ; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
-copy_vers:  db "(c) 2026 robang74 l.MIT v0.68 git.new/ttRvFBu", 0
+copy_vers:  db "(c) github/robang74 v0.74", 0                        ; 26
 ; filename can be changed by sed up to 7 chars + ending \0
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
 ; /bin/zcat can be changed by sed up to 31 chars + ending \0
 ; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
-filename:   db "uzpexec", 0
-zcat_path:  db "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0
-force_arg:  db "-f",  0,0, 0,0,0,0
-dash_arg:   db "-", 0,0,0, 0,0,0,0
-eof_strng:  db "elf_eof", 0
-
+filename:   db "uzpexec", 0                                          ;  8
+zcat_path:  db "/bin/zcat",    0,0,0, 0,0,0,0                        ; 16
+do_script:  db 0, "/bin/sh", 0,0,0,0, 0,0,0,0                        ; 16
+force_arg:  db "-f",    0,0, 0,0,0,0                                 ;  8
+dash_arg:   db "-",   0,0,0                                          ;  4
+eof_strng:  db "elf_eof",     0                                      ;  8
+                                                                     ; 90 (tot)
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (as per skip request)
 ; ==============================================================================
@@ -148,7 +170,7 @@ Since `zcat` is a shell script, it can be changed to pair the input with the pro
 
 > [!WARNING]
 >
-> The following script is provided **untested** AS-IS, just for example
+> The following script is provided **untested** AS-IS, just for the concept:
 
 ```sh
 #!/bin/sh

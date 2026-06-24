@@ -6,9 +6,10 @@
 bin=uzpexec
 LS=$(command -v ls)
 DD() { dd status=none "$@"; }
-HI() { printf '#!/bin/sh\necho Hello World!\n' | gzip -c; }
-
 retprt() { printf "\tret:$?\n\n"; }
+HI() { printf '#!/bin/sh\necho Hello World!\n' | gzip -c; }
+do_script() { sed -e 's,\x00\(/bin/sh\),\x01\1,' -i $bin; }
+no_script() { sed -e 's,\x01\(/bin/sh\),\x00\1,' -i $bin; }
 
 if test "x${1:-}" = "x"; then
   make clean $bin || { printf "nasm failed\n\n"; exit; }
@@ -36,16 +37,22 @@ echo "Strings output:"
   printf "\t%s\n" "$(du -b $bin)"
 
   echo
-  echo "== TESTS TO PASS (x4) =="
+  echo "== TESTS TO PASS (x5) =="
   echo
 
   gzip -c $LS | $bin -1 ./$bin
   retprt
 
-  sed -e 's,\x00\(/bin/sh\),\x01\1,' -i $bin
+  do_script #####################
+
   HI | $bin
   retprt
-  sed -e 's,\x01\(/bin/sh\),\x00\1,' -i $bin
+
+  { cat $bin; HI; } > $bin.uzp &&
+             chmod +x $bin.uzp
+  ( exec $bin.uzp ) ; retprt
+
+  no_script #####################
 
   { cat $bin; gzip -c $LS; } | DD of=ls.gz.elf &&
   chmod +x ls.gz.elf && ls.gz.elf -1 ls.gz.elf
@@ -70,7 +77,7 @@ echo "Strings output:"
 ) | tee     tests.res
 printf "Tests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/944b7a9af21d3a4113e35c38ade5bd77a134dd5b/$bin OK/" |
+sed "s/f6806c33616cf04d08f02136b7fe8ab35e111f49/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
