@@ -160,7 +160,9 @@ main_start:
   xor edi, edi                  ; EDI = stdin (0)
 
 .memfd:
-  ; 4. Create the memfd by the specific system call
+; cmp byte [do_script], 1       ; script mode is exactly 1?
+; je .do_script                 ; - Y: call the /bin/sh
+;                               ; - N: exec an ELF binary
   mov eax, 356                  ; SYS_memfd_create
   mov ebx, filename             ; fd owner's name
   push 1                        ; MFD_CLOEXEC
@@ -170,6 +172,14 @@ main_start:
 ; test eax, eax
 ; js exit_error
   mov [memfd], eax
+  jmp .fork_now                 ; Try to fork
+
+.do_script:
+  ; We are using 2-bytes at the tiop of BSS buffer (buf) to save the 2 FDs
+  push 42                       ; SYS_pipe
+  pop eax
+  mov ebx, buf                  ; EBX is pointing to a 2 words array in BBS
+  int 0x80                      ; Now buf[0] = read_fd, buf[4] = write_fd
 
 .fork_now:
   ; 5. Do a fork without do any pipe (lighter fork)
@@ -267,14 +277,15 @@ exit_error:
 ; ==============================================================================
 ; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
-copy_vers:  db "(c) 2026 robang74 l.MIT v0.71 git.new/ttRvFBu", 0
+copy_vers:  db "(c) 2026 robang74 l.MIT v0.72 git.new/ttRvFBu", 0
 ; filename can be changed by sed up to 7 chars + ending \0
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
 ; /bin/zcat can be changed by sed up to 31 chars + ending \0
 ; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
 filename:   db "uzpexec", 0
-zcat_path:  db "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0
+zcat_path:  db "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,
+do_script:  db 0, 0
 force_arg:  db "-f",  0,0, 0,0,0,0
 dash_arg:   db "-", 0,0,0, 0,0,0,0
 eof_strng:  db "elf_eof", 0
