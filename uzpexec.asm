@@ -89,6 +89,8 @@ main_start:
   pop eax                     ; argc (was [esp])
   mov esi, esp                ; ESI = argv
   lea ebp, [esi+eax*4+4]      ; EBP = envp (callee-saved!)
+  movzx eax, byte [do_script] ; reads by address once
+  push eax                    ; saves it to the stack
 
   ; 1. Checking argv[0] to open input (itself or stdin)
   mov ebx, [esi]
@@ -162,9 +164,9 @@ main_start:
   xor edi, edi                  ; EDI = stdin (0)
 
 .memfd:
-  cmp byte [do_script], '/'     ; script mode is exactly 1?
-  je .do_script                 ; - Y: call the /bin/sh
-                                ; - N: exec an ELF binary
+  cmp byte [esp], 0             ; script mode is set to 0?
+  jne .do_script                ; - N: call the /bin/sh
+                                ; - Y: exec an ELF binary
   mov eax, 356                  ; SYS_memfd_create
   mov ebx, filename             ; fd owner's name
   push 1                        ; MFD_CLOEXEC
@@ -195,11 +197,10 @@ main_start:
   ; PARENT PROCESS
   ; ============================================================================
 parent:
-  cmp byte [do_script], '/'
-  jne elf_mode                 ; Se siamo in modalità ELF, fa il waitpid standard
-
-  ; Il genitore deve diventare l'interprete (/bin/sh) e leggere dalla pipe
-  ; Chiude il lato di scrittura della pipe (non lo usa)
+  cmp byte [esp], 0             ; Is it ELF mode?
+  je elf_mode                   ; - Y: standard waitpid execution
+                                ; - N: spawn the alt. interpreter
+  ; It closes an useless pipe
   push 6                        ; SYS_close
   pop eax
   mov ebx, [buf+4]              ; write_fd
@@ -272,9 +273,9 @@ child:
 
   ; Select the correct output descriptor based on mode
   mov ebx, [memfd]              ; Default: assume ELF mode destination
-  cmp byte [do_script], '/'     ; Are we in script mode?
-  jne .do_stdout                ; - N: skip to stdout redirection
-  mov ebx, [buf+4]              ; - Y: overwrite with pipe write_fd
+  cmp byte [esp], 0             ; Are we in ELF mode?
+  je .do_stdout                 ; - Y: skip to stdout redirection
+  mov ebx, [buf+4]              ; - N: overwrite with pipe write_fd
 
 .do_stdout:
   ; 2nd dup2: Connect selected output (ebx) to STDOUT (1)
