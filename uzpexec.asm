@@ -7,7 +7,7 @@
 ; - a) { cat uzpexec; gzip -c $elfbin; } > $self-extracting-executable
 ; - b) cp uzpexec $zelfbin; gzip -c $elfbin >> $zelfbin (the same ^^^)
 ; - c) cat uzpexec | upexec [args] when upexec carries a gzip load
-; - c) wget $url/$elf[.gz] -O- | uzpexec [args]
+; - d) wget $url/$elf[.gz] -O- | uzpexec [args]
 ;
 ; ==============================================================================
 ;
@@ -256,17 +256,22 @@ exit_error:
 ; ==============================================================================
 ; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
-filename:   db "uzpexec", 0      ; This is the /proc/self/cmdline executable name
-zcat_path:  db "/bin/zcat", 0
-force_arg:  db "-f", 0          ; "zcat -f" is cat when input isn't gzip
-dash_arg:   db "-", 0
+; filename can be changed by sed up to 7 chars + ending \0
+; zcat -f is cat when input isn't gzip, options up to -6c\0
+; /bin/zcat can be changed by sed up to 31 chars + ending \0
+; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
+; eof_strng helps to find the EOF, and where \0 padding starts
+filename:   db "uzpexec", 0
+zcat_path:  db "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0
+force_arg:  db "-f",  0,0, 0,0,0,0
+dash_arg:   db "-", 0,0,0, 0,0,0,0
+eof_strng:  db "uzx_end", 0
 
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (as per skip request)
 ; ==============================================================================
 file_end:                       ; Physical end of the binary file!
-; this line payload the ELF up to 512 bytes, it serves for uzpexec compatibility
-times (512 - ($ - $$)) db 0     ; Padding to 512 bytes set as limit
+times (512 - ($ - $$)) db 0     ; Padding to 512 bytes for skip=1
 
 ; ==============================================================================
 ; BSS SECTION (RAM only, aligned to 512 bytes)

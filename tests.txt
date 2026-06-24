@@ -12,6 +12,10 @@ if test "x${1:-}" = "x"; then
   test $? -eq 0 || { printf "nasm failed\n\n"; exit; }
 fi
 
+echo
+echo "Strings output:"
+printf "\t$(strings $bin | tr '\n' ' ')\n"
+
 ( exec 2>&1
 
   echo
@@ -40,8 +44,8 @@ fi
 ) | tee     tests.res
 printf "Tests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/71c0f5657d6352c551ca3c0f17edb89914743c01/uzpexec OK/" ||
-echo uzpexec FAILED
+sed "s/cea5634d47d7ed161950ea7145e7b22f2c43c95a/$bin OK/" |
+tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
 echo;exit
