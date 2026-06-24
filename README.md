@@ -109,3 +109,35 @@ The [uzpexec](uzpexec.asm) (micro gzip pipe exec) replaces the previous `upexec`
 ```
 
 It works as single block 512-bytes self-inflating executable payload replacing also `gzcmd.sh` with the sole requirement of `/bin/zcat` available.
+
+---
+
+### Quick customisations
+
+Quick customisations by `sed` and other stings-based editor is supported:
+
+```
+; ==============================================================================
+; COMPACT DATA SECTION (Appended to code)
+; ==============================================================================
+; filename can be changed by sed up to 7 chars + ending \0
+; zcat -f is cat when input isn't gzip, options up to -6c\0
+; /bin/zcat can be changed by sed up to 31 chars + ending \0
+; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
+; eof_strng helps to find the EOF, and where \0 padding starts
+filename:   db "uzpexec", 0
+zcat_path:  db "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0
+force_arg:  db "-f",  0,0, 0,0,0,0
+dash_arg:   db "-", 0,0,0, 0,0,0,0
+eof_strng:  db "uzx_end", 0
+
+; ==============================================================================
+; PADDING: Aligned exactly to 512 bytes (as per skip request)
+; ==============================================================================
+file_end:                       ; Physical end of the binary file!
+times (512 - ($ - $$)) db 0     ; Padding to 512 bytes for skip=1
+```
+
+Alternative to `zcat` are `xzcat` for XZ compression, or `lzcat` for LZMA.
+
+The alternatives that are natively compatible with `-f -` are fully supported.
