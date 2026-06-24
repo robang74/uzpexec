@@ -89,8 +89,6 @@ main_start:
   pop eax                     ; argc (was [esp])
   mov esi, esp                ; ESI = argv
   lea ebp, [esi+eax*4+4]      ; EBP = envp (callee-saved!)
-  movzx eax, byte [do_script] ; reads by address once
-  push eax                    ; saves it to the stack
 
   ; 1. Checking argv[0] to open input (itself or stdin)
   mov ebx, [esi]
@@ -165,7 +163,7 @@ main_start:
   xor edi, edi                  ; EDI = stdin (0)
 
 .memfd:
-  pop edx                       ; EDX now holds the flag
+  movzx edx, byte [do_script]   ; EDX now holds the flag
   test dl, dl                   ; Is the script flag 0?
   jnz .do_script                ; - N: call the /bin/sh
                                 ; - Y: exec an ELF binary
