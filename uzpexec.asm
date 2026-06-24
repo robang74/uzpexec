@@ -256,6 +256,7 @@ exit_error:
 ; ==============================================================================
 ; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
+copy_vers:  db "(c) 2026 robang74 l.MIT v0.68 git.new/ttRvFBu", 0
 ; filename can be changed by sed up to 7 chars + ending \0
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
 ; /bin/zcat can be changed by sed up to 31 chars + ending \0
@@ -265,7 +266,7 @@ filename:   db "uzpexec", 0
 zcat_path:  db "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0
 force_arg:  db "-f",  0,0, 0,0,0,0
 dash_arg:   db "-", 0,0,0, 0,0,0,0
-eof_strng:  db "uzx_end", 0
+eof_strng:  db "elf_eof", 0
 
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (as per skip request)
