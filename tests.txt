@@ -22,8 +22,10 @@ printf "\t%d bytes\n\n" $(( ${n:--8} + 8 ))
 echo "Strings output:"
 ( exec 2>&1
   echo "$(strings $bin)" | sed -e "s/^/\t/" | tee /proc/self/fd/2 |
-  grep -qe "(c) 2026 robang74 l.MIT v[0-9.]\{4\} git.new/ttRvFBu" ||{
-    printf "\nWARNING:\n\tAuthorship isn't allowed to be changed or removed\n\n"
+  grep -qe "([cC]) .*robang74 v[0-9.]\{4\}" ||{
+    printf "\nWARNING:\n"
+    printf "\tAuthorship isn't allowed to be changed or removed"
+    printf "\n\n"
     exit 1
   }
 ) || { make clean >&- 2>&1; exit 1; }
