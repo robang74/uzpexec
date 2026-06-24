@@ -264,24 +264,30 @@ elf_mode:
   ; CHILD PROCESS (Executes zcat by connecting existing descriptors)
   ; ============================================================================
 child:
-  ; dup2: connects the MEMFD directly to the STDOUT (1) of zcat
-  push 63                       ; SYS_dup2
-  pop eax
-  mov ebx, [memfd]
-  push 1
-  pop ecx                       ; 1 = stdout
-  int 0x80
-; previously unchecked errors for smaller code should fail here in the child
-  test eax, eax
-  js exit_error
+  xor ecx, ecx                  ; 0 = stdin
 
-  ; dup2: connects the input fd (already at +512 bytes) to zcat's STDIN (0)
-  ; Note: when EDI is STDIN (0), the dup2(0, 0) is a safe kernel no-op
+  cmp byte [do_script], 1       ; Are we in script mode?
+  jne .do_memfd                 ; - N: write to memfd
+                                ; - Y: write to pipe
+  ; 1st dup2: Connect input (edi) to STDIN (0)
   push 63                       ; SYS_dup2
   pop eax
-  mov ebx, edi
-  dec ecx                       ; 0 = stdin
-  int 0x80
+  mov ebx, edi                  ; input fd (file or 0)
+  int 0x80                      ; ECX remains 0 on return
+; test eax, eax                 ; Check for errors (e.g. invalid memfd/pipe)
+; js exit_error
+.do_memfd
+  mov ebx, [memfd]              ; ELF Mode: destination is memfd
+  jmp .do_stdout
+  mov ebx, [buf+4]              ; Script Mode: destination is write_fd of pipe
+.do_stdout
+  ; 2nd dup2: Connect output to STDOUT (1) based on mode
+  push 63                       ; SYS_dup2
+  pop eax
+  inc ecx                       ; 1 = stdout
+  int 0x80                      ; ECX remains 0 on return
+
+  ; From here on, the execution of zcat will seamlessly flow into the pipe!
 
   ; Clean execution of simple zcat (zcat -)
   push 11                       ; SYS_execve
@@ -309,7 +315,7 @@ exit_error:
 ; ==============================================================================
 ; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
-copy_vers:  db "(c) github/robang74 v0.73", 0                        ; 26
+copy_vers:  db "(c) github/robang74 v0.74", 0                        ; 26
 ; filename can be changed by sed up to 7 chars + ending \0
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
 ; /bin/zcat can be changed by sed up to 31 chars + ending \0
@@ -318,7 +324,7 @@ copy_vers:  db "(c) github/robang74 v0.73", 0                        ; 26
 filename:   db "uzpexec", 0                                          ;  8
 zcat_path:  db "/bin/zcat",    0,0,0, 0,0,0,0                        ; 16
 shell_path: db "/bin/sh", 0, 0,0,0,0, 0,0,0,0                        ; 16
-do_script:  db 0, 0                                                  ;  2
+do_script:  db 1, 0                                                  ;  2
 force_arg:  db "-f",    0,0, 0,0,0,0                                 ;  8
 dash_arg:   db "-",   0,0,0                                          ;  4
 eof_strng:  db "elf_eof",     0                                      ;  8
