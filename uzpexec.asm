@@ -160,9 +160,9 @@ main_start:
   xor edi, edi                  ; EDI = stdin (0)
 
 .memfd:
-; cmp byte [do_script], 1       ; script mode is exactly 1?
-; je .do_script                 ; - Y: call the /bin/sh
-;                               ; - N: exec an ELF binary
+  cmp byte [do_script], 1       ; script mode is exactly 1?
+  je .do_script                 ; - Y: call the /bin/sh
+                                ; - N: exec an ELF binary
   mov eax, 356                  ; SYS_memfd_create
   mov ebx, filename             ; fd owner's name
   push 1                        ; MFD_CLOEXEC
@@ -192,8 +192,40 @@ main_start:
   ; ============================================================================
   ; PARENT PROCESS
   ; ============================================================================
-  ; The parent only needs to wait for the child (zcat) to finish decompressing
 parent:
+  cmp byte [do_script], 1
+  jne elf_mode                 ; Se siamo in modalità ELF, fa il waitpid standard
+
+  ; Il genitore deve diventare l'interprete (/bin/sh) e leggere dalla pipe
+  ; Chiude il lato di scrittura della pipe (non lo usa)
+  push 6                        ; SYS_close
+  pop eax
+  mov ebx, [buf+4]              ; write_fd
+  int 0x80
+
+  ; Aggancia il lato di lettura della pipe al proprio STDIN (fd 0)
+  push 63                       ; SYS_dup2
+  pop eax
+  mov ebx, [buf]                ; read_fd
+  xor ecx, ecx                  ; 0 = stdin
+  int 0x80
+
+  ; Esegue /bin/sh. Avendo STDIN collegato a zcat, la shell eseguirà lo script!
+  push 11                       ; SYS_execve
+  pop eax
+  ; Per risparmiare byte e non aggiungere stringhe, possiamo spingere nello stack
+  ; la stringa "/bin/sh\0" al volo, oppure tenerla in una piccola costante.
+  ; Ipotizziamo di avere un puntatore a shell_path:
+  mov ebx, shell_path           ; db "/bin/sh", 0
+  push 0                        ; envp / argv finale
+  push ebx                      ; argv[0]
+  mov ecx, esp                  ; argv
+  xor edx, edx                  ; envp = NULL
+  int 0x80
+  jmp exit_error
+
+  ; The parent only needs to wait for the child (zcat) to finish decompressing
+elf_mode:
 ; mov ebx, -1                   ; RAF: -2 bytes
   xor ebx, ebx
   dec ebx
@@ -277,19 +309,20 @@ exit_error:
 ; ==============================================================================
 ; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
-copy_vers:  db "(c) 2026 robang74 l.MIT v0.72 git.new/ttRvFBu", 0
+copy_vers:  db "(c) github/robang74 v0.73", 0                        ; 26
 ; filename can be changed by sed up to 7 chars + ending \0
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
 ; /bin/zcat can be changed by sed up to 31 chars + ending \0
 ; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
-filename:   db "uzpexec", 0
-zcat_path:  db "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,
-do_script:  db 0, 0
-force_arg:  db "-f",  0,0, 0,0,0,0
-dash_arg:   db "-", 0,0,0, 0,0,0,0
-eof_strng:  db "elf_eof", 0
-
+filename:   db "uzpexec", 0                                          ;  8
+zcat_path:  db "/bin/zcat",    0,0,0, 0,0,0,0                        ; 16
+shell_path: db "/bin/sh", 0, 0,0,0,0, 0,0,0,0                        ; 16
+do_script:  db 0, 0                                                  ;  2
+force_arg:  db "-f",    0,0, 0,0,0,0                                 ;  8
+dash_arg:   db "-",   0,0,0                                          ;  4
+eof_strng:  db "elf_eof",     0                                      ;  8
+                                                                     ; 92 (tot)
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (as per skip request)
 ; ==============================================================================
