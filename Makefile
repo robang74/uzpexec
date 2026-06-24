@@ -37,7 +37,7 @@ uzpexec: uzpexec.asm
 	@echo
 	nasm -O2 -f bin $^ -o $@
 	@chmod +x $@
-	file $@
+	file $@ | sed -e 's/V), s/V),\n\ts/'
 	du -b $@
 	@echo
 
