@@ -89,13 +89,13 @@ All of the requirements are almost always granted in every Unix/POSIX.
 
 Utility for executing an ELF binary directly from stdin pipe:
 
-- it runs binary via `ssh` or `wget`
-- it runs gzip compressed binary
 - it self-extracts and executes
-- trivial to inflate by `dd skip=1`
 - it adds up just 512-bytes overhead
+- trivial to inflate by `dd skip=1`
+- it runs gzip compressed binaries
+- it runs binary via `ssh` or `wget`
 - it runs un/compressed scripts ([v0.74](https://github.com/robang74/gzcmd.sh/releases/tag/v0.74) or +)
-- it *converts* any script in ELF32
+- compress any script, run as ELF32
 
 without writing it on the remote/local systems (memfd_create).
 
