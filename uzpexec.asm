@@ -260,34 +260,31 @@ elf_mode:
   jmp exit_error                ; execve() never returns, and we catch here
                                 ; previously unchecked errors for smaller code
 
-  ; ============================================================================
-  ; CHILD PROCESS (Executes zcat by connecting existing descriptors)
-  ; ============================================================================
+; ============================================================================
+; CHILD PROCESS (Executes zcat by connecting existing descriptors)
+; ============================================================================
 child:
-  xor ecx, ecx                  ; 0 = stdin
-
-  cmp byte [do_script], 1       ; Are we in script mode?
-  jne .do_memfd                 ; - N: write to memfd
-                                ; - Y: write to pipe
-  ; 1st dup2: Connect input (edi) to STDIN (0)
+  ; 1st dup2: Connect input (edi) to STDIN (0) for both modes
   push 63                       ; SYS_dup2
   pop eax
   mov ebx, edi                  ; input fd (file or 0)
-  int 0x80                      ; ECX remains 0 on return
-; test eax, eax                 ; Check for errors (e.g. invalid memfd/pipe)
-; js exit_error
-.do_memfd
-  mov ebx, [memfd]              ; ELF Mode: destination is memfd
-  jmp .do_stdout
-  mov ebx, [buf+4]              ; Script Mode: destination is write_fd of pipe
-.do_stdout
-  ; 2nd dup2: Connect output to STDOUT (1) based on mode
-  push 63                       ; SYS_dup2
-  pop eax
-  inc ecx                       ; 1 = stdout
+  xor ecx, ecx                  ; 0 = stdin
   int 0x80                      ; ECX remains 0 on return
 
-  ; From here on, the execution of zcat will seamlessly flow into the pipe!
+  ; Select the correct output descriptor based on mode
+  mov ebx, [memfd]              ; Default: assume ELF mode destination
+  cmp byte [do_script], 1       ; Are we in script mode?
+  jne .do_stdout                ; - N: skip to stdout redirection
+  mov ebx, [buf+4]              ; - Y: overwrite with pipe write_fd
+
+.do_stdout:
+  ; 2nd dup2: Connect selected output (ebx) to STDOUT (1)
+  push 63                       ; SYS_dup2
+  pop eax
+  inc ecx                       ; 1 = stdout (incremented from 0)
+  int 0x80
+  test eax, eax                 ; Catch deferred memfd/pipe errors here
+  js exit_error
 
   ; Clean execution of simple zcat (zcat -)
   push 11                       ; SYS_execve
