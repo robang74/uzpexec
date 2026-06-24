@@ -93,6 +93,8 @@ Utility for executing an ELF binary directly from stdin pipe:
 - it runs gzip compressed binary
 - it self-extracts and executes
 - it runs un/compressed scripts ([v0.74](https://github.com/robang74/gzcmd.sh/releases/tag/v0.74) or +)
+- trivial to inflate by `dd skip=1`
+- adds up just 512-bytes overhead
 
 without writing it on the remote/local systems (memfd_create).
 
