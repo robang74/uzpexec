@@ -162,7 +162,7 @@ main_start:
   xor edi, edi                  ; EDI = stdin (0)
 
 .memfd:
-  cmp byte [do_script], 1       ; script mode is exactly 1?
+  cmp byte [do_script], '/'     ; script mode is exactly 1?
   je .do_script                 ; - Y: call the /bin/sh
                                 ; - N: exec an ELF binary
   mov eax, 356                  ; SYS_memfd_create
@@ -195,7 +195,7 @@ main_start:
   ; PARENT PROCESS
   ; ============================================================================
 parent:
-  cmp byte [do_script], 1
+  cmp byte [do_script], '/'
   jne elf_mode                 ; Se siamo in modalità ELF, fa il waitpid standard
 
   ; Il genitore deve diventare l'interprete (/bin/sh) e leggere dalla pipe
@@ -215,10 +215,7 @@ parent:
   ; Esegue /bin/sh. Avendo STDIN collegato a zcat, la shell eseguirà lo script!
   push 11                       ; SYS_execve
   pop eax
-  ; Per risparmiare byte e non aggiungere stringhe, possiamo spingere nello stack
-  ; la stringa "/bin/sh\0" al volo, oppure tenerla in una piccola costante.
-  ; Ipotizziamo di avere un puntatore a do_script:
-  mov ebx, do_script+1          ; 1st char is the flag
+  mov ebx, do_script            ; script interpreter
   push 0                        ; envp / argv finale
   push ebx                      ; argv[0]
   mov ecx, esp                  ; argv
@@ -275,7 +272,7 @@ child:
 
   ; Select the correct output descriptor based on mode
   mov ebx, [memfd]              ; Default: assume ELF mode destination
-  cmp byte [do_script], 1       ; Are we in script mode?
+  cmp byte [do_script], '/'     ; Are we in script mode?
   jne .do_stdout                ; - N: skip to stdout redirection
   mov ebx, [buf+4]              ; - Y: overwrite with pipe write_fd
 
@@ -314,16 +311,16 @@ exit_error:
 ; ==============================================================================
 ; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
-copy_vers:  db "(c) github/robang74 v0.74", 0                        ; 26
+copy_vers:  db "(c) github/robang74 v0.75", 0                        ; 26
 ; filename can be changed by sed up to 7 chars + ending \0
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
 ; /bin/zcat can be changed by sed up to 31 chars + ending \0
 ; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
-; in do_script mode the 2 paths shrink to 15 && 14 + ending \0
+; in do_script mode the 2 paths shrink to 15 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
 filename:   db "uzpexec", 0                                          ;  8
 zcat_path:  db "/bin/zcat",    0,0,0, 0,0,0,0                        ; 16
-do_script:  db 0, "/bin/sh", 0,0,0,0, 0,0,0,0                        ; 16
+do_script:  db 0,"bin/sh",0, 0,0,0,0, 0,0,0,0                        ; 16
 force_arg:  db "-f",    0,0, 0,0,0,0                                 ;  8
 dash_arg:   db "-",   0,0,0                                          ;  4
 eof_strng:  db "elf_eof", 0                                          ;  8

@@ -121,9 +121,9 @@ Activating the `do_script` mode, it converts any script into an ELF32:
 
 ```sh
 bin="uzpexec"
-HI() { printf '#!/bin/sh\necho Hello World!\n' | gzip -c; }
-do_script() { sed -e 's,\x00\(/bin/sh\),\x01\1,' -i $bin; }
-no_script() { sed -e 's,\x01\(/bin/sh\),\x00\1,' -i $bin; }
+HI() { printf '#!/bin/sh\necho Hi World!\n'| gzip -c; }
+do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i $bin; }
+no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i $bin; }
 
 do_script # set the script mode
 { cat $bin; HI; }  > $bin.uzp &&
@@ -149,16 +149,16 @@ The alternatives that are natively compatible with `-f -` are fully supported.
 ; ==============================================================================
 ; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
-copy_vers:  db "(c) github/robang74 v0.74", 0                        ; 26
+copy_vers:  db "(c) github/robang74 v0.75", 0                        ; 26
 ; filename can be changed by sed up to 7 chars + ending \0
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
 ; /bin/zcat can be changed by sed up to 31 chars + ending \0
 ; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
-; in do_script mode the 2 paths shrink to 15 && 14 + ending \0
+; in do_script mode the 2 paths shrink to 15 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
 filename:   db "uzpexec", 0                                          ;  8
 zcat_path:  db "/bin/zcat",    0,0,0, 0,0,0,0                        ; 16
-do_script:  db 0, "/bin/sh", 0,0,0,0, 0,0,0,0                        ; 16
+do_script:  db 0,"bin/sh",0, 0,0,0,0, 0,0,0,0                        ; 16
 force_arg:  db "-f",    0,0, 0,0,0,0                                 ;  8
 dash_arg:   db "-",   0,0,0                                          ;  4
 eof_strng:  db "elf_eof", 0                                          ;  8
