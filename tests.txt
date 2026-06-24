@@ -6,6 +6,7 @@
 bin=uzpexec
 LS=$(command -v ls)
 DD() { dd status=none "$@"; }
+HI() { printf '#!/bin/sh\necho Hello World!\n' | gzip -c; }
 
 retprt() { printf "\tret:$?\n\n"; }
 
@@ -35,11 +36,16 @@ echo "Strings output:"
   printf "\t%s\n" "$(du -b $bin)"
 
   echo
-  echo "== TESTS TO PASS (3x) =="
+  echo "== TESTS TO PASS (x4) =="
   echo
 
   gzip -c $LS | $bin -1 ./$bin
   retprt
+
+  sed -e 's,\x00\(/bin/sh\),\x01\1,' -i $bin
+  HI | $bin
+  retprt
+  sed -e 's,\x01\(/bin/sh\),\x00\1,' -i $bin
 
   { cat $bin; gzip -c $LS; } | DD of=ls.gz.elf &&
   chmod +x ls.gz.elf && ls.gz.elf -1 ls.gz.elf
@@ -48,7 +54,7 @@ echo "Strings output:"
   cat $LS | $bin -1 $bin
   retprt
 
-  echo "== TESTS TO FAIL (2x) =="
+  echo "== TESTS TO FAIL (x3) =="
 
   cat $bin $LS | DD of=ls.elf &&
   chmod +x ls.elf && ls.elf -1 ls.elf
@@ -57,10 +63,14 @@ echo "Strings output:"
   $bin <&-
   retprt
 
+  echo try to run a compressed shell script
+  HI | $bin
+  retprt
+
 ) | tee     tests.res
 printf "Tests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/9776b3a598e04da650ac102e89f22f0388a4230d/$bin OK/" |
+sed "s/944b7a9af21d3a4113e35c38ade5bd77a134dd5b/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
