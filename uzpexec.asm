@@ -136,8 +136,9 @@ main_start:
   push 5                        ; SYS_open
   pop eax
   int 0x80
-  test eax, eax
-  js exit_error
+; It will fail later, anyway
+; test eax, eax
+; js exit_error
   mov edi, eax                  ; EDI = input fd (opened file)
 
   ; 3. Skip the fixed 512-bytes initial block (!stdin, only self-read)
@@ -165,8 +166,9 @@ main_start:
   push 1                        ; MFD_CLOEXEC
   pop ecx
   int 0x80
-  test eax, eax
-  js exit_error
+; It will fail later, anyway
+; test eax, eax
+; js exit_error
   mov [memfd], eax
 
 .fork_now:
@@ -213,7 +215,8 @@ parent:
   mov esi, ebp                  ; ESI = envp (extracted from EBP)
   mov edi, 0x1000               ; EDI = AT_EMPTY_PATH flag
   int 0x80                      ; Invoke Linux kernel to replace process
-  jmp exit_error
+  jmp exit_error                ; execve() never returns, and we catch here
+                                ; previously unchecked errors for smaller code
 
   ; ============================================================================
   ; CHILD PROCESS (Executes zcat by connecting existing descriptors)
@@ -234,6 +237,9 @@ child:
   push 1
   pop ecx                       ; 1 = stdout
   int 0x80
+; previously unchecked errors for smaller code should fail here in the child
+  test eax, eax
+  js exit_error
 
   ; Clean execution of simple zcat (zcat -)
   push 11                       ; SYS_execve
@@ -261,7 +267,7 @@ exit_error:
 ; ==============================================================================
 ; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
-copy_vers:  db "(c) 2026 robang74 l.MIT v0.69 git.new/ttRvFBu", 0
+copy_vers:  db "(c) 2026 robang74 l.MIT v0.70 git.new/ttRvFBu", 0
 ; filename can be changed by sed up to 7 chars + ending \0
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
 ; /bin/zcat can be changed by sed up to 31 chars + ending \0
