@@ -17,8 +17,9 @@ fi
 
 echo "Code size with EOF string:"
 hex=$(hexdump $bin | head -n -2 | cut -d' ' -f2- | tr ' ' '\n')
-n=$(echo "$hex" | grep --color=never -nE "5f66|655f" | cut -f1 -d:)
-printf "\t%d bytes\n\n" $((${n:--2}*2 + 4))
+n=$(echo "$hex" | grep --color=never -n "5f66" | cut -f1 -d:)
+m=$(echo "$hex" | grep --color=never -n "655f" | cut -f1 -d:)
+printf "\t%d bytes\n\n" $(( ( ${n:-0} + ${m:-0} )*2 + 4 - ${m:+1} ))
 
 echo "Strings output:"
 ( exec 2>&1
