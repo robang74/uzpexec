@@ -15,6 +15,11 @@ else
   echo
 fi
 
+echo "Code size with EOF string:"
+hex=$(hexdump $bin | head -n -2 | cut -d' ' -f2- | tr ' ' '\n')
+n=$(echo "$hex" | grep --color=never -nE "5f66|665f" | cut -f1 -d:)
+printf "\t%d bytes\n\n" $((${n:--2}*2 + 4))
+
 echo "Strings output:"
 ( exec 2>&1
   echo "$(strings $bin)" | sed -e "s/^/\t/" | tee /proc/self/fd/2 |
