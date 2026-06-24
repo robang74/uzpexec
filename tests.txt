@@ -1,16 +1,31 @@
 # temporary AMS apps, tests collection
 
 bin=uzexec
+LS=$(which ls)
+
 nasm -O2 -s -f bin $bin.asm -o $bin &&
-chmod +x $bin && du -b $bin && gzip -c $(which ls) |
-uzexec -la ./uzexec; { cat uzexec; gzip -c $(which ls); } |
+chmod +x $bin && du -b $bin && gzip -c $LS |
+$bin -la ./$bin; { cat $bin; gzip -c $LS; } |
 dd of=ls.gz.elf && chmod +x ls.gz.elf && ls.gz.elf -al ls.gz.elf
+
 # 512	uzexec
 # -rwxrwxr-x 1 roberto roberto 512 Jun 23 22:14 ./uzexec
 # 115+1 records in
 # 115+1 records out
 # 59230 bytes (59 kB, 58 KiB) copied, 0.0101535 s, 5.8 MB/s
 # -rwxrwxr-x 1 roberto roberto 59230 Jun 23 22:14 ls.gz.elf
+
+cat $LS | $bin -la $bin
+cat $bin $LS | dd of=ls.elf && chmod +x ls.elf && ls.elf -la ls.elf
+
+# -rwxrwxr-x 1 roberto roberto 512 Jun 24 02:42 uzexec
+# 270+1 records in
+# 270+1 records out
+# 138728 bytes (139 kB, 135 KiB) copied, 0.000761876 s, 182 MB/s
+#
+# gzip: stdin: not in gzip format
+
+################################################################################
 
 bin=uskex
 nasm -O2 -s -f bin $bin.asm -o $bin &&
