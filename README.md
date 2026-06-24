@@ -99,7 +99,7 @@ without writing it on the remote/local systems (memfd_create).
 make clean tests
 ```
 
-The [uzpexec](uzpexec.asm) (micro gzip pipe exec) replaces the previous `upexec` compared which it offers as extra the integrate support for `gzip` inflate on the standard input pipe.
+The [uzpexec](uzpexec.asm) (micro gzip pipe exec, written in Assembler) replaces the previous `upexec` compared which it offers as extra the integrate support for `gzip` inflate on the standard input pipe. Pre-compiled v0.68 elf32 available [here](https://github.com/robang74/working-in-progress/raw/refs/heads/main/uchaosys.qemu/uzpexec).
 
 #### USAGE
 
