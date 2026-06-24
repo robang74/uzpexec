@@ -163,12 +163,12 @@ main_start:
   xor edi, edi                  ; EDI = stdin (0)
 
 .memfd:
-  movzx edx, byte [do_script]   ; EDX now holds the flag
+  mov ebx, filename             ; fd owner's name
+  movzx edx, byte [ebx+24]      ; EDX now holds the flag
   test dl, dl                   ; Is the script flag 0?
   jnz .do_script                ; - N: call the /bin/sh
                                 ; - Y: exec an ELF binary
   mov eax, 356                  ; SYS_memfd_create
-  mov ebx, filename             ; fd owner's name
   push 1                        ; MFD_CLOEXEC
   pop ecx
   int 0x80
@@ -226,8 +226,8 @@ parent:
 
   ; The parent only needs to wait for the child (zcat) to finish decompressing
 elf_mode:
-  xor ebx, ebx
-  dec ebx
+  push -1
+  pop ebx                       ; -1
   xor ecx, ecx
   xor edx, edx
   push 7                        ; SYS_waitpid
