@@ -76,9 +76,19 @@ In extracting the LZ4 blob, the ELF32 allocates 4MB of RAM, a way more than RLE.
 
 <br>
 
-### Comparison
+## BLZ
 
-Executing `make clean all` the output is self-explicative:
+> [!WARNING]
+>
+> This ASM code, despite being based on [uzpexec](../uzpexec.asm), is in its early stage of development. Hence should be considered for experiments only.
+
+In this case the memory limit is set to 4MB as much as the LZ4 which remains the best among these three options.
+
+<br>
+
+## 123
+
+Executing `make clean all` the output is self-explicative: LZ4 is the favourite.
 
 ```txt
 nasm -s -O2 -f bin zrlerun.asm -o zrlerun
