@@ -1,4 +1,8 @@
-# RLE
+## RLE
+
+> [!WARNING]
+>
+> This ASM code, despite being based on [uzpexec](../uzpexec.asm), is in its early stage of development. Hence should be considered for experiments only.
 
 A very simple example with `/bin/ls`
 
@@ -32,6 +36,10 @@ it is bit bigger than the original. However, in principle it works.
 <br>
 
 ## LZ4
+
+> [!WARNING]
+>
+> This ASM code, despite being based on [uzpexec](../uzpexec.asm), is in its early stage of development. Hence should be considered for experiments only.
 
 Example:
 
