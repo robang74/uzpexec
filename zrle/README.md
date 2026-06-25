@@ -28,4 +28,39 @@ echo; ./lz -al
 With the text the RLE doesn't perform better at all. In fact the compressed python
 script is just a little smaller in size and once payloaded with the 512-bytes ELF32
 it is bit bigger than the original. However, in principle it works.
+---
+
+## LZ4
+
+Example:
+
+```sh
+bin=zlz4run
+nasm -s -O2 -f bin $bin.asm -o $bin && du -b $bin
+{
+  cat $bin; python3 zlz4zip.py /bin/ls -
+} > lz && chmod +x lz && ./lz -al
+```
+
+It doesn't match `gzip` but this simplified LZ4 version is way better than LRE one.
+
+```sh
+bin=zlz4run
+pys=zlz4zip.py
+nasm -s -O2 -f bin $bin.asm -o $bin && du -b $bin
+{
+  cat $bin; python3 $pys $pys -
+} > pz && chmod +x pz && ./pz -h
+
+echo; ./lz -al
+```
+
+It starts to make sense for compressing scripts and let them like they were binaries.
+
+Requires:
+
+```sh
+pip install lz4
+```
+
 

@@ -8,7 +8,7 @@
 ;
 ; ==============================================================================
 ;
-; Single-Process Universal LZ4 Architecture:
+; Single-Process Universal LZ4 Architecture (FIXED):
 ; - 1. Reads itself (from argv[0] or stdin)
 ; - 2. Discards the first 512 bytes if opening itself via file path
 ; - 3. Creates an anonymous memfd (without MFD_CLOEXEC for script support)
@@ -43,8 +43,8 @@ phdr:
   dd 0                        ; p_offset
   dd 0x08048000               ; p_vaddr
   dd 0x08048000               ; p_paddr
-  dd file_end - elf_header    ; p_filesz (Size of the code within the file)
-  dd bss_end - elf_header     ; p_memsz (Total allocation including RAM space)
+  dd file_end - elf_header    ; p_filesz
+  dd bss_end - elf_header     ; p_memsz
   dd 7                        ; p_flags (R+W+X)
   dd 0x1000                   ; p_align
 
@@ -117,6 +117,7 @@ main_start:
   xor edi, edi                  ; EDI = stdin
 
 .memfd:
+  mov [input_fd], edi           ; PRESERVE DESCRIPTOR: Save before EDI gets repurposed
   mov ebx, filename             ; Name string pointer
   mov eax, 356                  ; SYS_memfd_create
   xor ecx, ecx                  ; flags = 0 (Keep fd unmapped for scripts)
@@ -215,11 +216,11 @@ main_start:
   int 0x80
 
   ; 2. Close input handle if it wasn't stdin
-  test edi, edi
+  mov ebx, [input_fd]
+  test ebx, ebx
   jz .run
   push 6                        ; SYS_close
   pop eax
-  mov ebx, edi
   int 0x80
 
 .run:
@@ -252,7 +253,7 @@ fetch_byte:
   push edx
   push ebx
   mov eax, 3                    ; SYS_read
-  mov ebx, edi
+  mov ebx, [input_fd]           ; Read directly using fixed BSS descriptor pointer
   mov ecx, buf
   mov edx, 512
   int 0x80
@@ -285,9 +286,9 @@ exit_error:
 ; ==============================================================================
 ; DATA STRUCTURES
 ; ==============================================================================
-copy_vers:  db "(c) github/robang74 v0.85 LZ4", 0
-filename:   db "uzpexec", 0
-eof_strng:  db "elf_eof", 0
+copy_vers:  db "(c) github/robang74 v0.85", 0
+filename:   db "z4l", 0
+eof_strng:  db "eOf", 0
 
 ; Aligned to exactly 512 bytes on disk
 file_end:
@@ -301,7 +302,7 @@ bss_start equ $$ + 512
 
 memfd:       equ bss_start + 0
 argv_ptr:    equ bss_start + 4     
-buf:         equ bss_start + 8
+input_fd:    equ bss_start + 8  ; 4-byte slot to safely anchor file descriptor
+buf:         equ bss_start + 12
 decomp_buf:  equ buf + 512      ; Buffer memory where the binary is constructed
 bss_end:     equ decomp_buf + 4*1024*1024 ; Map 4MB anonymous memory space for decompression
-
