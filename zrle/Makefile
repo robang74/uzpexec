@@ -1,6 +1,6 @@
 .PHONY: all
 
-all: zrlerun zlz4run
+all: zrlerun zlz4run zb77run
 	@echo
 
 zrlerun: zrlerun.asm
@@ -19,6 +19,14 @@ zlz4run: zlz4run.asm
 	du -b l4z ls.gz /bin/ls $@
 	chmod +x l4z && ./l4z -al l4z
 
+zb77run: zb77run.asm
+	@echo
+	nasm -s -O2 -f bin $^ -o $@
+	{ cat $@; python3 zb77zip.py /bin/ls - ;} > l7z
+	gzip -9c /bin/ls > ls.gz
+	du -b l7z ls.gz /bin/ls $@
+	chmod +x l7z && ./l7z -al l7z
+
 clean:
 	@echo
-	rm -f lrz l4z zrlerun zlz4run
+	rm -f lrz l4z l7z zrlerun zlz4run zb77run
