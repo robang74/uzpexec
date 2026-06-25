@@ -41,25 +41,37 @@ def compress_brieflz_style(data):
     
     i = 0
     n = len(data)
-    window_size = 65535 # 16-bit window constraint
+    window_size = 65535  # 16-bit window constraint
+    
+    # Hash table mapping 2-byte sequences to a list of recent positions
+    pos_hash = {}
+    # Capping candidates speeds up compression to near-instantaneous execution
+    MAX_CANDIDATES = 16 
     
     while i < n:
         match_offset = 0
         match_len = 0
         
-        # Scan sliding lookback history window
-        start_window = max(0, i - window_size)
-        for j in range(start_window, i):
-            length = 0
-            while i + length < n and data[j + length] == data[i + length]:
-                length += 1
-                if length == 65535: # Structural bounds ceiling
-                    break
-            
-            if length >= 2 and length > match_len:
-                match_len = length
-                match_offset = i - j
-                
+        # We need at least 2 bytes left to attempt a match lookup
+        if i + 1 < n:
+            two_bytes = (data[i] << 8) | data[i+1]
+            if two_bytes in pos_hash:
+                candidates = pos_hash[two_bytes]
+                # Scan occurrences from newest (most recent) to oldest
+                for j in reversed(candidates):
+                    if i - j > window_size:
+                        break  # Stop checking: older matches are out of window range
+                    
+                    length = 2
+                    while i + length < n and data[j + length] == data[i + length]:
+                        length += 1
+                        if length == 65535:  # Structural bounds ceiling
+                            break
+                    
+                    if length > match_len:
+                        match_len = length
+                        match_offset = i - j
+                        
         if match_len >= 2:
             # Token 0: Match Event
             bit_writer.write_bit(0)
@@ -67,11 +79,30 @@ def compress_brieflz_style(data):
             # Commit 16-bit little endian offset
             data_stream.append(match_offset & 0xFF)
             data_stream.append((match_offset >> 8) & 0xFF)
+            
+            # Feed skipped sequence points back into the hash chain index
+            for k in range(i, min(i + match_len, n - 1)):
+                tb = (data[k] << 8) | data[k+1]
+                if tb not in pos_hash:
+                    pos_hash[tb] = []
+                pos_hash[tb].append(k)
+                if len(pos_hash[tb]) > MAX_CANDIDATES:
+                    pos_hash[tb].pop(0)
+                    
             i += match_len
         else:
             # Token 1: Literal Event
             bit_writer.write_bit(1)
             data_stream.append(data[i])
+            
+            # Feed current literal sequence point into the hash chain index
+            if i + 1 < n:
+                tb = (data[i] << 8) | data[i+1]
+                if tb not in pos_hash:
+                    pos_hash[tb] = []
+                pos_hash[tb].append(i)
+                if len(pos_hash[tb]) > MAX_CANDIDATES:
+                    pos_hash[tb].pop(0)
             i += 1
             
     # Emit End of Stream (EOS) sequence
@@ -90,7 +121,7 @@ def compress_brieflz_style(data):
     return header + tag_stream + data_stream
 
 def main():
-    parser = argparse.ArgumentParser(description="BriefLZ-Style Split Stream Encoder.")
+    parser = argparse.ArgumentParser(description="Optimized BriefLZ-Style Split Stream Encoder.")
     parser.add_argument("input", help="Target input file")
     parser.add_argument("output", help="Target output destination (or '-' for stdout)")
     args = parser.parse_args()
