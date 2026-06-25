@@ -125,51 +125,46 @@ main_start:
   ; This would be the main() in a C-language sourcemain_start
   ; Save original argv and calculate envp from the initial stack layout
   ; Stack: [argc] [argv[0]] ... [argv[N]] [NULL] [envp...]
-  pop eax                     ; argc (was [esp])
-  mov esi, esp                ; ESI = argv
-  lea ebp, [esi+eax*4+4]      ; EBP = envp (callee-saved!)
+  pop eax                       ; argc (was [esp])
+  mov esi, esp                  ; ESI = argv
+  lea ebp, [esi+eax*4+4]        ; EBP = envp (callee-saved!)
 
   ; 1. Checking argv[0] to open input (itself or stdin)
-  mov ebx, [esi]
-  test ebx, ebx
+  mov esi, [esi]
+  test esi, esi                 ; CVE-2021-4034, pre-5.18
   jz .stdin
-  cmp byte [ebx], 0
+  cmp byte [esi], al            ; al is set to 0 here
   jz .stdin
 
   ; ----------------------------------------------------------------------------
-  ; Seek for the basename of argv[0]
-  mov edx, ebx                  ; edx is set at the argv[0] start
-.find_end:
-  inc edx
-  cmp byte [edx], 0
-  jnz .find_end
+  ; THE BASENAME STREAM & HARDWARE MIRROR MATCH
+  ; ----------------------------------------------------------------------------
+  push esi                      ; Saves the ESI register
+  mov edx, esi                  ; EDX points to basename
+.scan_loop:
+  lodsb                         ; AL = *ESI++, by CPU
+  cmp al, '/'                   ; Is there a slash in path?
+  jne .check_zero               ; - N: check for a \0 char
+  mov edx, esi                  ; - Y: move 1 char forward
 
-  ; EDX is pointing to the argv[0]'s ending '\0'
-  ; Once at the EOT, proceeding with the check
-  ; Seeking back for the last '/' or argv[0] start
-.backtrack:
-  cmp edx, ebx                  ; Do we reach the argv[0]'s begin?
-  je .do_strcmp                 ; - Y: do the confrontation from here
-  dec edx                       ; - N: continue
-  cmp byte [edx], '/'           ; Do we reach a '/' slash path-div?
-  jne .backtrack                ; - N: loop again
-  inc edx                       ; - Y: set EDX to basename 1st char
+.check_zero:
+  test al, al                   ; Is this the end of argv[0]?
+  jnz .scan_loop                ; - N: continue the seek loop
 
   ; EDX is pointing to the basename 1st char (eg. "uzpexec\0")
   ; Let's start the byte-by-byte comparison with filename var
-.do_strcmp:
-  mov ecx, filename
+  mov esi, edx                  ; ESI points to the basename
+  mov edi, filename             ; EDI points to the filename
 
 .strcmp_loop:
-  mov al, [edx]
-  mov ah, [ecx]
-  cmp al, ah
-  jne .not_uzpexec              ; If basename != filename, open the file
-  test al, al                   ; Are we seeing the ending '\0'?
-  jz .stdin                     ; - Y: perfect match
-  inc edx
-  inc ecx
-  jmp .strcmp_loop              ; - N: loop again
+  lodsb                         ; AL = *ESI++ (basename)
+  scasb                         ; Compare AL against *EDI++
+  jne .not_uzpexec              ; Names differ? Go for MEMFD
+  test al, al                   ; Is the end of the string?
+  jnz .strcmp_loop              ; - N: continue the loop
+
+  pop esi                       ; Restore the ESI register
+  jmp .stdin                    ; Names match, go for SHELL
   ; ----------------------------------------------------------------------------
 
 .not_uzpexec:
