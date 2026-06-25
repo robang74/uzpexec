@@ -286,18 +286,18 @@ exit_error:
 ; ==============================================================================
 ; DATA STRUCTURES
 ; ==============================================================================
-copy_vers:  db "(c) github/robang74 v0.85", 0
-filename:   db "z4l", 0
-eof_strng:  db "eOf", 0
+copy_vers: db "(c) github/robang74 v0.1", 0
+filename:  db "z4l", 0
 
 ; Aligned to exactly 512 bytes on disk
 file_end:
-times (511 - ($ - $$)) db 0
-end_code: db 0
+times (512 - ($ - $$)) db 0
+_end:
 
 ; ==============================================================================
 ; RUNTIME MEMORY ALLOCATION (BSS)
 ; ==============================================================================
+SECTION .bss
 bss_start equ $$ + 512
 
 memfd:       equ bss_start + 0

@@ -179,14 +179,24 @@ _start:
     mov ebx, 1
     int 0x80
 
+; ==============================================================================
+; DATA STRUCTURES
+; ==============================================================================
+copy_vers: db "(c) github/robang74 v0.1", 0
 name_str:  db "b4l", 0
 empty_str: db 0
 
-; Force strict 512-byte structural padding boundary alignment
+; Aligned to exactly 512 bytes on disk
+file_end:
 times 512 - ($ - ehdr) db 0
 _end:
 
+; ==============================================================================
+; RUNTIME MEMORY ALLOCATION (BSS)
+; ==============================================================================
 SECTION .bss
+bss_start equ $$ + 512
+
 memfd:       resd 1
 comp_buf:    resb 1 * 1024 * 1024   ; Staging area for input payload (2MB max)
 decomp_buf:  resb 3 * 1024 * 1024   ; Unpacked space allocation (8MB max)

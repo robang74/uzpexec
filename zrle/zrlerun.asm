@@ -255,18 +255,18 @@ exit_error:
 ; ==============================================================================
 ; DATA STRUCTURES
 ; ==============================================================================
-copy_vers:  db "(c) github/robang74 v0.81 Univ", 0
-filename:   db "uzpexec", 0
-eof_strng:  db "elf_eof", 0
+copy_vers: db "(c) github/robang74 v0.1", 0
+filename:  db "rle", 0
 
 ; Aligned to 512 boundary
 file_end:
-times (511 - ($ - $$)) db 0
-end_code: db 0
+times (512 - ($ - $$)) db 0
+_end:
 
 ; ==============================================================================
 ; RUNTIME MEMORY ALLOCATION (BSS)
 ; ==============================================================================
+SECTION .bss
 bss_start equ $$ + 512
 
 memfd:    equ bss_start + 0    
