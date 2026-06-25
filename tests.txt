@@ -5,9 +5,10 @@
 
 bin=uzpexec
 LS=$(command -v ls)
+S='Hello ($0) World!'
 DD() { dd status=none "$@"; }
 retprt() { printf "\tret:$?\n\n"; }
-HI() { printf '#!/bin/sh\necho Hi World!\n'| gzip -c; }
+HI() { printf '#!/bin/sh\necho "%s"\n' "$S"| gzip -c; }
 do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i $bin; }
 no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i $bin; }
 
@@ -23,7 +24,7 @@ printf "\t%d bytes\n\n" $(( ${n:--8} + 8 ))
 
 echo "Strings output:"
 ( exec 2>&1
-  echo "$(strings $bin)" | sed -e "s/^/\t/" | tee /proc/self/fd/2 |
+  echo "$(strings $bin)" | sed -e "s/^/  /" | tee /proc/self/fd/2 |
   grep -qe "([cC]) .*robang74 v[0-9.]\{4\}" ||{
     printf "\nWARNING:\n"
     printf "\tAuthorship isn't allowed to be changed or removed"
@@ -37,13 +38,22 @@ echo "Strings output:"
   printf "\t%s\n" "$(du -b $bin)"
 
   echo
-  echo "== TESTS TO PASS (x5) =="
+  echo "== TESTS TO PASS (x6) =="
   echo
+
+  export WORLD='Hi shiny!'
+  DD skip=1 if=hello.gz.sh | ./$bin wonderful
+  retprt
 
   gzip -c $LS | ./$bin -1 ./$bin
   retprt
 
   do_script #####################
+
+  echo "Shell code injection by stdin:"
+  HI | zcat
+  echo "- - - - - - - - - - - - - - - "
+  echo
 
   HI | ./$bin
   retprt
@@ -52,6 +62,9 @@ echo "Strings output:"
              chmod +x $bin.uzp
   ./$bin.uzp
   retprt
+
+  echo "- - - - - - - - - - - - - - - "
+  echo
 
   no_script #####################
 
@@ -78,7 +91,7 @@ echo "Strings output:"
 ) | tee     tests.res
 printf "Tests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/6dba6f7e56b13fea6f2e94d521f7388ce125b940/$bin OK/" |
+sed "s/2bed8e73b618183cd71e9e71ad2ae236d80a04e5/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
