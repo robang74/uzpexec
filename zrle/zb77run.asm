@@ -86,10 +86,11 @@ _start:
     ; Read next control bit (1 = Literal, 0 = Match)
     add ebp, ebp
     jnz .bit_ready
-    mov ebp, [esi]                  ; Refill 16-bit word from stream
+    movzx ebp, word [esi]           ; Refill 16-bit word from stream safely
     add esi, 2
-    stc                             ; Set carry flag as a sentinel bit
-    adc ebp, ebp                    ; Shift-inject sentinel
+    shl ebp, 16                     ; Shift data bits into the upper 16 positions
+    or ebp, 0x8000                  ; Set bit 15 as our active loop sentinel
+    add ebp, ebp                    ; Shift out the first bit into Carry Flag
 .bit_ready:
     jc .literal
 
@@ -99,10 +100,11 @@ _start:
 .gamma_count:
     add ebp, ebp
     jnz .g_bit1_ready
-    mov ebp, [esi]
+    movzx ebp, word [esi]
     add esi, 2
-    stc
-    adc ebp, ebp
+    shl ebp, 16
+    or ebp, 0x8000
+    add ebp, ebp
 .g_bit1_ready:
     jc .gamma_value
     inc ecx
@@ -114,10 +116,11 @@ _start:
     jecxz .gamma_done
     add ebp, ebp
     jnz .g_bit2_ready
-    mov ebp, [esi]
+    movzx ebp, word [esi]
     add esi, 2
-    stc
-    adc ebp, ebp
+    shl ebp, 16
+    or ebp, 0x8000
+    add ebp, ebp
 .g_bit2_ready:
     adc eax, eax                    ; Shift left and inject incoming bit
     dec ecx
