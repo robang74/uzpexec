@@ -170,11 +170,18 @@ The `uzpexec` has been developed to compensate for the gzcmd.sh shortcomings and
 
 <br>
 
+---
+---
+
+<br>
+
 # gzcmd.sh
 
 A shell script that converts any ELF in a self-extracting executable for standard Unix/POSIX systems
 
 - Initially written and committed in this repository [Bare Minimal Linux Kernel & RootFS](https://github.com/robang74/bare-minimal-linux-system) &nbsp;(2026-02-17)
+
+The `gzcmd.sh` was the predecessor of `uzpexec` in terms of project planning and evolution. Once the `gzcmd.sh` shrunk in its payload version below 512 bytes (1 `dd` standard block), it sets the limit for developing a version in Assembler, the only other universal language that would have a chance to fit an ELF into 512 bytes.
 
 ---
 
