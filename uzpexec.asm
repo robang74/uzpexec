@@ -87,8 +87,8 @@ elf_header:
   ;-----------------------------------------------------------------------------
   ; Many Linux kernel ELF parsers completely ignore these 6
   ; bytes when section offset e_shoff = 0, as in this case.
-  ; dw 0, 0, 0                ; Section info (zeroed out)
-  ; We need to suck more bits out from void for rescuing these six zeros
+  dw 0, 0, 0                  ; Section info (zeroed out)
+  ; Finally managed to suck more bits out from nowhere to rescue these six 0s
 
 phdr:
   dd 1                        ; p_type (PT_LOAD - Segment to load)
@@ -130,17 +130,19 @@ main_start:
   lea ebp, [esi+eax*4+4]        ; EBP = envp (callee-saved!)
 
   ; 1. Checking argv[0] to open input (itself or stdin)
-  mov esi, [esi]
-  test esi, esi                 ; CVE-2021-4034, pre-5.18
+  mov ebx, [esi]
+  test ebx, ebx                 ; CVE-2021-4034, pre-5.18
   jz .stdin
-  cmp byte [esi], al            ; al is set to 0 here
+  cmp byte [ebx], al            ; al is set to 0 here
   jz .stdin
 
   ; ----------------------------------------------------------------------------
   ; THE BASENAME STREAM & HARDWARE MIRROR MATCH
   ; ----------------------------------------------------------------------------
-  push esi                      ; Saves the ESI register
-  mov edx, esi                  ; EDX points to basename
+  push esi                      ; Save ESI (argv) on the stack
+
+  mov esi, ebx                  ; ESI = argv[0] for lodsb
+  mov edx, esi                  ; EDX the basename anchor
 .scan_loop:
   lodsb                         ; AL = *ESI++, by CPU
   cmp al, '/'                   ; Is there a slash in path?
@@ -159,12 +161,14 @@ main_start:
 .strcmp_loop:
   lodsb                         ; AL = *ESI++ (basename)
   scasb                         ; Compare AL against *EDI++
-  jne .not_uzpexec              ; Names differ? Go for MEMFD
+  jne .mismatch                 ; Names differ? Go for MEMFD
   test al, al                   ; Is the end of the string?
   jnz .strcmp_loop              ; - N: continue the loop
 
-  pop esi                       ; Restore the ESI register
+  pop esi                       ; Restore the ESI (argv)
   jmp .stdin                    ; Names match, go for SHELL
+.mismatch:
+  pop esi                       ; Restore the ESI (argv)
   ; ----------------------------------------------------------------------------
 
 .not_uzpexec:
@@ -374,7 +378,7 @@ do_script:  db 0,"bin/sh",   0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0     ; 21
 force_arg:  db "-f", 0,0,0,0                                     ;  6
 dash_arg:   db "-", 0,                                           ;  7
 eof_test:   db "U238", 0  ; useful for "make tests", only          --------
-                                                                 ; 97 (tot)
+                                                                 ; 90 (tot)
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (as per skip request)
 ; ==============================================================================
