@@ -43,9 +43,10 @@ make clean tests
 
 Test and then decide how to deploy.
 
--  `{ cat uzpexec; gzip -7c $elf; }    > $elf.uzp`
--  `cp uzpexec $elf.uzp; gzip -c $elf >> $elf.uzp`
--  `wget $url/$elf[.gz] -O- | uzpexec [args]`
+- `{ cat uzpexec; gzip -7c $elf; }    > $elf.uzp`
+- `cp uzpexec $elf.uzp; gzip -c $elf >> $elf.uzp`
+- `wget $url/$elf[.gz] -O- | uzpexec [args]`
+- `uzpexec <&-||echo` # for the version + github
  
 It works as a single block 512-bytes self-inflating executable payload replacing also `gzcmd.sh` with the sole requirement of `/bin/zcat` available.
 
@@ -91,24 +92,24 @@ The alternatives that are natively compatible with `-f -` are fully supported.
 
 ```asm
 ; ==============================================================================
-; COMPACT DATA SECTION (Appended to code)
+; COMPACT DATA SECTION (appended to code)
 ; ==============================================================================
-copy_vers:  db "(c) github/robang74 v0.78", 0                    ; 26
+copy_vers:  db "(c) github/robang74 v0.80 "                      ; 26
 ; filename can be changed by sed up to 8 chars + ending \0
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
 ; /bin/zcat can be changed by sed up to 41 chars + ending \0
 ; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
 ; in do_script mode the 2 paths shrink to 20 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
-filename:   db "uzpexec", 0, 0                                   ;  9 _ offset:
-zcat_path:  db "/bin/zcat",  0,0,0,   0,0,0,0, 0,0,0,0, 0        ; 21 _  +9
-do_script:  db 0,"bin/sh",0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0        ; 21 _ +30 !!!
-force_arg:  db "-f",    0,0, 0,0,                                ;  6
-dash_arg:   db "-",   0,0,0, 0,0,                                ;  6
-eof_strng:  db "elf_eof", 0                                      ;  8
-                                                                 ; 97 (tot)
+filename:   db "uzpexec",    0, 0                                ;  9
+zcat_path:  db "/bin/zcat",       0,0,0, 0,0,0,0, 0,0,0,0, 0     ; 21
+do_script:  db 0,"bin/sh",   0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0     ; 21
+force_arg:  db "-f", 0,0,0,0                                     ;  6
+dash_arg:   db "-", 0,                                           ;  7
+eof_test:   db "U238", 0  ; useful for "make tests", only          --------
+                                                                 ; 90 (tot)
 ; ==============================================================================
-; PADDING: Aligned exactly to 512 bytes (as per skip request)
+; PADDING: Aligned exactly to 512 bytes (dd skip=1)
 ; ==============================================================================
 file_end:                       ; Physical end of the binary file!
 times (512 - ($ - $$)) db 0     ; Padding to 512 bytes for skip=1
@@ -155,7 +156,36 @@ Every sane compressing algorithm is also self-validating in terms of output conf
 
 ---
 
+### W+X memory
+
+Separating exectable code (X) from writing memory (W) costs bytes of code!
+
+```txt
+  dd 7                        ; p_flags (R+W+X - Read, Write, and Execute)
+  dd 0x1000                   ; p_align (Standard page alignment)
+
+  ; Security-by-Design VS Security-by-Subtraction
+
+  ; Because uzpexec contains no input parsing logic that could be corrupted and
+  ; its fixed 512-byte read loop cannot be overflowed, the writeable-executable
+  ; segment offers no exploitable attack vector.
+
+  ; Since the loader immediately forfeits control through atomic fork() / exec()
+  ; or execveat() transitions that never return, an attacker cannot redirect
+  ; execution to modified code before the process image is replaced.
+
+  ; An adversary who can already write to the process memory holds sufficient
+  ; privileges to inject code via ptrace or mprotect on any standard binary,
+  ; which means the R+W+X flag introduces zero additional risk.
+
+  ; WRX is the least of your troubles, but uzpexec as obscenely-powerful tool.
+```
+
+---
+
 ### Licensing terms
+
+After all, scripts are the sources and the "running code" at the same time.
 
 ```txt
 ; (C) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT+1 license

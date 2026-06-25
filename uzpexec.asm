@@ -30,6 +30,7 @@
 ; - e) wget $url/$elf[.gz] -O- | uzpexec [args]
 ; - f) printf '#!/bin/sh\necho Hello World!\n' | gzip -c | {
 ;      f=uzpexec; sed -e 's,\x00\(/bin/sh\),\x01\1,' -i $f; $f; }
+; - g) uzpexec <&-||echo  # for the version + author github repo
 ;
 ; ==============================================================================
 ;
@@ -102,7 +103,7 @@ phdr:
   dd 7                        ; p_flags (R+W+X - Read, Write, and Execute)
   dd 0x1000                   ; p_align (Standard page alignment)
 
-  ; Security by Design Versus Security by Subtraction
+  ; Security-by-Design VS Security-by-Subtraction
 
   ; Because uzpexec contains no input parsing logic that could be corrupted and
   ; its fixed 512-byte read loop cannot be overflowed, the writeable-executable
@@ -137,7 +138,7 @@ main_start:
   jz .stdin
 
   ; ----------------------------------------------------------------------------
-  ; THE BASENAME STREAM & HARDWARE MIRROR MATCH
+  ; The basename stream & hardware mirror match
   ; ----------------------------------------------------------------------------
   push esi                      ; Save ESI (argv) on the stack
 
@@ -299,7 +300,7 @@ elf_mode:
                                 ; previously unchecked errors for smaller code
 
 ; ============================================================================
-; CHILD PROCESS (Executes zcat by connecting existing descriptors)
+; CHILD PROCESS
 ; ============================================================================
 child:
   ; 1st dup2: Connect input (edi) to STDIN (0) for both modes
@@ -363,9 +364,9 @@ exit_error:
   int 0x80
 
 ; ==============================================================================
-; COMPACT DATA SECTION (Appended to code)
+; COMPACT DATA SECTION (appended to code)
 ; ==============================================================================
-copy_vers:  db "(c) github/robang74 v0.80 "                      ; 26
+copy_vers:  db "(c) github/robang74 v0.81 "                      ; 26
 ; filename can be changed by sed up to 8 chars + ending \0
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
 ; /bin/zcat can be changed by sed up to 41 chars + ending \0
@@ -380,7 +381,7 @@ dash_arg:   db "-", 0,                                           ;  7
 eof_test:   db "U238", 0  ; useful for "make tests", only          --------
                                                                  ; 90 (tot)
 ; ==============================================================================
-; PADDING: Aligned exactly to 512 bytes (as per skip request)
+; PADDING: Aligned exactly to 512 bytes (dd skip=1)
 ; ==============================================================================
 file_end:                       ; Physical end of the binary file!
 times (512 - ($ - $$)) db 0     ; Padding to 512 bytes for skip=1

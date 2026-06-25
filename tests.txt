@@ -7,7 +7,8 @@ bin=uzpexec
 LS=$(command -v ls)
 S='Hello ($0) World!'
 DD() { dd status=none "$@"; }
-retprt() { printf "\tret:$?\n\n"; }
+retprt() { printf "\tret:${1:-$?}\n\n"; }
+errprt() { err=$?; echo; retprt $err; }
 HI() { printf '#!/bin/sh\necho "%s"\n' "$S"| gzip -c; }
 do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i $bin; }
 no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i $bin; }
@@ -79,19 +80,19 @@ echo "Strings output:"
 
   cat $bin $LS | DD of=ls.elf &&
   chmod +x ls.elf && ./ls.elf -1 ls.elf
-  echo;retprt
+  errprt
 
   ./$bin <&-
-  echo;retprt
+  errprt
 
   echo try to run a compressed shell script
   HI | ./$bin
-  echo;retprt
+  errprt
 
 ) | tee     tests.res
 printf "Tests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/c6de4c89f9796299f6996ad94910ed9ad678d7e3/$bin OK/" |
+sed "s/6dbc9617c9837fdd545d0819b88d89e65e707c6e/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
