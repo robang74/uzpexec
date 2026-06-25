@@ -188,6 +188,6 @@ _end:
 
 SECTION .bss
 memfd:       resd 1
-comp_buf:    resb 2 * 1024 * 1024   ; Staging area for input payload (2MB max)
-decomp_buf:  resb 8 * 1024 * 1024   ; Unpacked space allocation (8MB max)
+comp_buf:    resb 1 * 1024 * 1024   ; Staging area for input payload (2MB max)
+decomp_buf:  resb 3 * 1024 * 1024   ; Unpacked space allocation (8MB max)
 _end_bss:
