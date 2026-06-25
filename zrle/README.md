@@ -13,3 +13,18 @@ nasm -s -O2 -f bin $bin.asm -o $bin && du -b $bin
 It shows the bare fact that a "short code" inflater doesn't match the pair with
 strong level of compression. In this case achieve 1/2 of gzip compression which
 isn't the most stronger compression we can choose, but at the price of code size.
+
+```sh
+bin=zrlerun
+pys=zrlezip.py
+nasm -s -O2 -f bin $bin.asm -o $bin && du -b $bin
+{ 
+  cat $bin; python3 $pys $pys -
+} > pz && chmod +x pz && ./pz -h
+
+echo; ./lz -al
+```
+
+With the text the RLE doesn't perform better at all. In fact the compressed python
+script is just a little smaller in size and once payloaded with the 512-bytes ELF32
+it is bit bigger than the original. However, in principle it works.
