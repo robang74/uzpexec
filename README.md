@@ -105,13 +105,23 @@ make clean tests
 
 The [uzpexec](uzpexec.asm) (micro gzip pipe exec, written in Assembler) replaces the previous `upexec` comparison which offers as extra the integrated support for `gzip` inflate on the standard input pipe. Pre-compiled v0.68 elf32 available [here](https://github.com/robang74/working-in-progress/raw/refs/heads/main/uchaosys.qemu/uzpexec).
 
-#### USAGE
+---
+
+### Usage
 
 -  `{ cat uzpexec; gzip -7c $elf; }    > $elf.uzp`
 -  `cp uzpexec $elf.uzp; gzip -c $elf >> $elf.uzp`
 -  `wget $url/$elf[.gz] -O- | uzpexec [args]`
  
 It works as a single block 512-bytes self-inflating executable payload replacing also `gzcmd.sh` with the sole requirement of `/bin/zcat` available.
+
+#### Example
+
+An example of use is related to this [project](https://github.com/robang74/uchaosys/blob/v074/qemu/README.md) about QEMU footprint reduction which uses `uzpexec` to deliver the executable binary in `UZP` format which can be downloaded from [here](https://github.com/robang74/working-in-progress/tree/main/uchaosys.qemu)
+
+> [!NOTE]
+>
+> The `qemu-system-x86_64`, provided in `UZP` self-inflate executable, appears to be an x86 ELF 32-bit LSB executable. That type file refers to the extractor. While qemu is expanded in RAM and execute in its original ELF 64-bit format.
 
 ---
 
