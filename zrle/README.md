@@ -64,4 +64,6 @@ Requires:
 pip install lz4
 ```
 
+In extracting the LZ4 blob, the ELF32 allocates 4MB of RAM, a way more than RLE.
+
 
