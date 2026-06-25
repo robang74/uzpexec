@@ -183,7 +183,7 @@ main_start:
 
 .memfd:
   mov ebx, filename             ; fd owner's name
-  movzx edx, byte [ebx+29]      ; EDX now holds the flag (offset: 29 !!!)
+  movzx edx, byte [ebx+30]      ; EDX now holds the flag (offset: 30 !!!)
   test dl, dl                   ; Is the script flag 0?
   jnz .do_script                ; - N: call the /bin/sh
                                 ; - Y: exec an ELF binary
@@ -331,20 +331,20 @@ exit_error:
 ; ==============================================================================
 ; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
-copy_vers:  db "(c) github/robang74 v0.77", 0                    ; 26
-; filename can be changed by sed up to 7 chars + ending \0
+copy_vers:  db "(c) github/robang74 v0.78", 0                    ; 26
+; filename can be changed by sed up to 8 chars + ending \0
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
 ; /bin/zcat can be changed by sed up to 41 chars + ending \0
 ; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
 ; in do_script mode the 2 paths shrink to 20 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
-filename:   db "uzpexec", 0                                      ;  8 _ offset:
-zcat_path:  db "/bin/zcat",    0,0,0, 0,0,0,0, 0,0,0,0, 0        ; 21 _  +8
-do_script:  db 0,"bin/sh",0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0        ; 21 _ +29 !!!
+filename:   db "uzpexec", 0, 0                                   ;  9 _ offset:
+zcat_path:  db "/bin/zcat",  0,0,0,   0,0,0,0, 0,0,0,0, 0        ; 21 _  +9
+do_script:  db 0,"bin/sh",0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0        ; 21 _ +30 !!!
 force_arg:  db "-f",    0,0, 0,0,                                ;  6
-dash_arg:   db "-",   0,0,0                                      ;  4
+dash_arg:   db "-",   0,0,0, 0,0,                                ;  6
 eof_strng:  db "elf_eof", 0                                      ;  8
-                                                                 ; 90 (tot)
+                                                                 ; 97 (tot)
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (as per skip request)
 ; ==============================================================================
