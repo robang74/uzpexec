@@ -19,8 +19,8 @@ else
 fi
 
 echo "Code size with EOF string:"
-n=$(grep --color=never -abo "elf_eof" $bin | cut -f1 -d:)
-printf "\t%d bytes\n\n" $(( ${n:--8} + 8 ))
+n=$(grep --color=never -abo "U238" $bin | cut -f1 -d:)
+printf "\t%d bytes\n\n" $(( ${n:--8} + 5 ))
 
 echo "Strings output:"
 ( exec 2>&1
@@ -79,19 +79,19 @@ echo "Strings output:"
 
   cat $bin $LS | DD of=ls.elf &&
   chmod +x ls.elf && ./ls.elf -1 ls.elf
-  retprt
+  echo;retprt
 
   ./$bin <&-
-  retprt
+  echo;retprt
 
   echo try to run a compressed shell script
   HI | ./$bin
-  retprt
+  echo;retprt
 
 ) | tee     tests.res
 printf "Tests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/2bed8e73b618183cd71e9e71ad2ae236d80a04e5/$bin OK/" |
+sed "s/c6de4c89f9796299f6996ad94910ed9ad678d7e3/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################

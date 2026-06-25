@@ -84,9 +84,11 @@ elf_header:
   dw 52                       ; e_ehsize (Size of this header)
   dw 32                       ; e_phentsize (Size of a Program Header entry)
   dw 1                        ; e_phnum (Only one segment needed)
+  ;-----------------------------------------------------------------------------
   ; Many Linux kernel ELF parsers completely ignore these 6
   ; bytes when section offset e_shoff = 0, as in this case.
-  dw 0, 0, 0                  ; Section info (zeroed out)
+  ; dw 0, 0, 0                ; Section info (zeroed out)
+  ; We need to suck more bits out from void for rescuing these six zeros
 
 phdr:
   dd 1                        ; p_type (PT_LOAD - Segment to load)
@@ -95,8 +97,26 @@ phdr:
   dd 0x08048000               ; p_paddr
   dd file_end - elf_header    ; p_filesz (Size of the code within the file)
   dd bss_end - elf_header     ; p_memsz (Size of the code within memory)
+
+  ;-----------------------------------------------------------------------------
   dd 7                        ; p_flags (R+W+X - Read, Write, and Execute)
   dd 0x1000                   ; p_align (Standard page alignment)
+
+  ; Security by Design Versus Security by Subtraction
+
+  ; Because uzpexec contains no input parsing logic that could be corrupted and
+  ; its fixed 512-byte read loop cannot be overflowed, the writeable-executable
+  ; segment offers no exploitable attack vector.
+
+  ; Since the loader immediately forfeits control through atomic fork() / exec()
+  ; or execveat() transitions that never return, an attacker cannot redirect
+  ; execution to modified code before the process image is replaced.
+
+  ; An adversary who can already write to the process memory holds sufficient
+  ; privileges to inject code via ptrace or mprotect on any standard binary,
+  ; which means the R+W+X flag introduces zero additional risk.
+
+  ; WRX is the least of your troubles, but uzpexec as obscenely-powerful tool.
 
 ; ==============================================================================
 ; upexec CODE (Execution starts here)
@@ -183,7 +203,8 @@ main_start:
 
 .memfd:
   mov ebx, filename             ; fd owner's name
-  movzx edx, byte [ebx+30]      ; EDX now holds the flag (offset: 30 !!!)
+  movzx edx, byte [ebx - filename + do_script]
+                                ; EDX now holds the flag
   test dl, dl                   ; Is the script flag 0?
   jnz .do_script                ; - N: call the /bin/sh
                                 ; - Y: exec an ELF binary
@@ -309,7 +330,7 @@ child:
   pop eax
   mov ebx, zcat_path
   push 0
-  push dash_arg
+  push  dash_arg
   test edi, edi                 ; Are we reading from STDIN (edi == 0)?
   jnz .pure_zcat                ; No, it is a file, then skip '-f' push
   push force_arg
@@ -322,28 +343,42 @@ child:
 
   ; ============================================================================
 exit_error:
-  push 1                        ; SYS_exit
+; test ebx, ebx
+; jnz exit_now
+
+  ; Print copyright notice, version and internal name
+  push zcat_path - copy_vers    ; bytes to write
+  pop edx
+  push  4                       ; SYS_write
   pop eax
-  xor ebx, ebx
-  inc ebx                       ; Exit code 1
+  push  2                       ; stderr
+  pop ebx
+  mov ecx, copy_vers
+  int 0x80
+
+; exit_now:
+; xor ebx, ebx
+; inc ebx                       ; Exit code 1
+  push 1
+  pop eax
   int 0x80
 
 ; ==============================================================================
 ; COMPACT DATA SECTION (Appended to code)
 ; ==============================================================================
-copy_vers:  db "(c) github/robang74 v0.80", 0                    ; 26
+copy_vers:  db "(c) github/robang74 v0.80 "                      ; 26
 ; filename can be changed by sed up to 8 chars + ending \0
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
 ; /bin/zcat can be changed by sed up to 41 chars + ending \0
 ; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
 ; in do_script mode the 2 paths shrink to 20 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
-filename:   db "uzpexec", 0, 0                                   ;  9 _ offset:
-zcat_path:  db "/bin/zcat",  0,0,0,   0,0,0,0, 0,0,0,0, 0        ; 21 _  +9
-do_script:  db 0,"bin/sh",0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0        ; 21 _ +30 !!!
-force_arg:  db "-f",    0,0, 0,0,                                ;  6
-dash_arg:   db "-",   0,0,0, 0,0,                                ;  6
-eof_strng:  db "elf_eof", 0                                      ;  8
+filename:   db "uzpexec",    0, 0                                ;  9
+zcat_path:  db "/bin/zcat",       0,0,0, 0,0,0,0, 0,0,0,0, 0     ; 21
+do_script:  db 0,"bin/sh",   0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0     ; 21
+force_arg:  db "-f", 0,0,0,0                                     ;  6
+dash_arg:   db "-", 0,                                           ;  7
+eof_test:   db "U238", 0  ; useful for "make tests", only          --------
                                                                  ; 97 (tot)
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (as per skip request)
