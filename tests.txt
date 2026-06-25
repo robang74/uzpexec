@@ -40,38 +40,39 @@ echo "Strings output:"
   echo "== TESTS TO PASS (x5) =="
   echo
 
-  gzip -c $LS | $bin -1 ./$bin
+  gzip -c $LS | ./$bin -1 ./$bin
   retprt
 
   do_script #####################
 
-  HI | $bin
+  HI | ./$bin
   retprt
 
   { cat $bin; HI; } > $bin.uzp &&
              chmod +x $bin.uzp
-  ( exec $bin.uzp ) ; retprt
+  ./$bin.uzp
+  retprt
 
   no_script #####################
 
   { cat $bin; gzip -c $LS; } | DD of=ls.gz.elf &&
-  chmod +x ls.gz.elf && ls.gz.elf -1 ls.gz.elf
+  chmod +x ls.gz.elf && ./ls.gz.elf -1 ls.gz.elf
   retprt
 
-  cat $LS | $bin -1 $bin
+  cat $LS | ./$bin -1 $bin
   retprt
 
   echo "== TESTS TO FAIL (x3) =="
 
   cat $bin $LS | DD of=ls.elf &&
-  chmod +x ls.elf && ls.elf -1 ls.elf
+  chmod +x ls.elf && ./ls.elf -1 ls.elf
   retprt
 
-  $bin <&-
+  ./$bin <&-
   retprt
 
   echo try to run a compressed shell script
-  HI | $bin
+  HI | ./$bin
   retprt
 
 ) | tee     tests.res
