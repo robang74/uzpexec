@@ -4,6 +4,10 @@
 
 - &nbsp;Click on the button to know how to &nbsp;[![Sponsor me](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ff69b4?style=flat&logo=github)](https://github.com/sponsors/robang74)&nbsp; this project and get in touch with me.
 
+> [!WARNING]
+> 
+> The [uzpexec](uzpexec.asm) (micro gzip pipe exec, written in Assembler) replaces the previous `upexec` comparison which offers as extra the integrated support for `gzip` inflate on the standard input pipe. Pre-compiled v0.68 elf32 available [here](https://github.com/robang74/working-in-progress/raw/refs/heads/main/uchaosys.qemu/uzpexec).
+
 ---
 
 ### Presentation
@@ -19,20 +23,25 @@ Utility for executing an ELF binary directly from stdin pipe:
 - trivial to inflate by `dd skip=1`
 - it runs gzip compressed binaries
 - it runs binary via `ssh` or `wget`
+- it runs in RAM only, no disk write
 - it runs un/compressed scripts ([v0.74](https://github.com/robang74/gzcmd.sh/releases/tag/v0.74) or +)
 - compress any script, run as ELF32
 
-without writing it on the remote/local systems (memfd_create).
+without writing it on the remote/local systems storage (by `memfd_create`).
+
+Obviously RAM-only can be a benefit or a limit, `gzcmd.sh` writes on disk.
+
+---
+
+### Usage
+
+Compiling `.asm` files requires `nasm`:
 
 ```sh
 make clean tests
 ```
 
-The [uzpexec](uzpexec.asm) (micro gzip pipe exec, written in Assembler) replaces the previous `upexec` comparison which offers as extra the integrated support for `gzip` inflate on the standard input pipe. Pre-compiled v0.68 elf32 available [here](https://github.com/robang74/working-in-progress/raw/refs/heads/main/uchaosys.qemu/uzpexec).
-
----
-
-### Usage
+Test and then decide how to deploy.
 
 -  `{ cat uzpexec; gzip -7c $elf; }    > $elf.uzp`
 -  `cp uzpexec $elf.uzp; gzip -c $elf >> $elf.uzp`
