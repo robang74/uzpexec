@@ -142,6 +142,8 @@ A 64 bit ELF would be much bigger, 2x potentially, and adding no value because t
 
 The `uzpexec` has been developed to compensate for the gzcmd.sh shortcomings and to add useful capability in dealing with STDIN pipe. So, the `gzcmd.sh` is this project's MVP to reach the production grade with `uzpexec`.
 
+Every sane compressing algorithm is also self-validating in terms of output conformity with the original while executing from a url in pipe is popular but a dangerous action because man-in-the-middle attack.
+
 ---
 
 ### Licensing terms
