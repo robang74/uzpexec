@@ -103,6 +103,17 @@ du -b l4z ls.gz /bin/ls zlz4run
 512	zlz4run
 chmod +x l4z && ./l4z -al l4z
 -rwxrwxr-x 1 roberto roberto 70863 Jun 25 13:28 l4z
+
+nasm -s -O2 -f bin zb77run.asm -o zb77run
+{ cat zb77run; python3 zb77zip.py /bin/ls - ;} > l7z
+gzip -9c /bin/ls > ls.gz
+du -b l7z ls.gz /bin/ls zb77run
+76797	l7z
+58555	ls.gz
+138216	/bin/ls
+512	zb77run
+chmod +x l7z && ./l7z -al l7z
+-rwxrwxr-x 1 roberto roberto 76797 Jun 25 13:50 l7z
 ```
 
 We can immediately discard LRE, while LZ4 scores 51% vs 42% (lover is better).
