@@ -74,4 +74,38 @@ pip install lz4
 
 In extracting the LZ4 blob, the ELF32 allocates 4MB of RAM, a way more than RLE.
 
+<br>
+
+### Comparison
+
+Executing `make clean all` the output is self-explicative:
+
+```txt
+nasm -s -O2 -f bin zrlerun.asm -o zrlerun
+{ cat zrlerun; python3 zrlezip.py /bin/ls - ;} > lrz
+Compressed 138216 bytes down to 116716 bytes.
+gzip -1c /bin/ls > ls.gz
+du -b lrz ls.gz /bin/ls zrlerun
+117228	lrz
+62203	ls.gz
+138216	/bin/ls
+512	zrlerun
+chmod +x lrz && ./lz -al lrz
+-rwxrwxr-x 1 roberto roberto 117228 Jun 25 13:28 lrz
+
+nasm -s -O2 -f bin zlz4run.asm -o zlz4run
+{ cat zlz4run; python3 zlz4zip.py -l 12 /bin/ls - ;} > l4z
+gzip -9c /bin/ls > ls.gz
+du -b l4z ls.gz /bin/ls zlz4run
+70863	l4z
+58555	ls.gz
+138216	/bin/ls
+512	zlz4run
+chmod +x l4z && ./l4z -al l4z
+-rwxrwxr-x 1 roberto roberto 70863 Jun 25 13:28 l4z
+```
+
+We can immediately discard LRE, while LZ4 scores 51% vs 42% (lover is better).
+
+The best LZ4 can do remains 14% bigger than the worse that GZIP can do.
 
