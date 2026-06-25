@@ -1,4 +1,4 @@
-# zRLE
+# RLE
 
 A very simple example with `/bin/ls`
 
@@ -28,7 +28,8 @@ echo; ./lz -al
 With the text the RLE doesn't perform better at all. In fact the compressed python
 script is just a little smaller in size and once payloaded with the 512-bytes ELF32
 it is bit bigger than the original. However, in principle it works.
----
+
+<br>
 
 ## LZ4
 

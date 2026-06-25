@@ -11,57 +11,36 @@ import argparse
 try:
     import lz4.block
 except ImportError:
-    print("Error: The 'lz4' library is required.", file=sys.stderr)
-    print("Please install it using: pip install lz4", file=sys.stderr)
+    print("Errore: la libreria 'lz4' è richiesta.", file=sys.stderr)
     sys.exit(1)
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Universal Raw LZ4 Block Compressor for uzpexec architecture.\n"
-                    "Outputs raw byte-aligned token streams compatible with the 512-byte ASM stub.",
+        description="Compressore LZ4 raw block per architettura uzpexec.",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
-    parser.add_argument(
-        "input", 
-        help="Input file path (use '-' to read from stdin)"
-    )
-    parser.add_argument(
-        "output", 
-        help="Output file path (use '-' to write raw stream to stdout)"
-    )
+    parser.add_argument("input", help="File di input (usa '-' per stdin)")
+    parser.add_argument("output", help="File di output (usa '-' per stdout)")
     
-    # Compression Tuning Parameters
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument(
-        "-c", "--compression",
+    parser.add_argument(
+        "-l", "--level",
         type=int,
+        default=6,
         choices=range(1, 13),
-        help="Enable High Compression (LZ4_HC) mode. Level ranges from 1 to 12 (9 is standard)."
-    )
-    group.add_argument(
-        "-a", "--acceleration",
-        type=int,
-        help="Enable Fast Compression mode with a specified acceleration factor (higher = faster, lower ratio)."
+        help="Livello di compressione (1-12, default: 6)"
     )
 
     args = parser.parse_args()
 
-    # Setup compressor configurations
+    # Configurazione compressione
     compress_kwargs = {
-        "store_size": False  # CRITICAL: keeps frame data omitted for raw ASM stream parsing
+        "store_size": False,
+        "mode": "high_compression",
+        "compression": args.level
     }
-    
-    if args.compression is not None:
-        compress_kwargs["mode"] = "high_compression"
-        compress_kwargs["compression"] = args.compression
-    elif args.acceleration is not None:
-        compress_kwargs["mode"] = "fast"
-        compress_kwargs["acceleration"] = args.acceleration
-    else:
-        compress_kwargs["mode"] = "default"
 
-    # 1. Read input payload
+    # 1. Lettura input
     try:
         if args.input == '-':
             input_data = sys.stdin.buffer.read()
@@ -69,17 +48,17 @@ def main():
             with open(args.input, 'rb') as f:
                 input_data = f.read()
     except IOError as e:
-        print(f"Error reading input: {e}", file=sys.stderr)
+        print(f"Errore lettura input: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # 2. Perform Block Compression
+    # 2. Compressione
     try:
         compressed_data = lz4.block.compress(input_data, **compress_kwargs)
     except Exception as e:
-        print(f"Compression failed: {e}", file=sys.stderr)
+        print(f"Compressione fallita: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # 3. Write output payload
+    # 3. Scrittura output (corretto per stdout binario)
     try:
         if args.output == '-':
             sys.stdout.buffer.write(compressed_data)
@@ -88,7 +67,7 @@ def main():
             with open(args.output, 'wb') as f:
                 f.write(compressed_data)
     except IOError as e:
-        print(f"Error writing output: {e}", file=sys.stderr)
+        print(f"Errore scrittura output: {e}", file=sys.stderr)
         sys.exit(1)
 
 if __name__ == '__main__':
