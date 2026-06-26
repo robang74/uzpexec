@@ -100,26 +100,29 @@ The alternatives that are natively compatible with `-f -` are fully supported.
 ; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
 ; in do_script mode the 2 paths shrink to 20 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
-;              |<-- 8 chars -->|
-;                                                                    FD | SH
+;                                                                   LN | FD | SH
 copy_vers:
-            db "(c) github/robang74 v0.82 "                        ; 26 | 26
+            db "(c) github/robang74 v0.82 "                       ; 26 | 26 | 26
 filename :
-            db      "uzpexec", 0, 0                                ;  9 |  9
+            db      "uzpexec", 0, 0                               ;  9 |  9 |  9
 zcat_path:
-            db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0    ; 21 | 21
+            db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ; 21 | 21 | 21
 
-; following fields are conditionally overwritable, do unions       : -------- 56
-do_script:
-            db    0, "bin/sh", 0     ; only for "sh" scripts       :  8 | 21
+; following fields are conditionally overwritable, do unions      : --------- 56
+do_script:                             
+            db    0, "bin/sh", 0, 0,0    ; only for "sh" scripts  : 10 | 10 | 22
 force_arg:
-            db "-f", 0,0,0,0         ; only for "zcat" memfd       :  6 |  0
+            db "-f", 0,0,0,0             ; only for "zcat" memfd  :  6 |  6 |  -
 dash_args:
-            db          "-", 0,      ; only for "zcat" memfd       :  7 |  0
+            db "-", 0                    ; only for "zcat" memfd  :  2 |  9 |  -
 eof_tests:
-            db "U238", 0             ; only for "make tests"       : -------- 21
+            db "U238"                    ; only for "make tests"  :  4 |  - |  -
+dash_sarg:
+            db "-s", 0                   ; only for "sh" scripts  :  3 |  - |  3
+;              |<-- 8 chars -->|<- +8c ->|
+                                                                  ; --------- 25
 
-                                                                   ; 77 (tot) 77
+                                                                  ; 81 (tot.) 81
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
 ; ==============================================================================

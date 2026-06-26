@@ -6,6 +6,8 @@
 bin=uzpexec
 LS=$(command -v ls)
 S='Hello ($0) World!'
+eof_str="U238-s"
+eof_len=$(echo "$eof_str" | wc -c)
 DD() { dd status=none "$@"; }
 retprt() { printf "\tret:${1:-$?}\n\n"; }
 errprt() { err=$?; echo; retprt $err; }
@@ -20,8 +22,8 @@ else
 fi
 
 echo "Code size with EOF string:"
-n=$(grep --color=never -abo "U238" $bin | cut -f1 -d:)
-printf "\t%d bytes\n\n" $(( ${n:--8} + 5 ))
+n=$(grep --color=never -abo "$eof_str" $bin | cut -f1 -d:)
+printf "\t%d bytes\n\n" $(( ${n:--eof_len} + $eof_len ))
 
 echo "Strings output:"
 ( exec 2>&1
@@ -92,7 +94,7 @@ echo "Strings output:"
 ) | tee     tests.res
 printf "Tests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/fd1aa8913c3295039eb0b99b7f5b1d119c3d3564/$bin OK/" |
+sed "s/273982487561c5eaed2d911ce9cf16493e9ab293/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
