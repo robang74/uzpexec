@@ -29,8 +29,22 @@ spt=0
 ext=0
 gzc=$(command -v pigz gzip | head -n1)
 bin=$(command -v uzpexec || echo ./uzpexec)
+b64=$(command -v base64)
 
 prt_versn() { { ${1:-$bin} <&- || echo; } 2>&1 | tr '\0' '\n' | grep -vi bad; }
+
+# RAF, TODO: enable the Makefile to update this embedded payload
+#######################################################################
+UZPAYLOAD="
+H4sIAAAAAAACA01PA7fcUBCeZKO6Pa5tBrVtK6iZZ5vrvYtf0YP6sLZt27aNmfJdDz7ciuH
+jRnAcB38HDx6gaFqloBjwfxjQDP52/evGHtpfMCEIADLl6gKY7H4iNSTEmvTy5E6ewa6z16
+v7dc3j2evAzrx37PyOPV5BWb02T8bw45wnXeeoh5JF81glO7BJ8AnKZvQAyR6TfTlWGdxZJ
+/IcSesEHuLZfnfegye8+mMLEdRZP7Vx4HRevY2LUD2Zs45VLgNEP6mR3MHcQjxTj1Um8yZx
+5LqB07mqnSyZMVvA7EAz1kA9hI8a5pabSHVAaPURr8S4Vh/dd/iYyh4fq3xSpB5ST6tXxib
+LRPIjV0Y8edq4BAVjjUksGdgt9po930G/RsgIpGZfiPp3HWWlWGMFX1gYTFYKW5LoES9h3U
+94BX/kie4zfLiUZLfU0+irhZ0smMm8s2kF5jDm0EG7he2bLU3KdfMWdM3OWDA/fWlPo1l+t
+y69jGZ5xZmLCxcvhK4LktK7Fi+cnwtVByVz3N/vzksApmt6r8450Lnz79RPy5be4gACAAA=
+" # END_OF_UZPAYLOAD ##################################################
 
 echo
 echo "uzpack args_v[$#]: $0 '$@'"
@@ -82,14 +96,25 @@ while true; do
     fi
 
     # Safely copy the uzpexec binary stub to the destination path
-    echo
-    command cp -i "$bin" "$dst" || {
-        echo "Error: Failed to copy the binary stub to '$dst'." >&2
+    if [ "$bin" != "" ]; then
+        echo
+        command cp -i "$bin" "$dst" || {
+            echo "Error: Failed to copy the binary stub to '$dst'." >&2
+            break
+        }
+        #echo
+    elif [ "$UZPAYLOAD" != "" -a "$b64" != "" ]; then
+        echo "Warning: 'uzpexec' not found, using $UZPAYLOAD base64"
+        echo "$UZPAYLOAD" | $b64 -d | $gzc -dc >uzpex || {
+            echo "Error: Failed to copy the binary stub to '$dst'." >&2
+            break
+        }
+    else
+        echo "Error: Failed to find the 'uzpexec' payload"
         break
-    }
-#   echo
+    fi
 
-    # Alter internal hardware routing tags inside the stub depending on payload type
+    # Alter internal routing tags inside the stub depending on carryload type
     if [ "$spt" -eq 0 ]; then
         no_script
         st_script
@@ -98,6 +123,7 @@ while true; do
         do_script
         st_script
         printf "Compressing a script ... "
+        # RAF, TODO: add sanity check for the script (cfr. universal template)
     fi
 
     # Append the compressed payload onto the newly built self-extracting file
