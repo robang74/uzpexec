@@ -258,13 +258,14 @@ parent:
   int 0x80
 
   ; Spawns a /bin/sh which STDIN is piped to zcat, thus it will run the script
-  push 11                       ; SYS_execve
-  pop eax
   mov ebx, do_script            ; script interpreter
   push 0                        ; envp / argv ending
   push ebx                      ; argv[0]
   mov ecx, esp                  ; argv
-  mov edx, ebp                  ; envp
+  ; basic operations for calling the execve()
+  push 11                       ; SYS_execve
+  pop eax
+  mov edx, ebp                  ; envp (intact from main_start)
   int 0x80
   jmp exit_error
 
