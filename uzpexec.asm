@@ -270,10 +270,10 @@ parent:
 
 elf_mode:
   ; The parent waits for the child (zcat) to finish decompressing
-  push -1
-  pop ebx                       ; -1
   xor ecx, ecx
   xor edx, edx
+  xor ebx, ebx
+  dec ebx                       ; -1
   push 7                        ; SYS_waitpid
   pop eax
   int 0x80
