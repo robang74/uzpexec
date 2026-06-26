@@ -18,6 +18,7 @@ usage() {
 
 do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i "$dst"; }
 no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i "$dst"; }
+st_script() { echo "script mode status: $(strings $dst | grep bin/sh)"; }
 
 spt=0
 ext=0
@@ -27,7 +28,6 @@ bin=$(command -v uzpexec || echo ./uzpexec)
 prt_versn() { ${1:-$bin} <&- || echo; }
 
 echo "args: $0 '$@'"
-set -x
 while true; do
     # Parse arguments
     case "${1:-}" in
@@ -66,17 +66,21 @@ while true; do
     dst="${2:-$(basename $src).uzp}"
 
     # Safely copy the uzpexec binary stub to the destination path
-    echo; command cp -i "$bin" "$dst" || {
+    echo
+    command cp -i "$bin" "$dst" || {
         echo "Error: Failed to copy the binary stub to '$dst'." >&2
         break
     }
+#   echo
 
     # Alter internal hardware routing tags inside the stub depending on payload type
     if [ "$spt" -eq 0 ]; then
         no_script
+        st_script
         printf "Compressing a binary ... "
     else
         do_script
+        st_script
         printf "Compressing a script ... "
     fi
 
@@ -94,8 +98,8 @@ while true; do
         break
     }
 
-    echo "Successfully generated: $dst"
-    command ls -l "$dst"
+    echo "Successfully generated: $dst" # $(du -b "$dst")
+#   command ls -l "$dst"
     echo
     break
 done
