@@ -6,7 +6,7 @@
 
 > [!WARNING]
 > 
-> The [uzpexec](uzpexec.asm) (micro gzip pipe exec, written in Assembler) replaces the previous `upexec` comparison which offers as extra the integrated support for `gzip` inflate on the standard input pipe. Pre-compiled v0.68 elf32 available [here](https://github.com/robang74/working-in-progress/raw/refs/heads/main/uchaosys.qemu/uzpexec).
+> The [uzpexec](uzpexec.asm) (micro gzip pipe exec, written in Assembler, 512 bytes of payload equivalent to a single `dd` standard I/O block) offers native support for `gzip` self-inflate self-execution, totally in RAM when started by the standard input pipe. Pre-compiled elf32 available [here](https://github.com/robang74/working-in-progress/raw/refs/heads/main/uchaosys.qemu/uzpexec).
 
 ---
 
