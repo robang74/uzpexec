@@ -393,18 +393,18 @@ exit_error:
 ; in do_script mode the 2 paths shrink to 20 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
 ;                                                                   LN | FD | SH
-copy_vers:  db "(c) github/robang74 v0.83 "                       ; 26 | 26 | 26
+copy_vers:  db "(c) github/robang74 v0.84 "                       ; 26 | 26 | 26
 filename :  db      "uzpexec", 0, 0                               ;  9 |  9 |  9
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ; 21 | 21 | 21
 ; following fields are conditionally overwritable, do unions      : --------- 56
-do_script:  db    0, "bin/sh", 0, 0,0    ; only for "sh" scripts  : 10 | 10 | 22
-force_arg:  db "-f", 0,0,0,0             ; only for "zcat" memfd  :  6 |  6 |  -
-dual_dash:  db "-"                       ; only for "sh" scripts  :  1 |  - |  3
-dash_args:  db "-", 0                    ; for both               :  2 |  9 |  -
-eof_tests:  db "U238"                    ; only for "make tests"  :  4 |  - |  -
-dash_s   :  db "-s", 0                   ; only for "sh" scripts  :  3 |  - |  3
-;              |<-- 8 chars -->|<- +8c ->|                        : --------- 26
-                                                                  ; 82 (tot.) 82
+do_script:  db    0, "bin/sh", 0, 0, 0,0,0, 0  ; for "sh"         ; 13 | 13 | 21
+force_arg:  db "-f", 0,0                       ; for "zcat"       :  4 | 12 |  -
+eof_tests:  db "U238"                          ; for "make tests" :  4 |  - |  -
+dash_s   :  db "-s", 0                         ; for "sh"         :  3 |  - |  3
+dual_dash:  db "-"                             ; for "sh"         :  1 |  - |  1
+dash_args:  db "-", 0                          ; for both         :  2 |  2 |  2
+;              |<-- 8 chars -->|<- +8c ->|                        : --------- 27
+                                                                  ; 83 (tot.) 83
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
 ; ==============================================================================
