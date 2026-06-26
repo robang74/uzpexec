@@ -5,7 +5,7 @@
 - &nbsp;Click on the button to know how to &nbsp;[![Sponsor me](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ff69b4?style=flat&logo=github)](https://github.com/sponsors/robang74)&nbsp; this project and get in touch with me.
 
 > [!WARNING]
->
+> 
 > The [uzpexec](uzpexec.asm) (micro gzip pipe exec, written in Assembler) replaces the previous `upexec` comparison which offers as extra the integrated support for `gzip` inflate on the standard input pipe. Pre-compiled v0.68 elf32 available [here](https://github.com/robang74/working-in-progress/raw/refs/heads/main/uchaosys.qemu/uzpexec).
 
 ---
@@ -13,7 +13,7 @@
 ### Presentation
 
 > [!NOTE]
->
+> 
 > Suggested file extension: **`.uzp`**
 
 Utility for executing an ELF binary directly from stdin pipe:
@@ -55,7 +55,7 @@ It works as a single block 512-bytes self-inflating executable payload replacing
 An example of use is related to this [project](https://github.com/robang74/uchaosys/blob/v074/qemu/README.md) about QEMU footprint reduction which uses `uzpexec` to deliver the executable binary in `UZP` format which can be downloaded from [here](https://github.com/robang74/working-in-progress/tree/main/uchaosys.qemu)
 
 > [!NOTE]
->
+> 
 > The `qemu-system-x86_64`, provided in `UZP` self-inflate executable, appears to be an x86 ELF 32-bit LSB executable. That type file refers to the extractor. While qemu is expanded in RAM and execute in its original ELF 64-bit format.
 
 #### Example #2
@@ -65,6 +65,10 @@ The shell script [uzpack.sh](uzpack.sh) converts a binary or a script into a sel
 Obviously, it is possible to convert an already converted binary. Which fails to run when it carries a shell script, but it is acceptable because it is totally useless to convert anything twice, especially in this case.
 
 A different result can be obtained by double converting and executing a binary (bigger is better) because it creates a "*fork bomb*" which will eventually trigger an OOM `kill` by the kernel itself... a show to enjoy with a `htop` view. ;-)
+
+> [!NOTE]
+> 
+> Performance report: this little guy in "fork bomb" mode or better said in "fork loop" mode, is capable of sucking 2 core power from my i5-8365. Two! And this number can correctly taken as an index of its performance: no any lags but pure execution.
 
 ---
 
@@ -131,7 +135,7 @@ times (512 - ($ - $$)) db 0     ; Padding to 512 bytes for skip=1
 Since `zcat` is a shell script, it can be changed to pair the input with the proper decompressing tool. While a tiny `xcat` binary in ASM would be much faster in properly pairing the matches.
 
 > [!WARNING]
->
+> 
 > The following script is provided **untested** AS-IS, just for the concept:
 
 ```sh
