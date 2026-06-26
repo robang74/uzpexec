@@ -27,16 +27,19 @@ bin=$(command -v uzpexec || echo ./uzpexec)
 
 prt_versn() { ${1:-$bin} <&- || echo; }
 
-echo "args_v[$#]: $0 '$@'"
+echo
+echo "uzpack args_v[$#]: $0 '$@'"
+
 while true; do
     # Parse arguments
     case "${1:-}" in
         -v|--version)
             prt_versn "$bin"
-            ext=1
+            shift
             ;;
         -h|--help)
             usage
+            shift
             ext=1
             ;;
         -s|--script)
@@ -53,6 +56,12 @@ while true; do
 
     if [ ! -x "$gzc" ]; then
         echo "Error: Neither pigz nor gzip is available or executable." >&2
+        break
+    fi
+
+    if [ "x${1:-}" = "x" ]; then
+        echo "Error: No arguments" >&2
+        usage
         break
     fi
 
