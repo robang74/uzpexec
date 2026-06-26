@@ -104,7 +104,7 @@ The alternatives that are natively compatible with `-f -` are fully supported.
 copy_vers:  db "(c) github/robang74 v0.84 "                       ; 26 | 26 | 26
 filename :  db      "uzpexec", 0                                  ;  8 |  8 |  8
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ; 21 | 21 | 21
-; following fields are conditionally overwritable, do unions      : --------- 56
+; following fields are conditionally overwritable, do unions      : --------- 55
 do_script:  db    0, "bin/sh", 0, 0, 0,0,0, 0  ; for "sh"         ; 13 | 13 | 21
 force_arg:  db "-f", 0,0                       ; for "zcat"       :  4 | 12 |  -
 eof_tests:  db "U238"                          ; for "make tests" :  4 |  - |  -

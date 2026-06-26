@@ -132,7 +132,7 @@ main_start:
 
   ; 1. Checking argv[0] to open input (itself or stdin)
   mov ebx, [esi]                ; CVE-2021-4034, pre-5.18
-  cmp byte [ebx], al            ; SIGSEV kill the bug here
+  cmp byte [ebx], al            ; SIGSEGV kill the bug here
   jz .stdin                     ; Tiny can't cover LK bugs
 
   ; ----------------------------------------------------------------------------
@@ -262,9 +262,8 @@ parent:
   pop eax
   mov ebx, do_script            ; script interpreter
 
-  ; Safeguard: if argc is 0, fallback to no-args mode
-  cmp dword [esi], 0            ; [esi] == [esp] == argv[0] slot
-  jz .no_args
+  ; Safeguard: if argc is 0 <-- No, the issue was argv=NULL, SIGSEGV solves
+  ; Therefore the branch "no_args" would never traversed and can be removed
 
   ; In-place stack manipulation using ESP (argv is at [esp]):
   mov dword [esp], dual_dash    ; overwrite original argv[0] with "--"
@@ -273,7 +272,6 @@ parent:
   push ebx                      ; pushing on current argv[0] do_script
 
   ; basic operations for calling the execve()
-.no_args:
   mov edx, ebp                  ; envp (intact from main_start)
   int 0x80
   jmp exit_error
@@ -391,7 +389,7 @@ exit_error:
 copy_vers:  db "(c) github/robang74 v0.84 "                       ; 26 | 26 | 26
 filename :  db      "uzpexec", 0                                  ;  8 |  8 |  8
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ; 21 | 21 | 21
-; following fields are conditionally overwritable, do unions      : --------- 56
+; following fields are conditionally overwritable, do unions      : --------- 55
 do_script:  db    0, "bin/sh", 0, 0, 0,0,0, 0  ; for "sh"         ; 13 | 13 | 21
 force_arg:  db "-f", 0,0                       ; for "zcat"       :  4 | 12 |  -
 eof_tests:  db "U238"                          ; for "make tests" :  4 |  - |  -
