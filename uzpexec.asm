@@ -257,8 +257,10 @@ parent:
   xor ecx, ecx                  ; 0 = stdin
   int 0x80
 
-  ; ----------------------------------------------------------------------------
+; ----------------------------------------------------------------------------
   ; Spawns a /bin/sh whose STDIN is piped to zcat, passing along original argvs
+  push 11                       ; SYS_execve (Load syscall early to avoid stack collision)
+  pop eax
   mov ebx, do_script            ; script interpreter
 
   ; Safeguard: if argc was 0 (malicious/empty), fallback to no-args mode
@@ -278,8 +280,6 @@ parent:
 
 .do_exec:
   ; basic operations for calling the execve()
-  push 11                       ; SYS_execve
-  pop eax
   mov edx, ebp                  ; envp (intact from main_start)
   int 0x80
   jmp exit_error
