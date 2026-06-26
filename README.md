@@ -50,7 +50,9 @@ Test and then decide how to deploy.
 
 It works as a single block 512-bytes self-inflating executable payload replacing also `gzcmd.sh` with the sole requirement of `/bin/zcat` available.
 
-#### Example #1
+---
+
+### Example #1
 
 An example of use is related to this [project](https://github.com/robang74/uchaosys/blob/v074/qemu/README.md) about QEMU footprint reduction which uses `uzpexec` to deliver the executable binary in `UZP` format which can be downloaded from [here](https://github.com/robang74/working-in-progress/tree/main/uchaosys.qemu)
 
@@ -58,7 +60,7 @@ An example of use is related to this [project](https://github.com/robang74/uchao
 > 
 > The `qemu-system-x86_64`, provided in `UZP` self-inflate executable, appears to be an x86 ELF 32-bit LSB executable. That type file refers to the extractor. While qemu is expanded in RAM and execute in its original ELF 64-bit format.
 
-#### Example #2
+### Example #2
 
 The shell script [uzpack.sh](uzpack.sh) converts a binary or a script into a self-extracting self-running in memory only. The most natural test is using the script to convert itself. Which is what happens during `make tests` and the result can be found as `uzpack.uzp`.
 
@@ -89,6 +91,30 @@ no_script # reset back original
 ```
 
 Appending a compressed script is easy and reversible without recompiling.
+
+Or even easier using the shell script provided by this repository;
+
+- `sh uzpack.sh -h` &nbsp; dowload from [here](sh uzpack.sh)
+
+```sh
+uzpack args_v[1]: uzpack.sh '-h'
+
+Usage: uzpack [-h|--help] [-v|--version]
+       uzpack [-s|--script] origin.elf [destination.uzp]
+```
+
+Which also contains the basic shell script template for full compatibility
+
+```sh
+#!/bin/sh
+if [ -t 0 ] || [ -c /dev/tty ]; then exec </dev/tty; fi
+
+# put your shell script code here
+
+exit
+```
+
+A trivial template which is also universal and includes the `if`/`fi` for `crod`.
 
 ---
 
