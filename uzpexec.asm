@@ -260,7 +260,7 @@ parent:
   push 0                        ; envp / argv ending
   push ebx                      ; argv[0]
   mov ecx, esp                  ; argv
-  xor edx, edx                  ; envp = NULL
+  mov edx, ebp                  ; envp
   int 0x80
   jmp exit_error
 
