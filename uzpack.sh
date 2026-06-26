@@ -9,13 +9,16 @@
 #
 ################################################################################
 
+# ------------------------------------------------------------------------------
+if [ -t 0 ] || [ -c /dev/tty ]; then exec </dev/tty; fi
+# ------------------------------------------------------------------------------
+
 usage() {
     echo
     echo "Usage: uzpack [-h|--help] [-v|--version]"
     echo "       uzpack [-s|--script] origin.elf [destination.uzp]"
     echo
 }
-
 
 do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i "$dst"; }
 no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i "$dst"; }
@@ -27,7 +30,7 @@ ext=0
 gzc=$(command -v pigz gzip | head -n1)
 bin=$(command -v uzpexec || echo ./uzpexec)
 
-prt_versn() { ${1:-$bin} <&- || echo; }
+prt_versn() { { ${1:-$bin} <&- || echo; } 2>&1 | tr '\0' '\n' | grep -vi bad; }
 
 echo
 echo "uzpack args_v[$#]: $0 '$@'"
@@ -38,6 +41,7 @@ while true; do
         -v|--version)
             prt_versn "$bin"
             shift
+            ext=1
             ;;
         -h|--help)
             usage
@@ -45,13 +49,8 @@ while true; do
             ext=1
             ;;
         -s|--script)
-            spt=1
             shift
-            ;;
-        -*)
-            echo "Error: Unknown option '$1'" >&2
-            usage
-            ext=1
+            spt=1
             ;;
     esac
     test $ext -eq 0 || break
@@ -120,3 +119,7 @@ while true; do
     echo
     break
 done
+
+# ------------------------------------------------------------------------------
+exit
+# ------------------------------------------------------------------------------
