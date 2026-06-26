@@ -240,32 +240,32 @@ parent:
   test dl, dl                   ; Is it ELF mode (0)?
   jz elf_mode                   ; - Y: standard waitpid execution
                                 ; - N: spawn the alt. interpreter
-  ; It closes an useless pipe
+  ; It closes the useless pipe
   push 6                        ; SYS_close
   pop eax
   mov ebx, [buf+4]              ; write_fd
   int 0x80
 
-  ; Aggancia il lato di lettura della pipe al proprio STDIN (fd 0)
+  ; Attach the zcat STDOUT (fd:1) to the shell STDIN (fd:0)
   push 63                       ; SYS_dup2
   pop eax
   mov ebx, [buf]                ; read_fd
   xor ecx, ecx                  ; 0 = stdin
   int 0x80
 
-  ; Esegue /bin/sh. Avendo STDIN collegato a zcat, la shell eseguirà lo script!
+  ; Spawns a /bin/sh which STDIN is piped to zcat, thus it will run the script
   push 11                       ; SYS_execve
   pop eax
   mov ebx, do_script            ; script interpreter
-  push 0                        ; envp / argv finale
+  push 0                        ; envp / argv ending
   push ebx                      ; argv[0]
   mov ecx, esp                  ; argv
   xor edx, edx                  ; envp = NULL
   int 0x80
   jmp exit_error
 
-  ; The parent only needs to wait for the child (zcat) to finish decompressing
 elf_mode:
+  ; The parent waits for the child (zcat) to finish decompressing
   push -1
   pop ebx                       ; -1
   xor ecx, ecx
