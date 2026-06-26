@@ -362,11 +362,12 @@ exit_error:
   ; Print copyright notice, version and internal name
   push zcat_path - copy_vers    ; bytes to write
   pop edx
+  mov ecx, copy_vers
+  mov byte [ecx + edx - 1], 10  ; line feed
   push  4                       ; SYS_write
   pop eax
   push  2                       ; stderr
   pop ebx
-  mov ecx, copy_vers
   int 0x80
 
 ; exit_now:
