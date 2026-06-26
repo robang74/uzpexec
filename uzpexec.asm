@@ -199,6 +199,7 @@ main_start:
   jmp .memfd
 
 .stdin:
+; push eax                      ; --> argc (0)
   xor edi, edi                  ; EDI = stdin (0)
 
 .memfd:
@@ -266,12 +267,19 @@ parent:
   ; Safeguard: if argc is 0, fallback to no-args mode
   ; cmp dword [esi], 0
   ; jz .no_args
+  ; or using a precalculated value
+  ; pop ecx                       ; --> argc (0)
+  ; jecxz .no_args
 
+  ; Preparing the stack for passing arguments to the script
   push 0                        ; envp / argv ending
+  push dual_dash
+  push dash_s
   push ebx                      ; argv[0]
-  mov ecx, esp                  ; argv
 
   ; basic operations for calling the execve()
+  mov ecx, esp                  ; argv
+.no_args:
   mov edx, ebp                  ; envp (intact from main_start)
   int 0x80
   jmp exit_error
