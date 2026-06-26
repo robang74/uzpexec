@@ -330,7 +330,7 @@ child:
   pop eax
   mov ebx, zcat_path
   push 0
-  push dash_arg
+  push dash_args
   test edi, edi                 ; Are we reading from STDIN (edi == 0)?
   jnz .pure_zcat                ; No, it is a file, then skip '-f' push
   push force_arg
@@ -366,8 +366,6 @@ exit_error:
 ; ==============================================================================
 ; COMPACT DATA SECTION (appended to code)
 ; ==============================================================================
-;                                                                    FD | SH
-copy_vers:  db "(c) github/robang74 v0.82 "                        ; 26 | 26
 ; filename can be changed by sed up to 8 chars + ending \0
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
 ; /bin/zcat can be changed by sed up to 41 chars + ending \0
@@ -375,13 +373,24 @@ copy_vers:  db "(c) github/robang74 v0.82 "                        ; 26 | 26
 ; in do_script mode the 2 paths shrink to 20 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
 ;              |<-- 8 chars -->|
-filename:   db      "uzpexec", 0, 0                                ;  9 |  9
-zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0    ; 21 | 21
+;                                                                    FD | SH
+copy_vers:
+            db "(c) github/robang74 v0.82 "                        ; 26 | 26
+filename :
+            db      "uzpexec", 0, 0                                ;  9 |  9
+zcat_path:
+            db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0    ; 21 | 21
+
 ; following fields are conditionally overwritable, do unions       : -------- 56
-do_script:  db    0, "bin/sh", 0     ; only for "sh" scripts       :  8 | 21
-force_arg:  db "-f", 0,0,0,0         ; only for "zcat" memfd       :  6 |  0
-dash_arg:   db          "-", 0,      ; only for "zcat" memfd       :  7 |  0
-eof_test:   db "U238", 0             ; only for "make tests"       : -------- 21
+do_script:
+            db    0, "bin/sh", 0     ; only for "sh" scripts       :  8 | 21
+force_arg:
+            db "-f", 0,0,0,0         ; only for "zcat" memfd       :  6 |  0
+dash_args:
+            db          "-", 0,      ; only for "zcat" memfd       :  7 |  0
+eof_tests:
+            db "U238", 0             ; only for "make tests"       : -------- 21
+
                                                                    ; 77 (tot) 77
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)

@@ -82,17 +82,17 @@ echo "Strings output:"
   chmod +x ls.elf && ./ls.elf -1 ls.elf
   errprt
 
-  ./$bin <&-
-  errprt
-
   echo try to run a compressed shell script
   HI | ./$bin
+  errprt
+
+  ./$bin <&-
   errprt
 
 ) | tee     tests.res
 printf "Tests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/dd43938df34a9074ff61ae4b5b02d2e65d6b046b/$bin OK/" |
+sed "s/fd1aa8913c3295039eb0b99b7f5b1d119c3d3564/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
