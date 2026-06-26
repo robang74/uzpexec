@@ -257,11 +257,17 @@ parent:
   xor ecx, ecx                  ; 0 = stdin
   int 0x80
 
-  ; Spawns a /bin/sh which STDIN is piped to zcat, thus it will run the script
+  ; Spawns a /bin/sh whose STDIN is piped to zcat, passing along original argvs
   mov ebx, do_script            ; script interpreter
+
+  ; Safeguard: if argc is 0, fallback to no-args mode
+  ; cmp dword [esi], 0
+  ; jz .no_args
+
   push 0                        ; envp / argv ending
   push ebx                      ; argv[0]
   mov ecx, esp                  ; argv
+
   ; basic operations for calling the execve()
   push 11                       ; SYS_execve
   pop eax
@@ -386,7 +392,7 @@ zcat_path:
             db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ; 21 | 21 | 21
 
 ; following fields are conditionally overwritable, do unions      : --------- 56
-do_script:                             
+do_script:                   
             db    0, "bin/sh", 0, 0,0    ; only for "sh" scripts  : 10 | 10 | 22
 force_arg:
             db "-f", 0,0,0,0             ; only for "zcat" memfd  :  6 |  6 |  -
