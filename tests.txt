@@ -93,10 +93,18 @@ echo "Strings output:"
   ./$bin <&-
   errprt
 
+  echo "== NO ARGS LIMIT (x1) =="
+  echo
+
+  yes | sh uzpack.sh -s uzpack.sh uzpack.uzp 2>&- &&
+  strace ./uzpack.uzp -h 2>&1 | grep execve |
+    sed -e "s/, 0x.*\() = \)/, ... \1/" | cut -d'(' -f-2
+  echo
+
 ) | tee     tests.res
 printf "Tests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/273982487561c5eaed2d911ce9cf16493e9ab293/$bin OK/" |
+sed "s/41deea187625c99d2e8ea33f477b6ab291739daf/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
@@ -121,4 +129,4 @@ echo 'Hello wonderful World!' >> $bin &&
 # Hello wonderful World!
 # 0
 
-fi #############################################################################
+fi ############################################################################
