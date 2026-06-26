@@ -2,53 +2,99 @@
 #
 # (C) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, GPLv2 license
 #
-# $description
-# 
+# Desptiption:
+#
+#   Wrapper to package binaries or shell sptipts into a self-extracting
+#   executable package using uzpexec as the micro-stub loader.
+#
 ################################################################################
 
 usage() {
-echo
-echo uzpack [-h|--help] [-v|--version] 
-echo uzpack [-s|--script] origin.elf [destination.uzp]
+    echo
+    echo "Usage: uzpack [-h|--help] [-v|--version]"
+    echo "       uzpack [-s|--sptipt] origin.elf [destination.uzp]"
+    echo
 }
 
-do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i $dst; }
-no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i $dst; }
+do_sptipt() { sed -e 's,\x00\(bin/sh\),/\1,' -i "$dst"; }
+no_sptipt() { sed -e 's,/\(bin/sh\),\x00\1,' -i "$dst"; }
 
-scr=0
-gzc=$(command -v pigz gzip)
+spt=0
+ext=0
+gzc=$(command -v pigz gzip | head -n1)
 bin=$(command -v uzpexec || echo ./uzpexec)
 
-prt_versn() { ${1:-$bin} <&-||echo; }
+prt_versn() { ${1:-$bin} <&- || echo; }
 
+set -x
+while true; do
+    # Parse arguments
+    case "${1:-}" in
+        -v|--version)
+            prt_versn "$bin"
+            ext=1
+            ;;
+        -h|--help)
+            usage
+            ext=1
+            ;;
+        -s|--sptipt)
+            spt=1
+            shift
+            ;;
+        -*)
+            echo "Error: Unknown option '$1'" >&2
+            usage
+            ext=1
+            ;;
+    esac
+    test $ext -eq 0 || break
 
-do {
-test -x "$gzc" || break
+    if [ ! -x "$gzc" ]; then
+        echo "Error: Neither pigz nor gzip is available or executable." >&2
+        break
+    fi
 
-case -v or --version) uzpexec <&-||echo; break
-case -h or --help) head $0; break
-case -s or --script) scr=1; shift
+    src="${1:-}"
+    if [ -z "$src" ] || [ ! -r "$src" ]; then
+        echo "Error: Target payload file '$src' is missing or unreadable." >&2
+        usage
+        break
+    fi
 
-src=${1:-}
-test -r $sr || break
+    dst="${2:-$(basename $src).uzp}"
 
-dst=${2:-$src.uzp}
-command cp -i $bin $dst || break
+    # Safely copy the uzpexec binary stub to the destination path
+    echo; command cp -i "$bin" "$dst" || {
+        echo "Error: Failed to copy the binary stub to '$dst'." >&2
+        break
+    }
 
-if [ $scr -eq 0 ]; then
-  no_script
-  printf "\nCompressing a binary ..."
-else
-  do_script
-  printf "\nCompressing a script ..."
-fi
+    # Alter internal hardware routing tags inside the stub depending on payload type
+    if [ "$spt" -eq 0 ]; then
+        no_sptipt
+        printf "Compressing a binary ... "
+    else
+        do_sptipt
+        printf "Compressing a script ... "
+    fi
 
-$gzc -c $src >> $dst ||{
-  printf "KO\n\n"
-  break
-}
-printf "OK\n\n"
-prt_versn $dst
-du -k $dst
+    # Append the compressed payload onto the newly built self-extracting file
+    $gzc -c "$src" >> "$dst" || {
+        printf "KO\n\n"
+        echo "Error: Payload compression or concatenation failed." >&2
+        break
+    }
+    printf "OK\n\n"
 
-} while(0)
+    # Enforce safe execution permissions over the generated package
+    chmod +x "$dst" || {
+        echo "Error: Could not make target '$dst' executable." >&2
+        break
+    }
+
+    echo "Successfully generated: $dst"
+    command ls -l "$dst"
+    echo
+    break
+done
