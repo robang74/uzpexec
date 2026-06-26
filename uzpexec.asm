@@ -271,14 +271,13 @@ parent:
   ; pop ecx                       ; --> argc (0)
   ; jecxz .no_args
 
-  ; Preparing the stack for passing arguments to the script
-  push 0                        ; envp / argv ending
-  push dual_dash
-  push dash_s
-  push ebx                      ; argv[0]
+  ; In-place stack manipulation using ESP (argv is at [esp]):
+  mov dword [esp], dual_dash      ; overwrite original argv[0] with "--"
+  lea ecx, [esp - 8]              ; original arguments argv[1] ... [n]
+  push dash_s                     ; pushing "-s"
+  push ebx                        ; pushing on current argv[0] do_script
 
   ; basic operations for calling the execve()
-  mov ecx, esp                  ; argv
 .no_args:
   mov edx, ebp                  ; envp (intact from main_start)
   int 0x80
@@ -394,29 +393,18 @@ exit_error:
 ; in do_script mode the 2 paths shrink to 20 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
 ;                                                                   LN | FD | SH
-copy_vers:
-            db "(c) github/robang74 v0.83 "                       ; 26 | 26 | 26
-filename :
-            db      "uzpexec", 0, 0                               ;  9 |  9 |  9
-zcat_path:
-            db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ; 21 | 21 | 21
-
+copy_vers:  db "(c) github/robang74 v0.83 "                       ; 26 | 26 | 26
+filename :  db      "uzpexec", 0, 0                               ;  9 |  9 |  9
+zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ; 21 | 21 | 21
 ; following fields are conditionally overwritable, do unions      : --------- 56
-do_script:                   
-            db    0, "bin/sh", 0, 0,0    ; only for "sh" scripts  : 10 | 10 | 22
-force_arg:
-            db "-f", 0,0,0,0             ; only for "zcat" memfd  :  6 |  6 |  -
-dual_dash:  db "-"
-dash_args:
-            db "-", 0                    ; only for "zcat" memfd  :  2 |  9 |  -
-eof_tests:
-            db "U238"                    ; only for "make tests"  :  4 |  - |  -
-dash_s   :
-            db "-s", 0                   ; only for "sh" scripts  :  3 |  - |  3
-;              |<-- 8 chars -->|<- +8c ->|
-                                                                  ; --------- 25
-
-                                                                  ; 81 (tot.) 81
+do_script:  db    0, "bin/sh", 0, 0,0    ; only for "sh" scripts  : 10 | 10 | 22
+force_arg:  db "-f", 0,0,0,0             ; only for "zcat" memfd  :  6 |  6 |  -
+dual_dash:  db "-"                       ; only for "sh" scripts  :  1 |  - |  3
+dash_args:  db "-", 0                    ; for both               :  2 |  9 |  -
+eof_tests:  db "U238"                    ; only for "make tests"  :  4 |  - |  -
+dash_s   :  db "-s", 0                   ; only for "sh" scripts  :  3 |  - |  3
+;              |<-- 8 chars -->|<- +8c ->|                        : --------- 26
+                                                                  ; 82 (tot.) 82
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
 ; ==============================================================================

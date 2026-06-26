@@ -5,7 +5,7 @@
 - &nbsp;Click on the button to know how to &nbsp;[![Sponsor me](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ff69b4?style=flat&logo=github)](https://github.com/sponsors/robang74)&nbsp; this project and get in touch with me.
 
 > [!WARNING]
-> 
+>
 > The [uzpexec](uzpexec.asm) (micro gzip pipe exec, written in Assembler) replaces the previous `upexec` comparison which offers as extra the integrated support for `gzip` inflate on the standard input pipe. Pre-compiled v0.68 elf32 available [here](https://github.com/robang74/working-in-progress/raw/refs/heads/main/uchaosys.qemu/uzpexec).
 
 ---
@@ -47,7 +47,7 @@ Test and then decide how to deploy.
 - `cp uzpexec $elf.uzp; gzip -c $elf >> $elf.uzp`
 - `wget $url/$elf[.gz] -O- | uzpexec [args]`
 - `uzpexec <&-||echo` # for the version + github
- 
+
 It works as a single block 512-bytes self-inflating executable payload replacing also `gzcmd.sh` with the sole requirement of `/bin/zcat` available.
 
 #### Example
@@ -101,28 +101,18 @@ The alternatives that are natively compatible with `-f -` are fully supported.
 ; in do_script mode the 2 paths shrink to 20 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
 ;                                                                   LN | FD | SH
-copy_vers:
-            db "(c) github/robang74 v0.82 "                       ; 26 | 26 | 26
-filename :
-            db      "uzpexec", 0, 0                               ;  9 |  9 |  9
-zcat_path:
-            db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ; 21 | 21 | 21
-
+copy_vers:  db "(c) github/robang74 v0.83 "                       ; 26 | 26 | 26
+filename :  db      "uzpexec", 0, 0                               ;  9 |  9 |  9
+zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ; 21 | 21 | 21
 ; following fields are conditionally overwritable, do unions      : --------- 56
-do_script:                             
-            db    0, "bin/sh", 0, 0,0    ; only for "sh" scripts  : 10 | 10 | 22
-force_arg:
-            db "-f", 0,0,0,0             ; only for "zcat" memfd  :  6 |  6 |  -
-dash_args:
-            db "-", 0                    ; only for "zcat" memfd  :  2 |  9 |  -
-eof_tests:
-            db "U238"                    ; only for "make tests"  :  4 |  - |  -
-dash_sarg:
-            db "-s", 0                   ; only for "sh" scripts  :  3 |  - |  3
-;              |<-- 8 chars -->|<- +8c ->|
-                                                                  ; --------- 25
-
-                                                                  ; 81 (tot.) 81
+do_script:  db    0, "bin/sh", 0, 0,0    ; only for "sh" scripts  : 10 | 10 | 22
+force_arg:  db "-f", 0,0,0,0             ; only for "zcat" memfd  :  6 |  6 |  -
+dual_dash:  db "-"                       ; only for "sh" scripts  :  1 |  - |  3
+dash_args:  db "-", 0                    ; for both               :  2 |  9 |  -
+eof_tests:  db "U238"                    ; only for "make tests"  :  4 |  - |  -
+dash_s   :  db "-s", 0                   ; only for "sh" scripts  :  3 |  - |  3
+;              |<-- 8 chars -->|<- +8c ->|                        : --------- 26
+                                                                  ; 82 (tot.) 82
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
 ; ==============================================================================
@@ -142,16 +132,16 @@ HEADER=$(dd bs=1 count=4 2>/dev/null)
 HEX=$(printf '%s' "$HEADER" | od -An -tx1 | tr -d ' \n')
 case "$HEX" in
   1f8b*)     # GZIP
-      (printf '%s' "$HEADER"; cat) | gzip -d -c "$@"
+      (printf '%s' "$HEADER"; cat) | gzip  -d -c "$@"
       ;;
   fd377a58)  # XZ (\xfd7zX)
-      (printf '%s' "$HEADER"; cat) | xz -d -c "$@"
+      (printf '%s' "$HEADER"; cat) | xz    -d -c "$@"
       ;;
   425a68*)   # BZIP2 (BZh)
       (printf '%s' "$HEADER"; cat) | bzip2 -d -c "$@"
       ;;
   28b52ffd)  # ZSTD
-      (printf '%s' "$HEADER"; cat) | zstd -d -c "$@"
+      (printf '%s' "$HEADER"; cat) | zstd  -d -c "$@"
       ;;
   *)         # to support -f / --force
       (printf '%s' "$HEADER"; cat)
@@ -305,7 +295,7 @@ In order to run the paylod, a few minimum requirements are need:
 - **a Unix/POSIX shell**: even minimal, with basic file descriptor management.
 - **shell internals**: `echo`, `exec`, `for`, `command`, `exit` and possibly `trap`
 - **utilities**: `dd`, `rm`, `mv`, `head`, and possibly `grep`, `id`
-- **alternatives**: `zcat` or every equivalent, `umask` or `chmod` 
+- **alternatives**: `zcat` or every equivalent, `umask` or `chmod`
 - **environment**: `PATH`, and optional `HOME`, `USER`, `TMPDIR`
 
 All of the requirements are almost always granted in every Unix/POSIX.

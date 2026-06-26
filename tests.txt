@@ -43,7 +43,7 @@ echo "Strings output:"
   printf "\t%s\n" "$(du -b $bin)"
 
   echo
-  echo "== TESTS TO PASS (x6) =="
+  echo "====== TESTS TO PASS (x6) ======"
   echo
 
   export WORLD='Hi shiny!'
@@ -80,7 +80,7 @@ echo "Strings output:"
   cat $LS | ./$bin -1 $bin
   retprt
 
-  echo "== TESTS TO FAIL (x3) =="
+  echo "====== TESTS TO FAIL (x3) ======"
 
   cat $bin $LS | DD of=ls.elf &&
   chmod +x ls.elf && ./ls.elf -1 ls.elf
@@ -93,19 +93,19 @@ echo "Strings output:"
   ./$bin <&-
   errprt
 
-  echo "== NO ARGS LIMIT (x1) =="
+  echo "====== ARGS TO PASS (x1) ======"
   echo
 
   rm -f uzpack.uzp
-  yes | sh uzpack.sh -s uzpack.sh uzpack.uzp &&
-  strace ./uzpack.uzp -h 2>&1 | grep -E "execve|args_v" |
-    sed -e "s/, 0x.*\() = \)/, ... \1/" | cut -d'(' -f-2
-  echo
+  yes | sh uzpack.sh -s uzpack.sh uzpack.uzp && ./uzpack.uzp -h
+# strace ./uzpack.uzp -h 2>&1 | grep -E "execve|args_v" |
+#   sed -e "s/, 0x.*\() = \)/, ... \1/" | cut -d'(' -f-2
 
 ) | tee     tests.res
-printf "Tests final result: "
+echo "====== HASH TO CHECK ======"
+printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/1d4316771aec477fbc58c9bee5706b561d880b40/$bin OK/" |
+sed "s/e60025e08d7e5eef58b63f50847d120b52eebfa7/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################

@@ -9,21 +9,21 @@ blkln:
 	@echo
 
 gzcmd.gz.sh: gzcmd.sh
-	@echo === $^ self-compressing ===
+	@echo ====== $^ self-compressing ======
 	@echo
 	sh $^ $^
 	du -b $@
 	@echo
 
 upexec: upexec.asm
-	@echo === compile $^ ===
+	@echo ====== compile $^ ======
 	@echo
 	nasm -O2 -f bin $^ -o $@
 	@chmod +x $@
 	file $@
 	du -b $@
 	@echo
-	@echo === testing $^ ===
+	@echo ====== testing $^ ======
 	@echo
 	export WORLD=beatiful; $(ZDDCMD) | ./upexec $WORLD
 	@echo self-check:
@@ -33,7 +33,7 @@ upexec: upexec.asm
 	@echo
 
 uzpexec: uzpexec.asm
-	@echo === compile $^ ===
+	@echo ====== compile $^ ======
 	@echo
 	nasm -O2 -f bin $^ -o $@
 	@chmod +x $@
@@ -42,7 +42,7 @@ uzpexec: uzpexec.asm
 	@echo
 
 hello: hello.c
-	@echo === compile $^ ===
+	@echo ====== compile $^ ======
 	@echo
 	cc -s -Os $^ -o $@ -Wl,--build-id=none
 	file $@ | sed -e "s/, int/,\n\t int/"
@@ -50,19 +50,19 @@ hello: hello.c
 	@echo
 
 clean: blkln
-	rm -f $(TARGETS) hello.gz.sh ls.elf ls.gz.elf tests.res
+	rm -f $(TARGETS) hello.gz.sh ls.elf ls.gz.elf tests.res uzpack.uzp
 	@echo
 
 tests: blkln $(TARGETS)
-	@echo === testing hello ===
+	@echo ====== testing hello ======
 	@echo
 	./hello
 	@echo
-	@echo === testing gzcmd.gz.sh ===
+	@echo ====== testing gzcmd.gz.sh ======
 	@echo
 	./gzcmd.gz.sh hello
 	./hello.gz.sh
 	@echo
-	@echo === testing uzpexec ===
+	@echo ====== testing uzpexec ======
 	@echo
 	sh tests.txt --tests-only
