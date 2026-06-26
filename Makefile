@@ -1,6 +1,6 @@
-.PHONY: blkln tests
+.PHONY: blkln tests upexec
 
-TARGETS := gzcmd.gz.sh uzpexec hello
+TARGETS := gzcmd.gz.sh uzpexec hello uzpack
 ZDDCMD  := dd if=hello.gz.sh skip=1 | zcat
 
 all: tests
@@ -46,6 +46,13 @@ hello: hello.c
 	@echo
 	cc -s -Os $^ -o $@ -Wl,--build-id=none
 	file $@ | sed -e "s/, int/,\n\t int/"
+	du -b $@
+	@echo
+
+uzpack: uzpexec uzpack.sh
+	@echo ====== produce $@ ======
+	@echo
+	sh uzpack.sh uzpack.sh uzpack
 	du -b $@
 	@echo
 
