@@ -250,7 +250,6 @@ parent:
   mov ebx, [edx+4]              ; write_fd
   int 0x80
 
-  ; ----------------------------------------------------------------------------
   ; Attach the zcat STDOUT (fd:1) to the child STDIN (fd:0)
   push 63                       ; SYS_dup2
   pop eax
@@ -258,6 +257,7 @@ parent:
   xor ecx, ecx                  ; 0 = stdin
   int 0x80
 
+  ; ----------------------------------------------------------------------------
   ; Spawns a /bin/sh whose STDIN is piped to zcat, passing along original argvs
   push 11                       ; SYS_execve
   pop eax
@@ -398,11 +398,12 @@ do_script:
             db    0, "bin/sh", 0, 0,0    ; only for "sh" scripts  : 10 | 10 | 22
 force_arg:
             db "-f", 0,0,0,0             ; only for "zcat" memfd  :  6 |  6 |  -
+dual_dash:  db "-"
 dash_args:
             db "-", 0                    ; only for "zcat" memfd  :  2 |  9 |  -
 eof_tests:
             db "U238"                    ; only for "make tests"  :  4 |  - |  -
-dash_sarg:
+dash_s   :
             db "-s", 0                   ; only for "sh" scripts  :  3 |  - |  3
 ;              |<-- 8 chars -->|<- +8c ->|
                                                                   ; --------- 25
