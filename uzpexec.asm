@@ -330,7 +330,7 @@ child:
   pop eax
   mov ebx, zcat_path
   push 0
-  push  dash_arg
+  push dash_arg
   test edi, edi                 ; Are we reading from STDIN (edi == 0)?
   jnz .pure_zcat                ; No, it is a file, then skip '-f' push
   push force_arg
