@@ -15,7 +15,9 @@ HI() { printf '#!/bin/sh\necho "%s"\n' "$S"| gzip -c; }
 do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i $bin; }
 no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i $bin; }
 
-if test "x${1:-}" = "x"; then
+if [ "x${1:-}" != "x-e" ]; then ################################################
+
+if [ "x${1:-}" = "x" ]; then
   make clean $bin || { printf "nasm failed\n\n"; exit; }
 else
   echo
@@ -119,3 +121,4 @@ echo 'Hello wonderful World!' >> $bin &&
 # Hello wonderful World!
 # 0
 
+fi #############################################################################
