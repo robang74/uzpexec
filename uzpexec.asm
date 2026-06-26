@@ -263,14 +263,14 @@ parent:
   mov ebx, do_script            ; script interpreter
 
   ; Safeguard: if argc is 0, fallback to no-args mode
-  ; cmp dword [esi], 0
-  ; jz .no_args
+  cmp dword [esi], 0            ; [esi] == [esp] == argv[0] slot
+  jz .no_args
 
   ; In-place stack manipulation using ESP (argv is at [esp]):
-  mov dword [esp], dual_dash      ; overwrite original argv[0] with "--"
-  lea ecx, [esp - 8]              ; original arguments argv[1] ... [n]
-  push dash_s                     ; pushing "-s"
-  push ebx                        ; pushing on current argv[0] do_script
+  mov dword [esp], dual_dash    ; overwrite original argv[0] with "--"
+  lea ecx, [esp - 8]            ; original arguments argv[1] ... [n]
+  push dash_s                   ; pushing "-s"
+  push ebx                      ; pushing on current argv[0] do_script
 
   ; basic operations for calling the execve()
 .no_args:
@@ -381,7 +381,7 @@ exit_error:
 ; ==============================================================================
 ; COMPACT DATA SECTION (appended to code)
 ; ==============================================================================
-; filename can be changed by sed up to 8 chars + ending \0
+; filename can be changed by sed up to 7 chars + ending \0
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
 ; /bin/zcat can be changed by sed up to 41 chars + ending \0
 ; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
@@ -389,7 +389,7 @@ exit_error:
 ; eof_strng helps to find the EOF, and where \0 padding starts
 ;                                                                   LN | FD | SH
 copy_vers:  db "(c) github/robang74 v0.84 "                       ; 26 | 26 | 26
-filename :  db      "uzpexec", 0, 0                               ;  9 |  9 |  9
+filename :  db      "uzpexec", 0                                  ;  8 |  8 |  8
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ; 21 | 21 | 21
 ; following fields are conditionally overwritable, do unions      : --------- 56
 do_script:  db    0, "bin/sh", 0, 0, 0,0,0, 0  ; for "sh"         ; 13 | 13 | 21
@@ -399,7 +399,7 @@ dash_s   :  db "-s", 0                         ; for "sh"         :  3 |  - |  3
 dual_dash:  db "-"                             ; for "sh"         :  1 |  - |  1
 dash_args:  db "-", 0                          ; for both         :  2 |  2 |  2
 ;              |<-- 8 chars -->|<- +8c ->|                        : --------- 27
-                                                                  ; 83 (tot.) 83
+                                                                  ; 82 (tot.) 82
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
 ; ==============================================================================

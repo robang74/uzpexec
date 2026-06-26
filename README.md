@@ -94,7 +94,7 @@ The alternatives that are natively compatible with `-f -` are fully supported.
 ; ==============================================================================
 ; COMPACT DATA SECTION (appended to code)
 ; ==============================================================================
-; filename can be changed by sed up to 8 chars + ending \0
+; filename can be changed by sed up to 7 chars + ending \0
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
 ; /bin/zcat can be changed by sed up to 41 chars + ending \0
 ; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
@@ -102,7 +102,7 @@ The alternatives that are natively compatible with `-f -` are fully supported.
 ; eof_strng helps to find the EOF, and where \0 padding starts
 ;                                                                   LN | FD | SH
 copy_vers:  db "(c) github/robang74 v0.84 "                       ; 26 | 26 | 26
-filename :  db      "uzpexec", 0, 0                               ;  9 |  9 |  9
+filename :  db      "uzpexec", 0                                  ;  8 |  8 |  8
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ; 21 | 21 | 21
 ; following fields are conditionally overwritable, do unions      : --------- 56
 do_script:  db    0, "bin/sh", 0, 0, 0,0,0, 0  ; for "sh"         ; 13 | 13 | 21
@@ -112,7 +112,7 @@ dash_s   :  db "-s", 0                         ; for "sh"         :  3 |  - |  3
 dual_dash:  db "-"                             ; for "sh"         :  1 |  - |  1
 dash_args:  db "-", 0                          ; for both         :  2 |  2 |  2
 ;              |<-- 8 chars -->|<- +8c ->|                        : --------- 27
-                                                                  ; 83 (tot.) 83
+                                                                  ; 82 (tot.) 82
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
 ; ==============================================================================
