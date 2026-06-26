@@ -98,14 +98,14 @@ echo "Strings output:"
 
   rm -f uzpack.uzp
   yes | sh uzpack.sh -s uzpack.sh uzpack.uzp &&
-  strace ./uzpack.uzp -h 2>&1 | grep execve |
+  strace ./uzpack.uzp -h 2>&1 | grep -E "execve|args_v" |
     sed -e "s/, 0x.*\() = \)/, ... \1/" | cut -d'(' -f-2
   echo
 
 ) | tee     tests.res
 printf "Tests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/8db2c3e59eed62d7afe65a1be2b33f5edb0c8c9c/$bin OK/" |
+sed "s/1d4316771aec477fbc58c9bee5706b561d880b40/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################

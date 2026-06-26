@@ -27,7 +27,7 @@ bin=$(command -v uzpexec || echo ./uzpexec)
 
 prt_versn() { ${1:-$bin} <&- || echo; }
 
-echo "args: $0 '$@'"
+echo "args_v[$#]: $0 '$@'"
 while true; do
     # Parse arguments
     case "${1:-}" in
