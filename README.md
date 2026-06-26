@@ -50,13 +50,21 @@ Test and then decide how to deploy.
 
 It works as a single block 512-bytes self-inflating executable payload replacing also `gzcmd.sh` with the sole requirement of `/bin/zcat` available.
 
-#### Example
+#### Example #1
 
 An example of use is related to this [project](https://github.com/robang74/uchaosys/blob/v074/qemu/README.md) about QEMU footprint reduction which uses `uzpexec` to deliver the executable binary in `UZP` format which can be downloaded from [here](https://github.com/robang74/working-in-progress/tree/main/uchaosys.qemu)
 
 > [!NOTE]
 >
 > The `qemu-system-x86_64`, provided in `UZP` self-inflate executable, appears to be an x86 ELF 32-bit LSB executable. That type file refers to the extractor. While qemu is expanded in RAM and execute in its original ELF 64-bit format.
+
+#### Example #2
+
+The shell script [uzpack.sh](uzpack.sh) converts a binary or a script into a self-extracting self-running in memory only. The most natural test is using the script to convert itself. Which is what happens during `make tests` and the result can be found as `uzpack.uzp`.
+
+Obviously, it is possible to convert an already converted binary. Which fails to run when it carries a shell script, but it is acceptable because it is totally useless to convert anything twice, especially in this case.
+
+A different result can be obtained by double converting and executing a binary (bigger is better) because it creates a fork bomb that will set the system into an OOM set down by the kernel itself... a show to enjoy with `htop` view.
 
 ---
 
@@ -158,6 +166,8 @@ A 64 bit ELF would be much bigger, 2x potentially, and adding no value because t
 The `uzpexec` has been developed to compensate for the gzcmd.sh shortcomings and to add useful capability in dealing with STDIN pipe. So, the `gzcmd.sh` is this project's MVP to reach the production grade with `uzpexec`.
 
 Every sane compressing algorithm is also self-validating in terms of output conformity with the original while executing from a url in pipe is popular but a dangerous action because man-in-the-middle attack.
+
+When a binary is coded in Assembler and its size is something ridiculously small, then it is obvious that there is no room to deal with complications. The fork bomb explained in "Example #2" covers an aspect "*a grenade doesn't debate*", which is also the logic behind doing `SIGSEGV` instead of working around a Linux kernel bug fixed in 2022.
 
 ---
 
