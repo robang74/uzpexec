@@ -92,7 +92,7 @@ echo "Strings output:"
 ) | tee     tests.res
 printf "Tests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/6dbc9617c9837fdd545d0819b88d89e65e707c6e/$bin OK/" |
+sed "s/dd43938df34a9074ff61ae4b5b02d2e65d6b046b/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
