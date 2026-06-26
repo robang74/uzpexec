@@ -223,6 +223,7 @@ main_start:
   push 42                       ; SYS_pipe
   pop eax
   mov ebx, buf                  ; EBX is pointing to a 2 words array in BBS
+  push ebx                      ; Save in the stack *buf for later
   int 0x80                      ; Now buf[0] = read_fd, buf[4] = write_fd
 
 .fork_now:
@@ -240,16 +241,19 @@ parent:
   test dl, dl                   ; Is it ELF mode (0)?
   jz elf_mode                   ; - Y: standard waitpid execution
                                 ; - N: spawn the alt. interpreter
+
+  pop edx                       ; Retrieve the *buf from the stack
+
   ; It closes the useless pipe
   push 6                        ; SYS_close
   pop eax
-  mov ebx, [buf+4]              ; write_fd
+  mov ebx, [edx+4]              ; write_fd
   int 0x80
 
   ; Attach the zcat STDOUT (fd:1) to the shell STDIN (fd:0)
   push 63                       ; SYS_dup2
   pop eax
-  mov ebx, [buf]                ; read_fd
+  mov ebx, [edx]                ; read_fd
   xor ecx, ecx                  ; 0 = stdin
   int 0x80
 
