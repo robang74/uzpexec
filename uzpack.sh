@@ -16,9 +16,11 @@ usage() {
     echo
 }
 
+
 do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i "$dst"; }
 no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i "$dst"; }
 st_script() { echo "script mode status: $(strings $dst | grep bin/sh)"; }
+dd_gtpack() { dd if="${1:-}" count=1 status=none | grep -qe "robang74 .* uzpexec"; }
 
 spt=0
 ext=0
@@ -73,6 +75,12 @@ while true; do
     fi
 
     dst="${2:-$(basename $src).uzp}"
+
+    if dd_gtpack "$src"; then
+        echo "Warning: file '$src' was already converted, just copy." >&2
+        command cp -i "$src" "$dst"
+        break
+    fi
 
     # Safely copy the uzpexec binary stub to the destination path
     echo
