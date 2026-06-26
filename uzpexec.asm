@@ -88,7 +88,7 @@ elf_header:
   ;-----------------------------------------------------------------------------
   ; Many Linux kernel ELF parsers completely ignore these 6
   ; bytes when section offset e_shoff = 0, as in this case.
-  dw 0, 0, 0                  ; Section info (zeroed out)
+; dw 0, 0, 0                  ; Section info (zeroed out)
   ; Finally managed to suck more bits out from nowhere to rescue these six 0s
 
 phdr:
@@ -250,30 +250,40 @@ parent:
   mov ebx, [edx+4]              ; write_fd
   int 0x80
 
-  ; Attach the zcat STDOUT (fd:1) to the shell STDIN (fd:0)
+  ; Attach the zcat STDOUT (fd:1) to the child STDIN (fd:0)
   push 63                       ; SYS_dup2
   pop eax
   mov ebx, [edx]                ; read_fd
   xor ecx, ecx                  ; 0 = stdin
   int 0x80
 
+  ; ----------------------------------------------------------------------------
   ; Spawns a /bin/sh whose STDIN is piped to zcat, passing along original argvs
   mov ebx, do_script            ; script interpreter
 
-  ; Safeguard: if argc is 0, fallback to no-args mode
-  ; cmp dword [esi], 0
-  ; jz .no_args
+  ; Safeguard: if argc was 0 (malicious/empty), fallback to no-args mode
+  cmp dword [esi], 0
+  jz .no_args
 
+  ; In-place stack manipulation:
+  mov dword [esi - 4], ebx      ; Overwrite old argc slot with "/bin/sh"
+  mov dword [esi], dash_sarg    ; Overwrite argv[0] with "-s"
+  lea ecx, [esi - 4]            ; ecx points to ["/bin/sh", "-s", argv ..., 0]
+  jmp .do_exec
+
+.no_args:
   push 0                        ; envp / argv ending
   push ebx                      ; argv[0]
   mov ecx, esp                  ; argv
 
+.do_exec:
   ; basic operations for calling the execve()
   push 11                       ; SYS_execve
   pop eax
   mov edx, ebp                  ; envp (intact from main_start)
   int 0x80
   jmp exit_error
+  ; ----------------------------------------------------------------------------
 
 elf_mode:
   ; The parent waits for the child (zcat) to finish decompressing
@@ -392,7 +402,7 @@ zcat_path:
             db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ; 21 | 21 | 21
 
 ; following fields are conditionally overwritable, do unions      : --------- 56
-do_script:                   
+do_script:
             db    0, "bin/sh", 0, 0,0    ; only for "sh" scripts  : 10 | 10 | 22
 force_arg:
             db "-f", 0,0,0,0             ; only for "zcat" memfd  :  6 |  6 |  -
