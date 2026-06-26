@@ -64,7 +64,7 @@ The shell script [uzpack.sh](uzpack.sh) converts a binary or a script into a sel
 
 Obviously, it is possible to convert an already converted binary. Which fails to run when it carries a shell script, but it is acceptable because it is totally useless to convert anything twice, especially in this case.
 
-A different result can be obtained by double converting and executing a binary (bigger is better) because it creates a fork bomb that will set the system into an OOM set down by the kernel itself... a show to enjoy with `htop` view.
+A different result can be obtained by double converting and executing a binary (bigger is better) because it creates a "*fork bomb*" which will eventually trigger an OOM `kill` by the kernel itself... a show to enjoy with a `htop` view. ;-)
 
 ---
 
@@ -167,7 +167,9 @@ The `uzpexec` has been developed to compensate for the gzcmd.sh shortcomings and
 
 Every sane compressing algorithm is also self-validating in terms of output conformity with the original while executing from a url in pipe is popular but a dangerous action because man-in-the-middle attack.
 
-When a binary is coded in Assembler and its size is something ridiculously small, then it is obvious that there is no room to deal with complications. The fork bomb explained in "Example #2" covers an aspect "*a grenade doesn't debate*", which is also the logic behind doing `SIGSEGV` instead of working around a Linux kernel bug fixed in 2022.
+The "fork bomb" explained in "Example #2" covers the concept of "*a grenade doesn't debate*", which is also the logic behind triggering a `SIGSEGV` instead of working around a Linux kernel bug fixed in 2022.
+
+When there is no room to deal with complications we can observe interesting facts. Anyway, the "*fork bomb*" is just an infinite loop of `fork()` from the same initial process, which is annoying but harmless.
 
 ---
 
