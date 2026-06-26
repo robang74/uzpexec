@@ -2,9 +2,9 @@
 #
 # (C) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, GPLv2 license
 #
-# Desptiption:
+# Description:
 #
-#   Wrapper to package binaries or shell sptipts into a self-extracting
+#   Wrapper to package binaries or shell scripts into a self-extracting
 #   executable package using uzpexec as the micro-stub loader.
 #
 ################################################################################
@@ -12,12 +12,12 @@
 usage() {
     echo
     echo "Usage: uzpack [-h|--help] [-v|--version]"
-    echo "       uzpack [-s|--sptipt] origin.elf [destination.uzp]"
+    echo "       uzpack [-s|--script] origin.elf [destination.uzp]"
     echo
 }
 
-do_sptipt() { sed -e 's,\x00\(bin/sh\),/\1,' -i "$dst"; }
-no_sptipt() { sed -e 's,/\(bin/sh\),\x00\1,' -i "$dst"; }
+do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i "$dst"; }
+no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i "$dst"; }
 
 spt=0
 ext=0
@@ -26,6 +26,7 @@ bin=$(command -v uzpexec || echo ./uzpexec)
 
 prt_versn() { ${1:-$bin} <&- || echo; }
 
+echo "args: $0 '$@'"
 set -x
 while true; do
     # Parse arguments
@@ -38,7 +39,7 @@ while true; do
             usage
             ext=1
             ;;
-        -s|--sptipt)
+        -s|--script)
             spt=1
             shift
             ;;
@@ -72,10 +73,10 @@ while true; do
 
     # Alter internal hardware routing tags inside the stub depending on payload type
     if [ "$spt" -eq 0 ]; then
-        no_sptipt
+        no_script
         printf "Compressing a binary ... "
     else
-        do_sptipt
+        do_script
         printf "Compressing a script ... "
     fi
 
