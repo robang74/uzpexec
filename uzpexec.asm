@@ -131,11 +131,9 @@ main_start:
   lea ebp, [esi+eax*4+4]        ; EBP = envp (callee-saved!)
 
   ; 1. Checking argv[0] to open input (itself or stdin)
-  mov ebx, [esi]
-  test ebx, ebx                 ; CVE-2021-4034, pre-5.18
-  jz .stdin
-  cmp byte [ebx], al            ; al is set to 0 here
-  jz .stdin
+  mov ebx, [esi]                ; CVE-2021-4034, pre-5.18
+  cmp byte [ebx], al            ; SIGSEV kill the bug here
+  jz .stdin                     ; Tiny can't cover LK bugs
 
   ; ----------------------------------------------------------------------------
   ; The basename stream & hardware mirror match
@@ -186,6 +184,7 @@ main_start:
   ; 3. Skip the fixed 512-bytes initial block (!stdin, only self-read)
   mov ecx, buf
   mov edx, 512
+
 .skip_loop:
   push 3                        ; SYS_read
   pop eax
@@ -199,7 +198,6 @@ main_start:
   jmp .memfd
 
 .stdin:
-; push eax                      ; --> argc (0)
   xor edi, edi                  ; EDI = stdin (0)
 
 .memfd:
@@ -267,9 +265,6 @@ parent:
   ; Safeguard: if argc is 0, fallback to no-args mode
   ; cmp dword [esi], 0
   ; jz .no_args
-  ; or using a precalculated value
-  ; pop ecx                       ; --> argc (0)
-  ; jecxz .no_args
 
   ; In-place stack manipulation using ESP (argv is at [esp]):
   mov dword [esp], dual_dash      ; overwrite original argv[0] with "--"
