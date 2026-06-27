@@ -141,29 +141,26 @@ main_start:
   push esi                      ; Save ESI (argv) on the stack
 
   mov esi, ebx                  ; ESI = argv[0] for lodsb
-; xor ah, ah
+;_xor ah, ah
 .seek_eos:
-; inc ah
+;_inc ah
   lodsb                         ; AL = *ESI++, by CPU
   test al, al                   ; Check for the EOS '\0'
   jnz .seek_eos                 ; - N: loop again
                                 ; - Y: ESI points to \0
-; A defensive check but apparently ./a (argv[0] = "a\0") works properly, anyway
-; cmp ah, 8                     ; this avoids underflow
-; jb .mismatch                  ; too short, to match
+;_A defensive check but apparently ./a (argv[0] = "a\0") works properly, anyway
+;_cmp ah, 8                     ; this avoids underflow
+;_jb .mismatch                  ; too short, to match
 
-  mov eax, [esi-4]              ; Ultimi 4 byte: "xec\0"
-  cmp eax, [filename + 4]       ; Little-endian: 0x00636578
-  jne .mismatch
+  lea esi, [esi-8]              ; ESI = ultimi 8 byte di argv[0]
+  mov edi, filename             ; EDI = pattern "uzpexec\0"
+  cmpsd                         ; confronta "uzpe"  (dword #1)
+  cmpsd                         ; confronta "xec\0" (dword #2)
+  pop esi
+  je .stdin                     ; match: vai in modalità pipexec
 
-  mov eax, [esi-8]              ; Precedenti 4 byte: "uzpe"
-  cmp eax, [filename]           ; Little-endian: 0x65707A75
-  jne .mismatch
-
-  pop esi                       ; Restore the ESI (argv)
-  jmp .stdin                    ; Names match, go for SHELL
 .mismatch:
-  pop esi                       ; Restore the ESI (argv)
+;_pop esi
   ; ----------------------------------------------------------------------------
 
 .not_uzpexec:
