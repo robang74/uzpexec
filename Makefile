@@ -90,6 +90,15 @@ uzpexec.spec: uzpexec.spec.tmpl
 	@$(call git_changes_log,-1) > $(GITMPLOG)
 	@$(call git_changes_log,)  >> $(GITMPLOG)
 	@$(call git_relevant_log) $(GITMPLOG) | uniq >>$@
+	@echo
+
+$(GITMPLOG): uzpexec.spec
+
+deb/changelog: $(GITMPLOG)
+	head -n2 $@.templ  >$@
+	cat $^            >>$@
+	tail -n2 $@.templ >>$@
+	@echo
 
 clean: blkln
 	rm -rf deb/tmp uzpexec.spec.tmp uzpexec.spec
@@ -125,11 +134,35 @@ install: all
 	install -m 644 $(MANPAGES) $(MANDIR)/
 	install -d $(SRCDIR)
 	install -m 644 $(DEVFILES) $(SRCDIR)/
+	@echo
 
 uninstall:
 	rm -f $(addprefix $(BINDIR)/, $(BINS))
 	rm -f $(addprefix $(MANDIR)/, $(MANPAGES))
-	rm -rf $(DATADIR)
+	rm -f $(DATADIR)/*
+	rmdir $(DATADIR)/
+	@echo
+
+# -----------------------------------------------------------------------------
+# deb package (.deb)
+# -----------------------------------------------------------------------------
+deb: distclean deb/changelog all
+	rm -rf deb/tmp
+	mkdir -p deb/tmp/DEBIAN
+	mkdir -p deb/tmp$(PREFIX)/bin
+	mkdir -p deb/tmp$(PREFIX)/share/man/man1
+	mkdir -p deb/tmp$(PREFIX)/share/uzpack/src
+	install -m 755 $(BINS) deb/tmp$(PREFIX)/bin/
+	install -m 644 $(MANPAGES) deb/tmp$(PREFIX)/share/man/man1/
+	install -m 644 $(DEVFILES) deb/tmp$(PREFIX)/share/uzpack/src/
+	install -m 644 deb/control deb/tmp/DEBIAN/control
+	install -m 644 deb/changelog deb/tmp/DEBIAN/changelog
+	gzip -9 -n deb/tmp$(PREFIX)/share/man/man1/*.1
+	dpkg-deb --root-owner-group --build deb/tmp $(PKGNAME)_$(VERSION)_$(ARCH).deb
+	rm -rf deb/tmp/
+	@echo
+	@ls -al *.deb
+	@echo
 
 # -----------------------------------------------------------------------------
 # RPM package (.rpm)

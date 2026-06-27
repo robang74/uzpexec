@@ -2,15 +2,22 @@ Package: uzpexec
 Version: 0.84
 Section: utils
 Priority: optional
-Architecture: amd64
+Architecture: all
+Homepage: https://github.com/robang74/uzpexec
 Maintainer: Roberto A. Foglietta <roberto.foglietta@gmail.com>
-Depends: ${shlibs:Depends}, ${misc:Depends}, gzip | pigz
+Standards-Version: 4.7.0
+Depends: gzip | pigz
 Suggests: nasm, make, gcc, build-essential
 Description: Micro pipe execution and gzip self-executable packager
  Self-extracting ELF32 executables in RAM without disk write, uzpack converts
  binaries or scripts into gzip compressed self-running files. While uzpexec is
  the 512-byte (a single dd block size) assembler-written utility which can also
- operates as a standalone binary for executing ELF (otherwise scripts) by STDIN.
+ operate as a standalone binary for executing ELF (otherwise scripts) by STDIN.
  .
  This package includes the development sources (ASM, shell scripts,
  Makefile and test suite) installed under /usr/share/uzpack/src/.
+ .
+ Licensing:
+  The text and documentation are published under CC BY-NC-ND 4.0.
+  The software and binaries are licensed under the MIT+1 license terms,
+  which strictly forbids the removal of the authorship string.
