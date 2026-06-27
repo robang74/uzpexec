@@ -67,6 +67,7 @@ while true; do
             ext=1
             ;;
         -s|--script)
+            echo "Warning: option '-s' enforces the script mode (dev onnly)"
             shift
             spt=1
             ;;
@@ -112,9 +113,10 @@ while true; do
         break
     fi
 
-    shb=$(head -c2 "$src")
-    test "$shb" = '#!' && spt=1
-
+    if [ $spt -eq 0 ]; then
+        shb=$(head -c2 "$src")
+        test "$shb" = '#!' && spt=1
+    fi
     dst="${2:-$(basename $src).uzp}"
 
     if dd_gtpack "$src"; then

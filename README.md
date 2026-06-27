@@ -45,12 +45,15 @@ Usage: uzpack [-h|--help] [-v|--version]
 The help from the script is pretty clear, and its development is simplicity-oriented. Probably, you won't cope either with `uzpack.sh` as script but having an executable converter:
 
 ```sh
-sh ./uzpack.sh -s uzpack.sh uzpack && ./uzpack -v
+sh ./uzpack.sh uzpack.sh uzpack
+./uzpack -v
 ```
 
-A generic script to run need a properly set shebang (`#!`), a shell script not necessarly.
+A generic script to run needs a properly set shebang (`#!`), a shell script not necessarily.
 
 However `uzpexec` expects the shebang as minimum requirement (cfr. [script template](#script-to-elf32)).
+
+This tool comes with its `man` page [uzpack.1](uzpack.1) which can be read by github via [uzpack.md](uzpack.md).
 
 ---
 

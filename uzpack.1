@@ -1,0 +1,150 @@
+.\" (C) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>
+.\" Text published under CC BY-NC-ND 4.0
+.\"
+.\" Man page for uzpack(1)
+.\"
+.TH UZPACK 1 "2026-06-27" "v0.84" "User Commands"
+.SH NAME
+uzpack \- package binaries or scripts into self-extracting ELF32 executables
+.SH SYNOPSIS
+.B uzpack
+.RI [ \-h | \-\-help ]
+.RI [ \-v | \-\-version ]
+.br
+.B uzpack
+.RI [ \-s | \-\-script ]
+.RI [ \-u | \-\-update ]
+.I origin
+.RI [ destination [ .uzp ]]
+.SH DESCRIPTION
+.B uzpack
+is a wrapper utility that converts a binary executable or a shell script
+into a self-extracting, self-running ELF32 file using the
+.BR uzpexec (1)
+micro-stub loader.
+The resulting file carries a 512-byte payload header (the
+.B uzpexec
+extractor) followed by a gzip-compressed copy of the original
+.IR origin
+file.  When executed, the stub decompresses the payload entirely in RAM
+(via
+.BR memfd_create (2))
+and runs it without writing to disk.
+.PP
+The default output name is derived from the basename of
+.IR origin
+with the
+.B .uzp
+extension appended.  If
+.I destination
+is given, it is used as-is; the
+.B .uzp
+extension is conventional but not mandatory.
+.SH OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Display a brief usage summary and exit.
+.TP
+.BR \-v ", " \-\-version
+Print the version string embedded in the
+.B uzpexec
+stub and exit.
+.TP
+.BR \-s ", " \-\-script
+Force script mode.  The internal stub is patched so that the payload is
+interpreted by
+.B /bin/sh
+rather than executed as a raw binary.  If the input file begins with a
+shebang
+.RB ( #! ),
+this mode is selected automatically.
+.TP
+.BR \-u ", " \-\-update
+Update the embedded
+.B uzpexec
+payload inside the
+.B uzpack
+script itself.  This is primarily used during development when a new
+.B uzpexec
+binary is available.
+.SH NOTES
+.SS Origin and Form
+The command
+.B uzpack
+is normally distributed as a compiled ELF32 binary produced from the
+accompanying
+.BR uzpack.sh
+shell script.  The shell script is the canonical source form; the ELF32
+binary is the derived, ready-to-run form.  Both forms behave identically
+from the user's perspective.
+.SS Inspecting Contents
+Because the
+.B .uzp
+file consists of a 512-byte
+.B uzpexec
+stub followed immediately by gzip data, the compressed payload can be
+inspected without execution:
+.PP
+.RS
+.nf
+dd skip=1 if=uzpack | zcat
+.fi
+.RE
+.PP
+This is a simple and quick way to verify the contents of a converted file.
+.SS Script Compatibility
+When packaging a shell script, the input should contain a properly set
+shebang line (e.g.,
+.BR #!/bin/sh ).
+A universal template recommended for full compatibility is:
+.PP
+.RS
+.nf
+#!/bin/sh
+if [ \-t 0 ] || [ \-c /dev/tty ]; then exec </dev/tty; fi
+
+# put your shell script code here
+
+exit
+.fi
+.RE
+.SH EXAMPLES
+Convert a binary executable:
+.PP
+.RS
+.nf
+uzpack /usr/local/bin/myapp myapp.uzp
+.fi
+.RE
+.PP
+Convert a shell script (auto-detected by shebang):
+.PP
+.RS
+.nf
+uzpack deploy.sh
+.fi
+.RE
+.PP
+Convert the
+.B uzpack
+script itself into its own binary form:
+.PP
+.RS
+.nf
+sh uzpack.sh \-s uzpack.sh uzpack
+./uzpack \-v
+.fi
+.RE
+.SH SEE ALSO
+.BR uzpexec (1),
+.BR gzip (1),
+.BR zcat (1),
+.BR memfd_create (2),
+.BR dd (1)
+.SH AUTHOR
+Roberto A. Foglietta <roberto.foglietta@gmail.com>
+.SH COPYRIGHT
+Text and documentations are published under CC BY-NC-ND 4.0.
+The ELF32 binary payload is licensed under MIT+1 clause terms.
+The script is licensed under the GNU General Public License version 2
+(GPLv2).
