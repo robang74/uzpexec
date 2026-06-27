@@ -16,8 +16,9 @@ SRCDIR   = $(DATADIR)/src
 # -----------------------------------------------------------------------------
 # Package metadata
 # -----------------------------------------------------------------------------
-PKGNAME    = uzpexec
 VERSION    = 0.84
+PKGNAME    = uzpexec
+FILENME    = $(PKGNAME)-$(VERSION)
 ARCH       = $(shell dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null || uname -m)
 MAINTAINER = Roberto A. Foglietta <roberto.foglietta@gmail.com>
 
@@ -83,17 +84,6 @@ uzpack: uzpexec uzpack.sh
 	du -b $@
 	@echo
 
-# RAF, TODO: update the vesion everywhere in a smart way
-uzpexec.spec: uzpexec.spec.tmpl
-	cp -f $^ $@
-	mkdir -p deb/
-	@$(call git_changes_log,-1) > $(GITMPLOG)
-	@$(call git_changes_log,)  >> $(GITMPLOG)
-	@$(call git_relevant_log) $(GITMPLOG) | uniq >>$@
-	@echo
-
-$(GITMPLOG): uzpexec.spec
-
 deb/changelog: $(GITMPLOG)
 	head -n2 $@.templ  >$@
 	cat $^            >>$@
@@ -107,7 +97,8 @@ clean: blkln
 	@echo
 
 distclean: clean
-	rm -f uzpexec-*.rpm $(BINS) hello
+	rm -f uzpexec-*.rpm uzpexec-*.deb
+	rm -f $(BINS) hello
 	@echo
 
 tests: blkln distclean hello $(BINS)
@@ -144,9 +135,47 @@ uninstall:
 	@echo
 
 # -----------------------------------------------------------------------------
+# Target: dist
+# -----------------------------------------------------------------------------
+
+# RAF, TODO: update the vesion everywhere in a smart way
+uzpexec.spec: uzpexec.spec.tmpl
+	cp -f $^ $@
+	mkdir -p deb/
+	@$(call git_changes_log,-1) > $(GITMPLOG)
+	@$(call git_changes_log,)  >> $(GITMPLOG)
+	@$(call git_relevant_log) $(GITMPLOG) | uniq >>$@
+	@echo
+
+$(GITMPLOG): uzpexec.spec
+
+$(FILENME).tar.gz: rpm
+
+dist: deb
+	@echo
+	@ls -al uzpexec-*.rpm uzpexec-*.tar.?z uzpexec-*.deb
+	@echo
+
+# -----------------------------------------------------------------------------
+# RPM package (.rpm)
+# -----------------------------------------------------------------------------
+rpm: distclean uzpexec.spec all
+	rm -rf $(HOME)/rpmbuild
+	for d in BUILD RPMS SOURCES SPECS SRPMS; do mkdir -p $(HOME)/rpmbuild/$$d; done
+	mkdir -p $(HOME)/rpmbuild/BUILD/$(FILENME)
+	cp -ar $(RPMFILES) $(HOME)/rpmbuild/BUILD/$(FILENME)/
+	cd $(HOME)/rpmbuild/BUILD && tar czf ../SOURCES/$(FILENME).tar.gz $(FILENME)
+	cp $(PKGNAME).spec $(HOME)/rpmbuild/SPECS/
+	rpmbuild --nodeps -bb $(HOME)/rpmbuild/SPECS/$(PKGNAME).spec
+	mv $(HOME)/rpmbuild/RPMS/*/$(FILENME)-*.rpm ./$(FILENME).rpm
+	mv $(HOME)/rpmbuild/SOURCES/$(FILENME).tar.gz .
+	zcat $(FILENME).tar.gz | xz -9 - >$(FILENME).tar.xz
+
+
+# -----------------------------------------------------------------------------
 # deb package (.deb)
 # -----------------------------------------------------------------------------
-deb: distclean deb/changelog all
+deb: deb/control rpm
 	rm -rf deb/tmp
 	mkdir -p deb/tmp/DEBIAN
 	mkdir -p deb/tmp$(PREFIX)/bin
@@ -158,25 +187,6 @@ deb: distclean deb/changelog all
 	install -m 644 deb/control deb/tmp/DEBIAN/control
 	install -m 644 deb/changelog deb/tmp/DEBIAN/changelog
 	gzip -9 -n deb/tmp$(PREFIX)/share/man/man1/*.1
-	dpkg-deb --root-owner-group --build deb/tmp $(PKGNAME)_$(VERSION)_$(ARCH).deb
+	dpkg-deb --root-owner-group --build deb/tmp $(FILENME).deb
 	rm -rf deb/tmp/
-	@echo
-	@ls -al *.deb
-	@echo
-
-# -----------------------------------------------------------------------------
-# RPM package (.rpm)
-# -----------------------------------------------------------------------------
-rpm: distclean uzpexec.spec all
-	rm -rf $(HOME)/rpmbuild
-	for d in BUILD RPMS SOURCES SPECS SRPMS; do mkdir -p $(HOME)/rpmbuild/$$d; done
-	mkdir -p $(HOME)/rpmbuild/BUILD/$(PKGNAME)-$(VERSION)
-	cp -ar $(RPMFILES) $(HOME)/rpmbuild/BUILD/$(PKGNAME)-$(VERSION)/
-	cd $(HOME)/rpmbuild/BUILD && tar czf ../SOURCES/$(PKGNAME)-$(VERSION).tar.gz $(PKGNAME)-$(VERSION)
-	cp $(PKGNAME).spec $(HOME)/rpmbuild/SPECS/	
-	rpmbuild --nodeps -bb $(HOME)/rpmbuild/SPECS/$(PKGNAME).spec
-	cp $(HOME)/rpmbuild/RPMS/*/$(PKGNAME)-$(VERSION)-*.rpm ./
-	@echo
-	@ls -al *.rpm
-	@echo
 
