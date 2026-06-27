@@ -112,11 +112,6 @@ clean: blkln
 	rm -f hello.gz.sh ls.elf ls.gz.elf lz
 	@echo
 
-distclean: clean
-	rm -f uzpexec-*.rpm uzpexec-*.deb
-	rm -f $(BINS) hello uzpexec-*.tar.?z
-	@echo
-
 tests: blkln distclean hello $(BINS)
 	@echo ====== testing hello ======
 	@echo
@@ -178,7 +173,12 @@ $(FILENME).tar.gz: rpm
 
 dist: deb
 	@echo
-	@ls -al uzpexec-*.rpm uzpexec-*.tar.?z uzpexec-*.deb
+	@ls -al uzpexec-*.rpm uzpexec-*.t?z uzpexec-*.deb
+	@echo
+
+distclean: clean
+	rm -f uzpexec-*.rpm uzpexec-*.deb
+	rm -f $(BINS) hello uzpexec-*.t?z
 	@echo
 
 # -----------------------------------------------------------------------------
@@ -193,9 +193,8 @@ rpm: distclean uzpexec.spec all
 	cp $(PKGNAME).spec $(HOME)/rpmbuild/SPECS/
 	rpmbuild --nodeps -bb $(HOME)/rpmbuild/SPECS/$(PKGNAME).spec
 	mv $(HOME)/rpmbuild/RPMS/*/$(FILENME)-*.rpm ./$(FILENME).rpm
-	mv $(HOME)/rpmbuild/SOURCES/$(FILENME).tar.gz .
-	zcat $(FILENME).tar.gz | xz -9 - >$(FILENME).tar.xz
-
+	mv $(HOME)/rpmbuild/SOURCES/$(FILENME).tar.gz $(FILENME).tgz
+	zcat $(FILENME).tgz | xz -9 - >$(FILENME).txz
 
 # -----------------------------------------------------------------------------
 # deb package (.deb)

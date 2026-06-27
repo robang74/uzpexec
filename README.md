@@ -6,7 +6,7 @@
 
 > [!WARNING]
 > 
-> The [uzpexec](uzpexec.asm) (micro gzip pipe exec, written in Assembler, 512 bytes of payload equivalent to a single `dd` standard I/O block) offers native support for `gzip` self-inflate self-execution, totally in RAM when started by the standard input pipe. Pre-compiled elf32 available [here](https://github.com/robang74/working-in-progress/raw/refs/heads/main/uchaosys.qemu/uzpexec).
+> The [uzpexec](uzpexec.asm) (micro gzip pipe exec, written in Assembler, 512 bytes of payload equivalent to a single `dd` standard I/O block) offers native support for `gzip` self-inflate self-execution, running in RAM also when started by the `STDIN` pipe. Pre-compiled `ELF32` (for all x86) available in [releases](https://github.com/robang74/uzpexec/releases/).
 
 ---
 
