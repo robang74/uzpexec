@@ -159,17 +159,15 @@ main_start:
   lea esi, [esi-8]              ; ESI = last 8 byte argv[0]
   mov edi, filename             ; EDI = pattern "uzpexec\0"
   cmpsd                         ; compare "uzpe"  (dword #1)
-  jne .mismatch
+  jne .not_uzpexec
   cmpsd                         ; compare "xec\0" (dword #2)
-  jne .mismatch
 
   pop esi
-  jmp .stdin
-.mismatch:
-  pop esi
+  je .stdin
   ; ----------------------------------------------------------------------------
-
 .not_uzpexec:
+  pop esi
+
   ; 2. Try to open itself (embedded payload mode, only)
   xor ecx, ecx                  ; O_RDONLY
   push 5                        ; SYS_open
