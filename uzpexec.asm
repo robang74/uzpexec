@@ -141,28 +141,24 @@ main_start:
   push esi                      ; Save ESI (argv) on the stack
 
   mov esi, ebx                  ; ESI = argv[0] for lodsb
-  mov edx, esi                  ; EDX the basename anchor
-.scan_loop:
+; xor ah, ah
+.seek_eos:
+; inc ah
   lodsb                         ; AL = *ESI++, by CPU
-  cmp al, '/'                   ; Is there a slash in path?
-  jne .check_zero               ; - N: check for a \0 char
-  mov edx, esi                  ; - Y: move 1 char forward
+  test al, al                   ; Check for the EOS '\0'
+  jnz .seek_eos                 ; - N: loop again
+                                ; - Y: ESI points to \0
+; A defensive check but apparently ./a (argv[0] = "a\0") works properly, anyway
+; cmp ah, 8                     ; this avoids underflow
+; jb .mismatch                  ; too short, to match
 
-.check_zero:
-  test al, al                   ; Is this the end of argv[0]?
-  jnz .scan_loop                ; - N: continue the seek loop
+  mov eax, [esi-4]              ; Ultimi 4 byte: "xec\0"
+  cmp eax, [filename + 4]       ; Little-endian: 0x00636578
+  jne .mismatch
 
-  ; EDX is pointing to the basename 1st char (eg. "uzpexec\0")
-  ; Let's start the byte-by-byte comparison with filename var
-  mov esi, edx                  ; ESI points to the basename
-  mov edi, filename             ; EDI points to the filename
-
-.strcmp_loop:
-  lodsb                         ; AL = *ESI++ (basename)
-  scasb                         ; Compare AL against *EDI++
-  jne .mismatch                 ; Names differ? Go for MEMFD
-  test al, al                   ; Is the end of the string?
-  jnz .strcmp_loop              ; - N: continue the loop
+  mov eax, [esi-8]              ; Precedenti 4 byte: "uzpe"
+  cmp eax, [filename]           ; Little-endian: 0x65707A75
+  jne .mismatch
 
   pop esi                       ; Restore the ESI (argv)
   jmp .stdin                    ; Names match, go for SHELL
