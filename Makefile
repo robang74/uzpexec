@@ -1,3 +1,9 @@
+#!/bin/sh
+#
+# (c) 2026 Roberto A. Foglietta <roberto.foglietta@gmail.com>, GPLv2 license
+#
+################################################################################
+
 .PHONY: blkln tests upexec
 
 TARGETS := gzcmd.gz.sh uzpexec hello uzpack

@@ -16,7 +16,7 @@ if [ -t 0 ] || [ -c /dev/tty ]; then exec </dev/tty; fi
 usage() {
     echo
     echo "Usage: uzpack [-h|--help] [-v|--version]"
-    echo "       uzpack [-s|--script] origin.elf [destination.uzp]"
+    echo "       uzpack [-s|--script] origin [target[.uzp]]"
     echo
 }
 
@@ -51,7 +51,7 @@ Y9ufYwWReW5S0uXLobui9Kyu5cvXlgI/wMFC9xfdtdlADM1vU/XAujaFX4AiKMErwACAAA=
 " # END_OF_UZPAYLOAD ##################################################
 
 echo
-echo "uzpack args_v[$#]: $0 '$@'"
+echo "uzpack argc: $#, argv: $0 '$@'"
 
 while true; do
     # Parse arguments

@@ -54,10 +54,11 @@ A generic script to run need a properly set shebang (`#!`), a shell script not n
 
 However `uzpexec` expects the shebang as minimum requirement (cfr. [script template](#script-to-elf32)).
 
+---
 
-### Compile
+### How to compile
 
-Compiling `.asm` files requires `nasm`:
+Compiling `.asm` files requires `nasm`, otherwise `sudo apt install nasm` if missing:
 
 ```sh
 make clean tests
@@ -140,9 +141,9 @@ A trivial template which is also universal and includes the `if`/`fi` for `crod`
 
 ---
 
-### Quick customisations
+### Quick customisation
 
-Quick customisations by `sed` and other stings-based editor is supported:
+Quick customisation by `sed` and other stings-based editor is supported:
 
 - `{ cat uzpexec | sed 's/zcat\x00/xzcat/'; xz -7c $elf; } > $elf.uxp`
 

@@ -1,7 +1,8 @@
 #!/bin/sh
 #
-# (c) 2026 Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT license
+# (c) 2026 Roberto A. Foglietta <roberto.foglietta@gmail.com>, GPLv2 license
 #
+################################################################################
 
 bin=uzpexec
 LS=$(command -v ls)
@@ -84,27 +85,24 @@ echo "Strings output:"
 
   cat $bin $LS | DD of=ls.elf &&
   chmod +x ls.elf && ./ls.elf -1 ls.elf
-  errprt
+  retprt
 
   echo try to run a compressed shell script
   HI | ./$bin
-  errprt
+  retprt
 
   ./$bin <&-
-  errprt
+  retprt
 
   echo "====== ARGS TO PASS (x1) ======"
 
-  rm -f uzpack.uzp
-  yes | sh uzpack.sh -s uzpack.sh uzpack.uzp && ./uzpack.uzp -h
-# strace ./uzpack.uzp -h 2>&1 | grep -E "execve|args_v" |
-#   sed -e "s/, 0x.*\() = \)/, ... \1/" | cut -d'(' -f-2
+  ./uzpack -h
 
 ) | tee     tests.res
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/fbd33e74f7eea68b1db025b4e3952db131133039/$bin OK/" |
+sed "s/41285cf10d94fb946dc8d9e5f86a11a73845483b/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
