@@ -58,7 +58,8 @@ uzpack: uzpexec uzpack.sh
 	@echo
 
 clean: blkln
-	rm -f $(TARGETS) hello.gz.sh ls.elf ls.gz.elf tests.res uzpack.uzp
+	rm -f $(TARGETS) hello.gz.sh ls.elf ls.gz.elf
+	rm -f tests.res uzpack.uzp uzpexec.uzp
 	@echo
 
 tests: blkln $(TARGETS)
@@ -73,4 +74,4 @@ tests: blkln $(TARGETS)
 	@echo
 	@echo ====== testing uzpexec ======
 	@echo
-	sh tests.txt --tests-only
+	sh tests.sh --tests-only
