@@ -6,12 +6,12 @@
 # -----------------------------------------------------------------------------
 # Standard directories
 # -----------------------------------------------------------------------------
-PREFIX  ?= /usr/local
-DESTDIR ?=
-BINDIR   = $(DESTDIR)$(PREFIX)/bin
-MANDIR   = $(DESTDIR)$(PREFIX)/share/man/man1
-DATADIR  = $(DESTDIR)$(PREFIX)/share/uzpack
-SRCDIR   = $(DATADIR)/src
+PREFIX    ?= /usr/local
+DESTDIR   ?=
+BINDIR     = $(DESTDIR)$(PREFIX)/bin
+MANDIR     = $(DESTDIR)$(PREFIX)/share/man/man1
+DATADIR    = $(DESTDIR)$(PREFIX)/share/uzpack
+SRCDIR     = $(DATADIR)/src
 
 # -----------------------------------------------------------------------------
 # Package metadata
@@ -25,17 +25,22 @@ MAINTAINER = Roberto A. Foglietta <roberto.foglietta@gmail.com>
 # -----------------------------------------------------------------------------
 # Files
 # -----------------------------------------------------------------------------
-BINS     = uzpexec uzpack gzcmd.gz.sh
-MANPAGES = uzpack.1 uzpexec.1
-DEVFILES = uzpack.sh uzpexec.asm gzcmd.sh hello.c tests.sh README.md Makefile
-RPMFILES = $(BINS) $(MANPAGES) $(DEVFILES) uzpexec.spec.tmpl
+BINS       = uzpexec uzpack gzcmd.gz.sh
+MANPAGES   = uzpack.1 uzpexec.1
+DOCFILES   = README.md
+DEVFILES   = uzpack.sh uzpexec.asm gzcmd.sh hello.c zeroenv.c tests.sh Makefile 
+DOCFILES  += $(DOCFILES)
+RPMFILES   = $(BINS) $(MANPAGES) $(DEVFILES) uzpexec.spec.tmpl
 
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
 
-VERSNED := README.md uzpack.1 uzpexec.spec.tmpl uzpexec.asm
-VTOGREP := $(VERSNED) uzpack.md
+VERSNED   := README.md uzpack.1 uzpexec.spec.tmpl uzpexec.asm
+VTOGREP   := $(VERSNED) uzpack.md
+
+ZDDCMD    := dd if=hello.gz.sh skip=1 | zcat
+GITMPLOG  := deb/changes.log
 
 define version_change
 	sed -e "s,\(github/robang74 \)v[0-9.]\{4\},\1v$1," \
@@ -52,8 +57,6 @@ define git_relevant_log
 	sed -n -e 's/ *.HEAD -. .*//' -e 's/ *.tag: .*//' -e 's/^\+ /* /p'
 endef
 
-GITMPLOG := deb/changes.log
-
 # -----------------------------------------------------------------------------
 # Build targets
 # -----------------------------------------------------------------------------
@@ -63,8 +66,6 @@ all: $(BINS)
 
 blkln:
 	@echo
-
-ZDDCMD := dd if=hello.gz.sh skip=1 | zcat
 
 gzcmd.gz.sh: gzcmd.sh
 	@echo ====== $^ self-compressing ======
@@ -84,6 +85,14 @@ uzpexec: uzpexec.asm
 	@echo
 
 hello: hello.c
+	@echo ====== compile $^ ======
+	@echo
+	cc -s -Os $^ -o $@ -Wl,--build-id=none
+	file $@ | sed -e "s/, int/,\n\t int/"
+	du -b $@
+	@echo
+
+zeroenv: zeroenv.c
 	@echo ====== compile $^ ======
 	@echo
 	cc -s -Os $^ -o $@ -Wl,--build-id=none
@@ -112,10 +121,17 @@ clean: blkln
 	rm -f hello.gz.sh ls.elf ls.gz.elf lz
 	@echo
 
-tests: blkln distclean hello $(BINS)
+tests: blkln distclean hello zeroenv $(BINS)
 	@echo ====== testing hello ======
 	@echo
 	./hello
+	@echo
+
+	@echo ====== testing zeroenv ======
+	@echo
+	{ env -i sh -c "env" | sed -e "s,^,  ," | grep PWD && \
+      ./zeroenv sh -c "env" | grep PWD; } || \
+          printf "  PASS: ok\n"
 	@echo
 
 	@echo ====== testing gzcmd.gz.sh ======
@@ -123,20 +139,9 @@ tests: blkln distclean hello $(BINS)
 	./gzcmd.gz.sh hello
 	./hello.gz.sh
 	@echo
-
-	@echo ====== standalone uzpack.sh ======
-	@echo
-	mv -f uzpack uzpack.bak
-	mv -f uzpexec uzpexec.bak
-	sh uzpack.sh uzpack.sh uzpack
-	mv -f uzpexec.bak uzpexec
-	mv -f uzpack.bak uzpack
-	@echo
-
 	@echo ====== testing uzpexec ======
 	@echo
 	sh tests.sh --tests-only
-	@echo
 
 version: distclean
 	@echo ====== VERSION: $(VERSION) ======

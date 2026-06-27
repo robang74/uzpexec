@@ -120,6 +120,25 @@ while true; do
     fi
     dst="${2:-$(basename $src).uzp}"
 
+    # Safety check about the destination filename to avoid argv[0] underflow
+    bdst=$(basename "$dst")
+    if   echo "$bdst" | grep -qe       '^..$'; then
+        echo "Error: destination filename '$bdst' too short, min 3"
+        break
+    fi
+    if   echo "$bdst" | grep -qe ".\{4\}xec$"; then
+        true
+    elif echo "$bdst" | grep -qe       "xec$"; then
+        echo "Error: destination filename '$bdst' too short, min 3+xec"
+        break
+    fi
+
+    if dd_gtpack "$src"; then
+        echo "Warning: file '$src' was already converted, just copy." >&2
+        command cp -i "$src" "$dst"
+        break
+    fi
+
     if dd_gtpack "$src"; then
         echo "Warning: file '$src' was already converted, just copy." >&2
         command cp -i "$src" "$dst"

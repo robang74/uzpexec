@@ -84,7 +84,7 @@ echo "Strings output:"
   echo '====== TESTS !TO HANG (x3) ======'
 # in case of timeout the return code is 124 not 2
   for nm in c xec uzp; do
-      cp -f uzpexec $nm && timeout 1 ./$nm
+      cp -f uzpexec $nm && timeout 1 ./zeroenv ./$nm
       printf "\tret:$?"
   done
   echo
