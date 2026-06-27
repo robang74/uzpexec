@@ -136,7 +136,7 @@ main_start:
   jz .stdin                     ; Tiny can't cover LK bugs
 
   ; ----------------------------------------------------------------------------
-  ; The basename stream & hardware mirror match
+  ; Seek the match between filename and argv[0] by teo 32-bits compares (-9b)
   ; ----------------------------------------------------------------------------
   push esi                      ; Save ESI (argv) on the stack
 
@@ -148,19 +148,25 @@ main_start:
   test al, al                   ; Check for the EOS '\0'
   jnz .seek_eos                 ; - N: loop again
                                 ; - Y: ESI points to \0
+
 ;_A defensive check but apparently ./a (argv[0] = "a\0") works properly, anyway
+;_This imposes restriction on the converted ELF (not-script) name: abc\0 !xec\0
+;_This restriction is acceptable and the consequences of a violation are near-0
+;_Where "near-0" means: yet TODO an extensive argv[0] underflow investigation
 ;_cmp ah, 8                     ; this avoids underflow
 ;_jb .mismatch                  ; too short, to match
 
-  lea esi, [esi-8]              ; ESI = ultimi 8 byte di argv[0]
+  lea esi, [esi-8]              ; ESI = last 8 byte argv[0]
   mov edi, filename             ; EDI = pattern "uzpexec\0"
-  cmpsd                         ; confronta "uzpe"  (dword #1)
-  cmpsd                         ; confronta "xec\0" (dword #2)
-  pop esi
-  je .stdin                     ; match: vai in modalità pipexec
+  cmpsd                         ; compare "uzpe"  (dword #1)
+  jne .mismatch
+  cmpsd                         ; compare "xec\0" (dword #2)
+  jne .mismatch
 
+  pop esi
+  jmp .stdin
 .mismatch:
-;_pop esi
+  pop esi
   ; ----------------------------------------------------------------------------
 
 .not_uzpexec:

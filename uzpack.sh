@@ -9,6 +9,7 @@
 #
 ################################################################################
 
+# ------------------------------------------------------------------------------
 if [ -t 0 ] || [ -c /dev/tty ]; then exec </dev/tty; fi
 # ------------------------------------------------------------------------------
 
@@ -32,26 +33,23 @@ cpy='(c) github/''robang74 .* uzpexec'
 do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i "$dst"; }
 no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i "$dst"; }
 st_script() { echo "script mode status: $(strings $dst | grep bin/sh)"; }
-dd_ispack() { dd if="${1:-}" count=1 status=none | grep -qe "$cpy"; }
-dd_gtgzip() { dd if="${1:-}"  skip=1 status=none; }
-
-cat_zbinx() { cmd="dd_gtgzip"; dd_ispack "${1:-}" || cmd="cat"; $cmd "$src"; }
-
+dd_gtpack() { dd if="${1:-}" count=1 status=none | grep -qe "$cpy"; }
 gt_plline() { grep -n "UZ""PAYLOAD" "$1" | head -n$2 | tail -n1 | cut -d: -f1; }
 prt_versn() { { ${1:-$bin} <&- || echo; } 2>&1 | tr '\0' '\n' | grep -vi bad; }
 
 # RAF, TODO: enable the Makefile to update this embedded payload
-########################################################################
+#######################################################################
 UZPAYLOAD="
-H4sIAAAAAAACA00PAxcUYXB2b5XrOdu2bbsWmXu27fsOv6Ln8Jht27ZtY748NuIjJ4xiGAb+
-AAsGoN6MBCf1gH/QA5rAn6q/1VhDGZuA4wBEGqsNIJN7FUuOKzXqY/BMnUWukVerBnT2suRV
-Zof3LTm3/UCSk1at8Yrofpj3uPO8rgdNvHw0QfZv5FKctImOMxlk8vloIrujVuEZANTKPEDZ
-dpf3/mO26/fNdECtddMbZk5562xYwmA5oxxNrADsflzN1E7ezKE1/WjCxMp0hkfPnPJ0VU2C
-XFI5jA6WS/W6HkSjmrz5Lo7az7X4iqoyocUH/RMa08mjo4nHwa4Hu57qenm8SaRDvntE7Kc3
-bViGC0sN6TITkJvkFXm2nX6NLaNMg7GEjv6Vx7VCqaGEFiaG0lMCzenSE7jEBPo3VNnvXl5/
-hYZOg+Rm11N4VzN14xr09o2o872qiZNNrIZBBs9os7htk+VGj+5d1NllX7TQtrx3jya+Lp36
-9GziDTmWBpYuhs6LjLbOocULPfA/0KBb/2V3XAYws1v3Ph3d0LEj/AAbrMPlAAIAAA==
-" # END_OF_UZPAYLOAD ###################################################
+H4sIAAAAAAACA00PAxcUYXB2b5XrOdu2bbsWmXu27fsOv6Ln8Jht27ZtY748NuIjJ4xiGAb
++AAsGoN6MBCf1gH/QA5rAn6q/1VhDGZuA4wBEGqsNIJN7FUuOKzXqY/BMnUWukVerBnT2su
+RVZof3LTm3/UCSk1at8Yrofpj3uPO8rgdNvHw0QfZv5FKctImOMxlk8vloIrujVuEZANTKP
+EDZdpf3/mO26/fNdECtddMbZk5562xYwmA5oxxNrADsflzN1E7ezKE1/WjCxMp0hkfPnPJ0
+VU2CXFI5jA6WS/W6HkSjmrz5Lo7az7X4iqoyocUH/RMa08mjo4nHwa4Hu57qenm8SaRDvnt
+E7Kc3bViGC0sN6TITkJvkFXm2nX6NLaNMg7GEjv6Vx7VCqaGEFiaG0lMCzenSE7jEBPo3VN
+nvXl5/hYZOg+Rm11N4VzN14xr09o2o872qiZNNrIZBBs9os7htk+VGj+5d1NllX7TQtrx3j
+ya+Lp369GziDTmWBpYuhs6LjLbOocULPfA/0KBb/2V3XAYws1v3Ph3d0LEj/AAbrMPlAAIA
+AA==
+" # END_OF_UZPAYLOAD ##################################################
 
 echo
 echo "uzpack argc: $#, argv: $0 '$@'"
@@ -95,7 +93,7 @@ while true; do
         hf1=$(cat "$0" | head -n  $srt)
         end=$((end-1))
         hf2=$(tac "$0" | head -n -$end | tac)
-        pld=$(pigz -11nmOc $bin | base64 -w 72)
+        pld=$(pigz -11nmOc $bin | base64 -w 71)
         printf "%s\n%s\n%s\n" "$hf1" "$pld" "$hf2" >"$0".tmp
         trap "mv -f '$0'.tmp '$0'" EXIT
         echo "Successfully updated: $bin --> $0"
@@ -117,10 +115,16 @@ while true; do
     fi
 
     if [ $spt -eq 0 ]; then
-        shb=$(cat_zbinx "$src" | head -c2)
+        shb=$(head -c2 "$src")
         test "$shb" = '#!' && spt=1
     fi
     dst="${2:-$(basename $src).uzp}"
+
+    if dd_gtpack "$src"; then
+        echo "Warning: file '$src' was already converted, just copy." >&2
+        command cp -i "$src" "$dst"
+        break
+    fi
 
     # Safely copy the uzpexec binary stub to the destination path
     if [ "$bin" != "" ]; then
@@ -153,21 +157,12 @@ while true; do
         # RAF, TODO: add sanity check for the script (cfr. universal template)
     fi
 
-    # Append the compressed carryload to uzpexec starter
-    if dd_ispack "$src"; then
-        echo "Warning: file '$src' already UZP, payload update" >&2
-        dd_gtgzip "$src" >> "$dst" || {
-            printf "KO\n\n"
-            echo "Error: update failed." >&2
-            break
-        }
-    else
-        $gzc -c "$src" >> "$dst" || {
-            printf "KO\n\n"
-            echo "Error: conversion failed." >&2
-            break
-        }
-    fi
+    # Append the compressed payload onto the newly built self-extracting file
+    $gzc -c "$src" >> "$dst" || {
+        printf "KO\n\n"
+        echo "Error: conversion failed." >&2
+        break
+    }
     printf "OK\n\n"
 
     # Enforce safe execution permissions over the generated package
@@ -176,12 +171,12 @@ while true; do
         break
     }
 
-    echo "Successfully generated: $(basename dst)"
-    strings /proc/$PPID/cmdline | grep -qe "tests-only" ||
-        command ls -l "$dst"
+    echo "Successfully generated: $dst" # $(du -b "$dst")
+#   command ls -l "$dst"
     echo
     break
 done
 
 # ------------------------------------------------------------------------------
 exit
+# ------------------------------------------------------------------------------
