@@ -53,7 +53,8 @@ uzpack: uzpexec uzpack.sh
 	@echo ====== produce $@ ======
 	@echo
 	sh uzpack.sh -u uzpexec
-	sh uzpack.sh uzpack.sh uzpack
+	@rm -f uzpack
+	sh uzpack.sh -s uzpack.sh uzpack
 	du -b $@
 	@echo
 
