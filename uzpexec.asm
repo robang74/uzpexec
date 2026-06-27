@@ -150,7 +150,7 @@ main_start:
                                 ; - Y: ESI points to \0
 
 ;_A defensive check but apparently ./a (argv[0] = "a\0") works properly, anyway
-;_This imposes restriction on the converted ELF (not-script) name: abc\0 !xec\0
+;_This imposes restriction on the converted ELF (not-script) name: 7 chars + \0
 ;_This restriction is acceptable and the consequences of a violation are near-0
 ;_Where "near-0" means: yet TODO an extensive argv[0] underflow investigation
 ;_cmp ah, 8                     ; this avoids underflow
