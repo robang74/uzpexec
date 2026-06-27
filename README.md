@@ -62,7 +62,7 @@ An example of use is related to this [project](https://github.com/robang74/uchao
 
 ### Example #2
 
-The shell script [uzpack.sh](uzpack.sh) converts a binary or a script into a self-extracting self-running in memory only. The most natural test is using the script to convert itself. Which is what happens during `make tests` and the result can be found as `uzpack.uzp`.
+The shell script [uzpack.sh](uzpack.sh) converts a binary or a script into a self-extracting self-running in memory only. The most natural test is using the script to convert itself. Which is what happens during `make` and the result can be found as `uzpack` (2.7Kb circa).
 
 Obviously, it is possible to convert an already converted binary. Which fails to run when it carries a shell script, but it is acceptable because it is totally useless to convert anything twice, especially in this case.
 

@@ -20,12 +20,6 @@ usage() {
     echo
 }
 
-do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i "$dst"; }
-no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i "$dst"; }
-st_script() { echo "script mode status: $(strings $dst | grep bin/sh)"; }
-dd_gtpack() { dd if="${1:-}" count=1 status=none | grep -qe "robang74 .* uzpexec"; }
-gt_plline() { grep -n "UZ""PAYLOAD" "$1" | head -n$2 | tail -n1 | cut -d: -f1; }
-
 spt=0
 ext=0
 upd=0
@@ -34,6 +28,13 @@ gzc=$(command -v pigz gzip | head -n1)
 bin=$(command -v uzpexec || echo ./uzpexec)
 b64=$(command -v base64)
 
+cpy='(c) github/''robang74 .* uzpexec'
+
+do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i "$dst"; }
+no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i "$dst"; }
+st_script() { echo "script mode status: $(strings $dst | grep bin/sh)"; }
+dd_gtpack() { dd if="${1:-}" count=1 status=none | grep -qe "$cpy"; }
+gt_plline() { grep -n "UZ""PAYLOAD" "$1" | head -n$2 | tail -n1 | cut -d: -f1; }
 prt_versn() { { ${1:-$bin} <&- || echo; } 2>&1 | tr '\0' '\n' | grep -vi bad; }
 
 # RAF, TODO: enable the Makefile to update this embedded payload
