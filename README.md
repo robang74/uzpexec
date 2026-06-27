@@ -62,7 +62,7 @@ This tool comes with its `man` page [uzpack.1](uzpack.1) which can be read by gi
 Compiling `.asm` files requires `nasm`, otherwise `sudo apt install nasm` if missing:
 
 ```sh
-make clean tests
+make tests
 ```
 
 Test by yourself and then decide how to deploy.
