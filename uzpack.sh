@@ -16,7 +16,7 @@ if [ -t 0 ] || [ -c /dev/tty ]; then exec </dev/tty; fi
 usage() {
     echo
     echo "Usage: uzpack [-h|--help] [-v|--version]"
-    echo "       uzpack [-s|--script] origin [target[.uzp]]"
+    echo "       uzpack origin [destination[.uzp]]"
     echo
 }
 
@@ -111,6 +111,9 @@ while true; do
         usage
         break
     fi
+
+    shb=$(head -c2 "$src")
+    test "$shb" = '#!' && spt=1
 
     dst="${2:-$(basename $src).uzp}"
 

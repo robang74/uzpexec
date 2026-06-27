@@ -24,7 +24,7 @@ The `uzpexec` is an utility for executing an ELF binary directly from stdin pipe
 - it runs gzip compressed binaries
 - it runs binary via `ssh` or `wget`
 - it runs in RAM only, no disk write
-- it runs un/compressed scripts ([v0.74](https://github.com/robang74/gzcmd.sh/releases/tag/v0.74) or +)
+- it runs plain and compressed scripts
 - compress any script, run as ELF32
 
 without writing it on the remote/local systems storage (by `memfd_create`).
@@ -39,12 +39,10 @@ Running `uzpexec` directly probably isn't your goal, but `uzpack` to create exec
 
 ```sh
 Usage: uzpack [-h|--help] [-v|--version]
-       uzpack [-s|--script] origin [target[.uzp]]
+       uzpack origin [destination[.uzp]]
 ```
 
-The help from the script is pretty straigforward but requires to indicate `-s` or not.
-
-Probably, you won't cope either with `uzpack.sh` as script but as an executable converter:
+The help from the script is pretty clear, and its development is simplicity-oriented. Probably, you won't cope either with `uzpack.sh` as script but having an executable converter:
 
 ```sh
 sh ./uzpack.sh -s uzpack.sh uzpack && ./uzpack -v
@@ -118,13 +116,6 @@ Appending a compressed script is easy and reversible without recompiling.
 Or even easier using the shell script provided by this repository;
 
 - `sh uzpack.sh -h` &nbsp; dowload from [here](sh uzpack.sh)
-
-```sh
-uzpack args_v[1]: uzpack.sh '-h'
-
-Usage: uzpack [-h|--help] [-v|--version]
-       uzpack [-s|--script] origin.elf [destination.uzp]
-```
 
 Which also contains the basic shell script template for full compatibility
 

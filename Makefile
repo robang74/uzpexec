@@ -60,7 +60,7 @@ uzpack: uzpexec uzpack.sh
 	@echo
 	sh uzpack.sh -u uzpexec
 	@rm -f uzpack
-	sh uzpack.sh -s uzpack.sh uzpack
+	sh uzpack.sh uzpack.sh uzpack
 	du -b $@
 	@echo
 
@@ -82,3 +82,4 @@ tests: blkln $(TARGETS)
 	@echo ====== testing uzpexec ======
 	@echo
 	sh tests.sh --tests-only
+
