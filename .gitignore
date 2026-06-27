@@ -2,3 +2,11 @@ uzpexec.1
 uzpexec.spec
 deb/changes.log
 deb/changelog
+uzpack
+uzpexec
+gzcmd.gz.sh
+uzpexec-0.??.deb
+uzpexec-0.??.rpm
+uzpexec-0.??.tar.gz
+uzpexec-0.??.tar.xz
+

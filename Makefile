@@ -16,7 +16,7 @@ SRCDIR   = $(DATADIR)/src
 # -----------------------------------------------------------------------------
 # Package metadata
 # -----------------------------------------------------------------------------
-VERSION    = 0.84
+VERSION   ?= 0.85
 PKGNAME    = uzpexec
 FILENME    = $(PKGNAME)-$(VERSION)
 ARCH       = $(shell dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null || uname -m)
@@ -33,8 +33,6 @@ RPMFILES = $(BINS) $(MANPAGES) $(DEVFILES) uzpexec.spec.tmpl
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
-
-VERSION ?= 0.85
 
 VERSNED := README.md uzpack.1 uzpexec.spec.tmpl uzpexec.asm
 VTOGREP := $(VERSNED) uzpack.md

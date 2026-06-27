@@ -156,7 +156,7 @@ The alternatives that are natively compatible with `-f -` are fully supported.
 ; in do_script mode the 2 paths shrink to 20 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
 ;                                                                   LN | FD | SH
-copy_vers:  db "(c) github/robang74 v0.84 "                       ; 26 | 26 | 26
+copy_vers:  db "(c) github/robang74 v0.85 "                       ; 26 | 26 | 26
 filename :  db      "uzpexec", 0                                  ;  8 |  8 |  8
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ; 21 | 21 | 21
 ; following fields are conditionally overwritable, do unions      : --------- 55
