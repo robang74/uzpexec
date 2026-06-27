@@ -24,9 +24,12 @@ do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i "$dst"; }
 no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i "$dst"; }
 st_script() { echo "script mode status: $(strings $dst | grep bin/sh)"; }
 dd_gtpack() { dd if="${1:-}" count=1 status=none | grep -qe "robang74 .* uzpexec"; }
+gt_plline() { grep -n "UZ""PAYLOAD" "$1" | head -n$2 | tail -n1 | cut -d: -f1; }
 
 spt=0
 ext=0
+upd=0
+
 gzc=$(command -v pigz gzip | head -n1)
 bin=$(command -v uzpexec || echo ./uzpexec)
 b64=$(command -v base64)
@@ -36,14 +39,14 @@ prt_versn() { { ${1:-$bin} <&- || echo; } 2>&1 | tr '\0' '\n' | grep -vi bad; }
 # RAF, TODO: enable the Makefile to update this embedded payload
 #######################################################################
 UZPAYLOAD="
-H4sIAAAAAAACA01PA7fcUBCeZKO6Pa5tBrVtK6iZZ5vrvYtf0YP6sLZt27aNmfJdDz7ciuH
-jRnAcB38HDx6gaFqloBjwfxjQDP52/evGHtpfMCEIADLl6gKY7H4iNSTEmvTy5E6ewa6z16
-v7dc3j2evAzrx37PyOPV5BWb02T8bw45wnXeeoh5JF81glO7BJ8AnKZvQAyR6TfTlWGdxZJ
-/IcSesEHuLZfnfegye8+mMLEdRZP7Vx4HRevY2LUD2Zs45VLgNEP6mR3MHcQjxTj1Um8yZx
-5LqB07mqnSyZMVvA7EAz1kA9hI8a5pabSHVAaPURr8S4Vh/dd/iYyh4fq3xSpB5ST6tXxib
-LRPIjV0Y8edq4BAVjjUksGdgt9po930G/RsgIpGZfiPp3HWWlWGMFX1gYTFYKW5LoES9h3U
-94BX/kie4zfLiUZLfU0+irhZ0smMm8s2kF5jDm0EG7he2bLU3KdfMWdM3OWDA/fWlPo1l+t
-y69jGZ5xZmLCxcvhK4LktK7Fi+cnwtVByVz3N/vzksApmt6r8450Lnz79RPy5be4gACAAA=
+H4sIAAAAAAACA00Pg9LcYHCTi+p2XNsMattWUDO/bZzxHZ6i42JY27Zt28ZuvTa8IyeM4jg
+O/gAPHiBvhk9QDPgHBrSAP1V/q7GGGJtAEABkitUHMNm9VGZESDTr4ymcOotdY69WDehexL
+NXoR1Fb9m57Qf8grJqTZGM7od5j7vPUw+mi+ZRH9u/UQgIyiYal+4x2eejvvCOerFnAFAv9
+ABlx11F9x/z6vfNNKDeuulNQ6eKGmxYwmE5Zx31rQDsflwrvZO5meZMP+pL502aUeiGThWq
+drpkJmwBo4PNRCP1IBq1zM13cdR+oc1XVKkJbT64n9CYzh4d9T0uUw+qp9TL49NlGvK9UMZ
++umnDMlyYaErL0oHdZK/Ys+30NbaMSh+MJTT6Vx7XSommClqYGEqnlLampSf81Ot+QxX+Xi
+S6r9BwKchuqqfwrlb2xjXo7RvR4HvNdMFM5x0McnhGh8UdWyxPK3SLFnXPz1m0MHt5b6NFc
+Y9ufYwWReW5S0uXLobui9Kyu5cvXlgI/wMFC9xfdtdlADM1vU/XAujaFX4AiKMErwACAAA=
 " # END_OF_UZPAYLOAD ##################################################
 
 echo
@@ -66,23 +69,44 @@ while true; do
             shift
             spt=1
             ;;
+        -u|--update)
+            shift
+            upd=1
+            ;;
     esac
     test $ext -eq 0 || break
 
     if [ ! -x "$gzc" ]; then
-        echo "Error: Neither pigz nor gzip is available or executable." >&2
+        echo "Error: neither pigz nor gzip is available or executable." >&2
+        break
+    fi
+
+    if [ $upd -ne 0 ]; then
+        test -r "${1:-}" && bin="$1"
+        test -r "${bin}" || break
+        srt=$(gt_plline "$0" 1)
+        end=$(gt_plline "$0" 2)
+        test $end -gt $srt || break
+        hf1=$(cat "$0" | head -n  $srt)
+        end=$((end-1))
+        hf2=$(tac "$0" | head -n -$end | tac)
+        pld=$(pigz -11nmOc $bin | base64 -w 71)
+        printf "%s\n%s\n%s\n" "$hf1" "$pld" "$hf2" >"$0".tmp
+        trap "mv -f '$0'.tmp '$0'" EXIT
+        echo "Successfully updated: $bin --> $0"
+        echo
         break
     fi
 
     if [ "x${1:-}" = "x" ]; then
-        echo "Error: No arguments" >&2
+        echo "Error: no arguments" >&2
         usage
         break
     fi
 
     src="${1:-}"
     if [ -z "$src" ] || [ ! -r "$src" ]; then
-        echo "Error: Target payload file '$src' is missing or unreadable." >&2
+        echo "Error: target file '$src' is missing or unreadable." >&2
         usage
         break
     fi
@@ -99,18 +123,18 @@ while true; do
     if [ "$bin" != "" ]; then
         echo
         command cp -i "$bin" "$dst" || {
-            echo "Error: Failed to copy the binary stub to '$dst'." >&2
+            echo "Error: failed to copy the binary stub to '$dst'." >&2
             break
         }
         #echo
     elif [ "$UZPAYLOAD" != "" -a "$b64" != "" ]; then
         echo "Warning: 'uzpexec' not found, using $UZPAYLOAD base64"
         echo "$UZPAYLOAD" | $b64 -d | $gzc -dc >uzpex || {
-            echo "Error: Failed to copy the binary stub to '$dst'." >&2
+            echo "Error: failed to copy the binary stub to '$dst'." >&2
             break
         }
     else
-        echo "Error: Failed to find the 'uzpexec' payload"
+        echo "Error: failed to find the 'uzpexec' payload"
         break
     fi
 
@@ -129,14 +153,14 @@ while true; do
     # Append the compressed payload onto the newly built self-extracting file
     $gzc -c "$src" >> "$dst" || {
         printf "KO\n\n"
-        echo "Error: Payload compression or concatenation failed." >&2
+        echo "Error: conversion failed." >&2
         break
     }
     printf "OK\n\n"
 
     # Enforce safe execution permissions over the generated package
     chmod +x "$dst" || {
-        echo "Error: Could not make target '$dst' executable." >&2
+        echo "Error: can not make target '$dst' executable." >&2
         break
     }
 
@@ -149,3 +173,6 @@ done
 # ------------------------------------------------------------------------------
 exit
 # ------------------------------------------------------------------------------
+
+gt_pltail() { tac "$1" | grep -n "UZ""PAYLOAD" | tail -n2 | cut -d: -f1; }
+gt_plhead() { grep -n "UZ""PAYLOAD" "$1" | head -n1 | cut -d: -f1; }

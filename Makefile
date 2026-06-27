@@ -52,6 +52,7 @@ hello: hello.c
 uzpack: uzpexec uzpack.sh
 	@echo ====== produce $@ ======
 	@echo
+	sh uzpack.sh -u uzpexec
 	sh uzpack.sh uzpack.sh uzpack
 	du -b $@
 	@echo
