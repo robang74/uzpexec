@@ -122,13 +122,7 @@ while true; do
 
     # Safety check about the destination filename to avoid argv[0] underflow
     bdst=$(basename "$dst")
-    if   printf "%s" "$bdst" | grep -qe '^.$'  -e '^..$'; then
-        echo "Error: destination filename '$bdst' too short, min 3"
-        break
-    fi
-    if   printf "%s" "$bdst" | grep -qe     ".\{4\}xec$"; then
-        true
-    elif printf "%s" "$bdst" | grep -qe "uzp$" -e "xec$"; then
+    if printf "%s" "$bdst" | grep -qe ".\{7\}$"; then
         echo "Error: destination filename '$bdst' too short, min 7"
         break
     fi
