@@ -34,6 +34,14 @@ RPMFILES = $(BINS) $(MANPAGES) $(DEVFILES) uzpexec.spec.tmpl
 # -----------------------------------------------------------------------------
 .PHONY: all blkln tests clean install uninstall deb rpm
 
+define git_changes_log
+	git log --abbrev-commit --date=short --format=format:'+ %h - %ad - %s %d' | grep --color=never tag $1
+endef
+define git_relevant_log
+	sed -n -e 's/ *.HEAD -. .*//' -e 's/ *.tag: .*//' -e 's/^\+ /* /p'
+endef
+GITMPLOG := deb/changes.log
+
 all: $(BINS)
 
 blkln:
@@ -79,9 +87,9 @@ uzpack: uzpexec uzpack.sh
 uzpexec.spec: uzpexec.spec.tmpl
 	cp -f $^ $@
 	mkdir -p deb/
-	@git log --abbrev-commit --date=short --format=format:'+ %h - %ad - %s %d' | grep --color=never tag -1 > deb/changes.log
-	@git log --abbrev-commit --date=short --format=format:'+ %h - %ad - %s %d' | grep --color=never tag >> deb/changes.log
-	grep -e '^\+' deb/changes.log | uniq | sed -e 's/ *.HEAD -. .*//' -e 's/ *.tag: .*//' >>$@
+	@$(call git_changes_log,-1) > $(GITMPLOG)
+	@$(call git_changes_log,)  >> $(GITMPLOG)
+	@$(call git_relevant_log) $(GITMPLOG) | uniq >>$@
 
 clean: blkln
 	rm -rf deb/tmp uzpexec.spec.tmp uzpexec.spec
@@ -135,4 +143,7 @@ rpm: distclean uzpexec.spec all
 	cp $(PKGNAME).spec $(HOME)/rpmbuild/SPECS/	
 	rpmbuild --nodeps -bb $(HOME)/rpmbuild/SPECS/$(PKGNAME).spec
 	cp $(HOME)/rpmbuild/RPMS/*/$(PKGNAME)-$(VERSION)-*.rpm ./
+	@echo
+	@ls -al *.rpm
+	@echo
 
