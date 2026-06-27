@@ -16,7 +16,7 @@
 > 
 > Suggested file extension: **`.uzp`**
 
-Utility for executing an ELF binary directly from stdin pipe:
+The `uzpexec` is an utility for executing an ELF binary directly from stdin pipe:
 
 - it self-extracts and executes
 - it adds up just 512-bytes overhead
@@ -33,7 +33,29 @@ Obviously RAM-only can be a benefit or a limit, `gzcmd.sh` writes on disk.
 
 ---
 
-### Usage
+### USAGE
+
+Running `uzpexec` directly probably isn't your goal, but `uzpack` to create executables:
+
+```sh
+Usage: uzpack [-h|--help] [-v|--version]
+       uzpack [-s|--script] origin [target[.uzp]]
+```
+
+The help from the script is pretty straigforward but requires to indicate `-s` or not.
+
+Probably, you won't cope either with `uzpack.sh` as script but as an executable converter:
+
+```sh
+sh ./uzpack.sh -s uzpack.sh uzpack && ./uzpack -v
+```
+
+A generic script to run need a properly set shebang (`#!`), a shell script not necessarly.
+
+However `uzpexec` expects the shebang as minimum requirement (cfr. [script template](#script-to-elf32)).
+
+
+### Compile
 
 Compiling `.asm` files requires `nasm`:
 
@@ -41,7 +63,7 @@ Compiling `.asm` files requires `nasm`:
 make clean tests
 ```
 
-Test and then decide how to deploy.
+Test by yourself and then decide how to deploy.
 
 - `{ cat uzpexec; gzip -7c $elf; }    > $elf.uzp`
 - `cp uzpexec $elf.uzp; gzip -c $elf >> $elf.uzp`
