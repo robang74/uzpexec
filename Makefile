@@ -31,17 +31,35 @@ DEVFILES = uzpack.sh uzpexec.asm gzcmd.sh hello.c tests.sh README.md Makefile
 RPMFILES = $(BINS) $(MANPAGES) $(DEVFILES) uzpexec.spec.tmpl
 
 # -----------------------------------------------------------------------------
-# Build targets
+# Functions
 # -----------------------------------------------------------------------------
-.PHONY: all blkln tests clean install uninstall deb rpm
+
+VERSION ?= 0.85
+
+VERSNED := README.md uzpack.1 uzpexec.spec.tmpl uzpexec.asm
+VTOGREP := $(VERSNED) uzpack.md
+
+define version_change
+	sed -e "s,\(github/robang74 \)v[0-9.]\{4\},\1v$1," \
+	    -e "s,\(Version[:= ]*\)[0-9.]\{4\},\1$1,I" -i $(VERSNED)
+	sed -e "s,^v[0-9.]\{4\},v$1," -i uzpack.md
+endef
 
 define git_changes_log
-	git log --abbrev-commit --date=short --format=format:'+ %h - %ad - %s %d' | grep --color=never tag $1
+	git log --abbrev-commit --date=short --format=format:'+ %h - %ad - %s %d' |\
+	    grep --color=never tag $1
 endef
+
 define git_relevant_log
 	sed -n -e 's/ *.HEAD -. .*//' -e 's/ *.tag: .*//' -e 's/^\+ /* /p'
 endef
+
 GITMPLOG := deb/changes.log
+
+# -----------------------------------------------------------------------------
+# Build targets
+# -----------------------------------------------------------------------------
+.PHONY: all blkln tests clean install uninstall deb rpm
 
 all: $(BINS)
 
@@ -98,7 +116,7 @@ clean: blkln
 
 distclean: clean
 	rm -f uzpexec-*.rpm uzpexec-*.deb
-	rm -f $(BINS) hello
+	rm -f $(BINS) hello uzpexec-*.tar.?z
 	@echo
 
 tests: blkln distclean hello $(BINS)
@@ -114,6 +132,15 @@ tests: blkln distclean hello $(BINS)
 	@echo ====== testing uzpexec ======
 	@echo
 	sh tests.sh --tests-only
+
+version: distclean
+	@echo ====== VERSION: $(VERSION) ======
+	@echo
+	grep --color=always -e "v[0]\.[0-9]\{2\}" $(VTOGREP)
+	$(call version_change,$(VERSION))
+	@echo
+	grep --color=always -e "v[0]\.[0-9]\{2\}" $(VTOGREP)
+	@echo
 
 # -----------------------------------------------------------------------------
 # Installation (DESTDIR-aware)
