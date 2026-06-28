@@ -119,6 +119,7 @@ while true; do
         shb=$(head -c2 "$src")
         test "$shb" = '#!' && spt=1
     fi
+
     dst="${2:-$(basename $src).uzp}"
 
     if dd_gtpack "$src"; then
@@ -147,7 +148,7 @@ while true; do
         }
     else
         echo "ERROR: failed to find the 'uzpexec' payload"
-        ret=1; break
+            ret=1; break
     fi
 
     # Alter internal routing tags inside the stub depending on carryload type
@@ -181,7 +182,7 @@ while true; do
     echo
     break
 done
-
+test $ret -eq 0 || rm -f "$dst"
 # ------------------------------------------------------------------------------
 exit $ret
 # ------------------------------------------------------------------------------
