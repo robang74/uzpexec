@@ -174,8 +174,19 @@ tests: blkln teststdin distclean utils $(BINS)
 	./hello.gz.sh
 	@echo
 
+	@echo ====== testing uzpack.sh ======
+	@echo
+	mv -f uzpack uzpack.bak
+	mv -f uzpexec uzpexec.bak
+	sh uzpack.sh uzpack.sh uzpack
+	mv -f uzpexec.bak uzpexec
+	mv -f uzpack.bak uzpack
+	@echo
+
+	@echo ====== executing tests.sh ======
 	@echo
 	sh tests.sh --tests-only
+	@echo
 
 version: distclean
 	@echo ====== VERSION: $(VERSION) ======

@@ -23,6 +23,7 @@ usage() {
 spt=0
 ext=0
 upd=0
+ret=0
 
 gzc=$(command -v pigz gzip | head -n1)
 bin=$(command -v uzpexec || echo ./uzpexec)
@@ -76,11 +77,11 @@ while true; do
             upd=1
             ;;
     esac
-    test $ext -eq 0 || break
+    test $ext -eq 0 || { ret=1; break; }
 
     if [ ! -x "$gzc" ]; then
-        echo "Error: neither pigz nor gzip is available or executable." >&2
-        break
+        echo "ERROR: neither pigz nor gzip is available or executable." >&2
+        ret=1; break
     fi
 
     if [ $upd -ne 0 ]; then
@@ -101,16 +102,16 @@ while true; do
     fi
 
     if [ "x${1:-}" = "x" ]; then
-        echo "Error: no arguments" >&2
+        echo "ERROR: no arguments" >&2
         usage
-        break
+        ret=1; break
     fi
 
     src="${1:-}"
-    if [ -z "$src" ] || [ ! -r "$src" ]; then
-        echo "Error: target file '$src' is missing or unreadable." >&2
+    if [ -z "$src" -o ! -r "$src" ]; then
+        echo "ERROR: target file '$src' is missing or unreadable." >&2
         usage
-        break
+        ret=1; break
     fi
 
     if [ $spt -eq 0 ]; then
@@ -128,30 +129,30 @@ while true; do
     if dd_gtpack "$src"; then
         echo "Warning: file '$src' was already converted, just copy." >&2
         command cp -i "$bin" "$dst" || {
-            echo "Error: failed to copy the binary stub to '$dst'." >&2
-            break
+            echo "ERROR: failed to copy the binary stub to '$dst'." >&2
+            ret=1; break
         }
         echo
         break
     fi
 
     # Safely copy the uzpexec binary stub to the destination path
-    if [ "$bin" != "" ]; then
+    if [ -r "$bin" ]; then
         echo
         command cp -i "$bin" "$dst" || {
-            echo "Error: failed to copy the binary stub to '$dst'." >&2
-            break
+            echo "ERROR: failed to copy the binary stub to '$dst'." >&2
+            ret=1; break
         }
         echo
     elif [ "$UZPAYLOAD" != "" -a "$b64" != "" ]; then
-        echo "Warning: 'uzpexec' not found, using $UZPAYLOAD base64"
-        echo "$UZPAYLOAD" | $b64 -d | $gzc -dc >uzpex || {
-            echo "Error: failed to copy the binary stub to '$dst'." >&2
-            break
+        echo "Warning: 'uzpexec' not found, using UZPAYLOAD base64"
+        echo "$UZPAYLOAD" | $b64 -d | $gzc -dc > "$dst" || {
+            echo "ERROR: failed to copy the binary stub to '$dst'." >&2
+            ret=1; break
         }
     else
-        echo "Error: failed to find the 'uzpexec' payload"
-        break
+        echo "ERROR: failed to find the 'uzpexec' payload"
+        ret=1; break
     fi
 
     # Alter internal routing tags inside the stub depending on carryload type
@@ -169,15 +170,15 @@ while true; do
     # Append the compressed payload onto the newly built self-extracting file
     $gzc -c "$src" >> "$dst" || {
         printf "KO\n\n"
-        echo "Error: conversion failed." >&2
-        break
+        echo "ERROR: conversion failed." >&2
+        ret=1; break
     }
     printf "OK\n\n"
 
     # Enforce safe execution permissions over the generated package
     chmod +x "$dst" || {
-        echo "Error: can not make target '$dst' executable." >&2
-        break
+        echo "ERROR: can not make target '$dst' executable." >&2
+        ret=1; break
     }
 
     echo "Successfully generated: $dst" # $(du -b "$dst")
@@ -187,5 +188,5 @@ while true; do
 done
 
 # ------------------------------------------------------------------------------
-exit
+exit $ret
 # ------------------------------------------------------------------------------
