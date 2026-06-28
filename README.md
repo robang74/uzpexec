@@ -240,6 +240,29 @@ esac
 
 ---
 
+### UPX what?
+
+A comparison that people continue to ask me but I have no clue about what:
+
+| Aspect                          | UPX                             | `uzpexec`                                 | `gzcmd.gz.sh`                           |
+| ------------------------------- | ------------------------------- | ----------------------------------------- | --------------------------------------- |
+| **Role**                        | Fixed: stub only (+ compressor) | **Mutant**: payload, stub, pipexec   | Fixed: stub only                        |
+| **Bootstrap**                   | External toolchain required     | Self-hosting via shell script             | Self-hosting via shell script           |
+| **Runtime model**               | Typically extracts to disk      | **Pure in-memory by design**              | Typically extracts to ramfs/tmp             |
+| **Size constraint**             | Optimized for compression ratio | Optimized for stub size       | Optimized for stub size          |
+| **Auditability** | Opaque, complex codebase        | **Fully auditable** (260  LoC)    | **Fully auditable** (`sh` script)      |
+| **Audience**                    | Windows apps distribution,<br>various others deployment&thinsp;⁽*⁾   | **Linux** devops&thinsp;/&thinsp;users,<br>`ELF` easy deployment      | **Linux** builders&thinsp;/&thinsp;users,<br>`sh` simple deployment |
+| **Toolchain**    | UPX binary + build system       | `sh`+`base64`+`zcat` (or `xz`, …) | `sh`+`gzip` (or `xz`, …)                 |
+| **Tool full size**       | 400 KB – 1.2 MB (multi-OS)      | `.deb` 35 KB, `uzpack` **3KB**           | Just `gzcmd.gz.sh`, **7KB**  |
+| **Stub size**          | 200 – 700 KB (variable)         | **512 bytes** (**fixed**, `dd` 1-block)             |  **512 bytes** (**fixed**, `dd` 1-block)          |
+- UPX is also used in embedded systems, demoscene, malware (obfuscation, historically), dev pipelines.
+
+The UPX column has been created by a few steps of *harmonising* Grok, Gemini and Kimi among them.
+
+Like human's consensus, the UPX column could be a collective-AI hallucination and I do **not** know.
+
+---
+
 ### W+X memory
 
 Separating exectable code (X) from writing memory (W) costs bytes of code!
