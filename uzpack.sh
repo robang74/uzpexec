@@ -121,20 +121,17 @@ while true; do
 
     # Safety check about the destination filename to avoid argv[0] underflow
     bdst=$(basename "$dst")
-    if printf "%s" "$bdst" | grep -qe ".\{7\}$"; then
-        echo "Error: destination filename '$bdst' too short, min 7"
-        break
+    if ! printf "%s" "$bdst" | grep -qe ".\{7\}$"; then
+        echo "Warning: destination filename '$bdst' too short, min 7"
     fi
 
     if dd_gtpack "$src"; then
         echo "Warning: file '$src' was already converted, just copy." >&2
-        command cp -i "$src" "$dst"
-        break
-    fi
-
-    if dd_gtpack "$src"; then
-        echo "Warning: file '$src' was already converted, just copy." >&2
-        command cp -i "$src" "$dst"
+        command cp -i "$bin" "$dst" || {
+            echo "Error: failed to copy the binary stub to '$dst'." >&2
+            break
+        }
+        echo
         break
     fi
 
@@ -145,7 +142,7 @@ while true; do
             echo "Error: failed to copy the binary stub to '$dst'." >&2
             break
         }
-        #echo
+        echo
     elif [ "$UZPAYLOAD" != "" -a "$b64" != "" ]; then
         echo "Warning: 'uzpexec' not found, using $UZPAYLOAD base64"
         echo "$UZPAYLOAD" | $b64 -d | $gzc -dc >uzpex || {
