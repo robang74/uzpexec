@@ -4,21 +4,20 @@
 
 - &nbsp;Click on the button to know how to &nbsp;[![Sponsor me](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ff69b4?style=flat&logo=github)](https://github.com/sponsors/robang74)&nbsp; this project and get in touch with me.
 
-> [!WARNING]
-> 
-> The [uzpexec](uzpexec.asm) (micro gzip pipe exec, written in Assembler, 512 bytes of payload equivalent to a single `dd` standard I/O block) offers native support for `gzip` self-inflate self-execution, running in RAM also when started by the `STDIN` pipe. Pre-compiled `ELF32` (for all x86) available in [releases](https://github.com/robang74/uzpexec/releases/). Development happens in [devel](https://github.com/robang74/uzpexec/tree/devel) branch.
+The [uzpexec](uzpexec.asm) (micro gzip pipe exec, written in Assembler, 512 bytes of payload equivalent to a single `dd` standard I/O block) offers native support for `gzip` self-inflate self-execution, running in RAM also when started by the `STDIN` pipe.
 
----
+- Pre-compiled `ELF32` (for all x86) available in [releases](https://github.com/robang74/uzpexec/releases/).
+- Development happens in [devel](https://github.com/robang74/uzpexec/tree/devel) branch.
 
 ### Current release
 
-> [!INFO]
+> [!NOTE]
 > 
-> Unless a binary pre-compiled packages is strictly required, download the [`.zip`](https://github.com/robang74/uzpexec/archive/refs/heads/master.zip) from github master branch.
+> Unless a binary pre-compiled packages is strictly required, download the source [`.zip`](https://github.com/robang74/uzpexec/archive/refs/heads/master.zip) archive from github master branch.
 
 Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.85** and the following are fixes for it:
 
-- [`77ec76f`](https://github.com/robang74/uzpexec/commit/77ec76f) - Makefile,uzpack.sh: adding a 'standalone mode' test for uzpack
+- [`3b9b8a9`](https://github.com/robang74/uzpexec/commit/3b9b8a9) - Makefile,uzpack.sh: adding a 'standalone mode' test for uzpack
 - [`06a5da3`](https://github.com/robang74/uzpexec/commit/06a5da3) - BUGFIX - R.v0.85 - uzpack.sh: internal payload transfer fails
 
 The only affected component is `uzpack` when working in standalone mode.
