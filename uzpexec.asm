@@ -184,7 +184,8 @@ main_start:
 ; This is an essential approach for which a keyword in the name triggers a jump
 ; It also reduce the risk of argv[0] underflow by two bytes, even if it remains
   cmpsd                         ; only check "pexe" (dword)
-  pop esi
+  pop esi                       ; Restore ESI (argv) from the stack
+  push edi                      ; Save &filename[6] on the stack
 %ifdef _NO_STDIN
   je exit_error
 %else
@@ -222,8 +223,10 @@ main_start:
   xor edi, edi                  ; EDI = stdin (0)
 
 .memfd:
-  mov ebx, filename             ; fd owner's name
-  movzx edx, byte [ebx - filename + do_script]
+  ; The EBX = do_script is the MEMFD owner's name, but LK requires just a "x"
+  ; Instead, we need to check the first char of do_script bc '\0':off, '/':on
+  pop ebx                       ; Restore &filename[6] from the stack
+  movzx edx, byte [ebx - filename + do_script - 6]
                                 ; EDX now holds the flag
   test dl, dl                   ; Is the script flag 0?
   jnz .do_script                ; - N: call the /bin/sh
