@@ -17,7 +17,6 @@ usage() {
     echo
     echo "Usage: uzpack [-h|--help] [-v|--version]"
     echo "       uzpack origin [destination[.uzp]]"
-    echo
 }
 
 spt=0
@@ -25,22 +24,11 @@ ext=0
 upd=0
 ret=0
 rpl=0
+emb=0
 
-gzc=$(command -v pigz gzip | head -n1)
-bin=$(command -v uzpexec || echo ./uzpexec)
-b64=$(command -v base64)
+nme="uzpexec"
+cpy='(c) github/''robang74 .* '$nme
 
-cpy='(c) github/''robang74 .* uzpexec'
-
-do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i "$dst"; }
-no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i "$dst"; }
-st_script() { echo "script mode status: $(strings $dst | grep bin/sh)"; }
-dd_gtpack() { dd if="${1:-}" count=1 status=none | grep -qe "$cpy"; }
-dd_gtuzip() { dd if="${1:-}"  skip=1 status=none | zcat ; }
-gt_plline() { grep -n "UZ""PAYLOAD" "$1" | head -n$2 | tail -n1 | cut -d: -f1; }
-prt_versn() { { ${1:-$bin} <&- || echo; } 2>&1 | tr '\0' '\n' | grep -vi bad; }
-
-# RAF, TODO: enable the Makefile to update this embedded payload
 #######################################################################
 UZPAYLOAD="
 H4sIAAAAAAACA6t39XFjZGRkgAEmBmYGEC+kgYXDhAEBTBgUGGCq4KqBakD4JVCAhYWBgR0
@@ -53,8 +41,38 @@ VzOpB3zEXwP1cWS0QWUzRQkBHoAo1kTYX0zJKM0iT9ovykxLx0cxOFMgM9CzOF0qqC1IrUZ
 Ab9pMw8/arkxBIGZAASLM6AckKNjC10ixl0dRl00xhwAAC77P5cAAIAAA==
 " # END_OF_UZPAYLOAD ##################################################
 
-echo
-echo "uzpack argc: $#, argv: $0 '$@'"
+b64=$(command -v base64)
+gzc=$(command -v pigz gzip | head -n1)
+
+do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i "$dst"; }
+no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i "$dst"; }
+st_script() { echo "script mode status: $(strings $dst | grep bin/sh)"; }
+gt_plline() { grep -n "UZ""PAYLOAD" "$1" | head -n$2 | tail -n1 | cut -d: -f1; }
+gt_plbody() { dd if="${1:-$bin}" count=1 status=none; }
+dd_gtuzip() { dd if="${1:-$bin}"  skip=1 status=none | zcat; }
+dd_gtcopy() { gt_plbody ${1:-$bin} | strings | grep -e "$cpy"; }
+dd_gtpack() { dd_gtcopy ${1:-$bin} | grep -q .; }
+
+# ==============================================================================
+
+{ echo; echo "uzpack argc: $#, argv: $0 '$@'"; } >&2
+
+#set -x
+
+bin=$(command -v $nme || echo ./$nme)
+if [ ! -r "$bin" ]; then
+    d=$(dirname "$0")
+    bin="${d:-.}/$nme"
+fi
+if [ -r "$bin" ]; then
+    prt_versn() { echo; ${1:-$bin} <&- 2>&1 | grep -vi bad; }
+else
+    echo "Notice: '$nme' not found, using UZPAYLOAD base64" >&2
+   _gt_plbody() { echo "$UZPAYLOAD" | $b64 -d | $gzc -dc; }
+    prt_versn() { echo; _gt_plbody | strings | grep -e "$cpy"; }
+   _dd_gtuzip() { gt_plbody; }
+    emb=1
+fi
 
 while true; do
     # Parse arguments
@@ -70,7 +88,7 @@ while true; do
             ext=1
             ;;
         -s|--script)
-            echo "Warning: option '-s' enforces the script mode (dev onnly)"
+            echo "WARNING: option '-s' enforces the script mode (dev onnly)" >&2
             shift
             spt=1
             ;;
@@ -88,7 +106,10 @@ while true; do
 
     if [ $upd -ne 0 ]; then
         test -r "${1:-}" && bin="$1"
-        test -r "${bin}" || break
+        if [ ! -r "${bin}" ]; then
+            echo "ERROR: '$nme' not found, updating embedded payload failed" >&2
+            ret=1; break
+        fi
         srt=$(gt_plline "$0" 1)
         end=$(gt_plline "$0" 2)
         test $end -gt $srt || break
@@ -117,7 +138,7 @@ while true; do
     fi
 
     if dd_gtpack "$src"; then
-        echo "Warning: file '$src' was already converted, updating." >&2
+        echo "Notice: file '$src' was already converted, updating." >&2
         rpl=1
     fi
 
@@ -135,7 +156,7 @@ while true; do
     # Safety check about the destination filename to avoid argv[0] underflow
     bdst=$(basename "$dst")
     if ! printf "%s" "$bdst" | grep -qe ".\{5\}$"; then
-        echo "Warning: destination filename '$bdst' too short, min 7"
+        echo "WARNING: destination filename '$bdst' too short, min 7" >&2
     fi
 
     # Safely copy the uzpexec binary stub to the destination path
@@ -147,13 +168,12 @@ while true; do
         }
         echo
     elif [ "$UZPAYLOAD" != "" -a "$b64" != "" ]; then
-        echo "Warning: 'uzpexec' not found, using UZPAYLOAD base64"
         echo "$UZPAYLOAD" | $b64 -d | $gzc -dc > "$dst" || {
             echo "ERROR: failed to copy the binary stub to '$dst'." >&2
             ret=1; break
         }
     else
-        echo "ERROR: failed to find the 'uzpexec' payload"
+        echo "ERROR: failed to find the '$nme' payload" >&2
             ret=1; break
     fi
 
@@ -188,12 +208,13 @@ while true; do
         ret=1; break
     }
 
-    echo "Successfully generated: $dst" # $(du -b "$dst")
-#   command ls -l "$dst"
-    echo
+    echo "Successfully generated: $dst" >&2
+    # $(du -b "$dst")
+    # command ls -l "$dst"
     break
 done
 test $ret -eq 0 || rm -f "$dst"
+echo
 # ------------------------------------------------------------------------------
 exit $ret
 # ------------------------------------------------------------------------------
