@@ -196,8 +196,8 @@ dist: deb
 	@echo
 
 distclean: clean
-	rm -f uzpexec-*.rpm uzpexec-*.deb
-	rm -f $(BINS) hello uzpexec-*.t?z
+	rm -f uzpexec-*.rpm uzpexec-*.deb zeroenv
+	rm -f $(BINS) hello uzpexec-*.t?z sigsegv
 	@echo
 
 # -----------------------------------------------------------------------------
