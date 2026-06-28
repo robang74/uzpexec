@@ -208,21 +208,21 @@ esac
 
 ### Trivial facts
 
-A 64 bit ELF would be much bigger, 2x potentially, and adding no value because this ELF32 doesn't process anything, not even the read() / write() hot loops (since the zero pipes implementation) but just a few system calls.
+- A 64 bit ELF would be much bigger, 2x potentially, and adding no value because this ELF32 doesn't process anything, not even the read() / write() hot loops (since the zero pipes implementation) but just a few system calls.
 
-The `uzpexec` has been developed to compensate for the gzcmd.sh shortcomings and to add useful capability in dealing with STDIN pipe. So, the `gzcmd.sh` is this project's MVP to reach the production grade with `uzpexec`.
+- The `uzpexec` has been developed to compensate for the gzcmd.sh shortcomings and to add useful capability in dealing with STDIN pipe. So, the `gzcmd.sh` is this project's MVP to reach the production grade with `uzpexec`.
 
-Every sane compressing algorithm is also self-validating in terms of output conformity with the original while executing from a url in pipe is popular but a dangerous action because man-in-the-middle attack.
+- Every sane compressing algorithm is also self-validating in terms of output conformity with the original while executing from a url in pipe is popular but a dangerous action because man-in-the-middle attack.
 
-The "fork bomb" explained in "Example #2" covers the concept of "*a grenade doesn't debate*", which is also the logic behind triggering a `SIGSEGV` instead of working around a Linux kernel bug fixed in 2022.
+- The "fork bomb" explained in "Example #2" covers the concept of "*a grenade doesn't debate*", which is also the logic behind triggering a `SIGSEGV` instead of working around a Linux kernel bug fixed in 2022.
 
-When there is no room to deal with complications we can observe interesting facts. Anyway, the "*fork bomb*" is just an infinite loop of `fork()` from the same initial process, which is annoying but harmless.
+- When there is no room to deal with complications we can observe interesting facts. Anyway, the "*fork bomb*" is just an infinite loop of `fork()` from the same initial process, which is annoying but harmless.
 
-Is `uzpexec` a stub or a payload or a pipexec? All of them, depending on the role it plays. When it gets [embedded](https://github.com/robang74/uzpexec/blob/master/uzpack.sh#L42) in `uzpack.sh` it is a payload, when `uzpack.sh` converts itself, it is a stub. When it is used vanilla is a pipexec.
+- Is `uzpexec` a stub or a payload or a pipexec? All of them, depending on the role it plays. When it gets [embedded](https://github.com/robang74/uzpexec/blob/master/uzpack.sh#L42) in `uzpack.sh` it is a payload, when `uzpack.sh` converts itself, it is a stub. When it is used vanilla is a pipexec.
 
-Moreover, all these three roles are complementary and necessary. Without pipexec it would not be able to run compressed scripts, hence it would not be able to convert itself. But it does, hence it is also a stub and a payload.
+- Moreover, all these three roles are complementary and necessary. Without pipexec it would not be able to run compressed scripts, hence it would not be able to convert itself. But it does, hence it is also a stub and a payload.
 
-This triade of roles, and related capabilities, underlines why `uzpexec` isn't limited by the *unzip-and-run* goal, which is the `uzpack` main pourpose. It is different by design, by audience, by roles.
+- This triade of roles, and related capabilities, underlines why `uzpexec` isn't limited by the *unzip-and-run* goal, which is the `uzpack` main pourpose. It is different by design, by audience, by roles.
 
 ---
 
