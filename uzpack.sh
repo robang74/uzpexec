@@ -24,6 +24,7 @@ spt=0
 ext=0
 upd=0
 ret=0
+rpl=0
 
 gzc=$(command -v pigz gzip | head -n1)
 bin=$(command -v uzpexec || echo ./uzpexec)
@@ -35,6 +36,7 @@ do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i "$dst"; }
 no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i "$dst"; }
 st_script() { echo "script mode status: $(strings $dst | grep bin/sh)"; }
 dd_gtpack() { dd if="${1:-}" count=1 status=none | grep -qe "$cpy"; }
+dd_gtuzip() { dd if="${1:-}"  skip=1 status=none | zcat ; }
 gt_plline() { grep -n "UZ""PAYLOAD" "$1" | head -n$2 | tail -n1 | cut -d: -f1; }
 prt_versn() { { ${1:-$bin} <&- || echo; } 2>&1 | tr '\0' '\n' | grep -vi bad; }
 
@@ -114,8 +116,17 @@ while true; do
         ret=1; break
     fi
 
+    if dd_gtpack "$src"; then
+        echo "Warning: file '$src' was already converted, updating." >&2
+        rpl=1
+    fi
+
     if [ $spt -eq 0 ]; then
-        shb=$(head -c2 "$src")
+        if [ $rpl -eq 0 ]; then
+            shb=$(head -c2 "$src")
+        else
+            shb=$(dd_gtuzip "$src" | head -c2)
+        fi
         test "$shb" = '#!' && spt=1
     fi
 
@@ -125,16 +136,6 @@ while true; do
     bdst=$(basename "$dst")
     if ! printf "%s" "$bdst" | grep -qe ".\{7\}$"; then
         echo "Warning: destination filename '$bdst' too short, min 7"
-    fi
-
-    if dd_gtpack "$src"; then
-        echo "Warning: file '$src' was already converted, just copy." >&2
-        command cp -i "$bin" "$dst" || {
-            echo "ERROR: failed to copy the binary stub to '$dst'." >&2
-            ret=1; break
-        }
-        echo
-        break
     fi
 
     # Safely copy the uzpexec binary stub to the destination path
@@ -169,7 +170,12 @@ while true; do
     fi
 
     # Append the compressed payload onto the newly built self-extracting file
-    $gzc -c "$src" >> "$dst" || {
+    if [ $rpl -eq 0 ]; then
+        cmd="$gzc -c '$src'"
+    else
+        cmd="dd_gtuzip '$src' | $gzc -c"
+    fi
+    eval "$cmd" >> "$dst" || {
         printf "KO\n\n"
         echo "ERROR: conversion failed." >&2
         ret=1; break
