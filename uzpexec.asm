@@ -186,7 +186,11 @@ main_start:
   cmpsd                         ; compare "xec\0" (dword #2)
 
   pop esi
+%ifdef _NO_STDIN
+  je exit_error
+%else
   je .stdin
+%endif
   ; ----------------------------------------------------------------------------
 .not_uzpexec:
   pop esi
