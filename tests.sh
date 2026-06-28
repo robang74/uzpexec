@@ -81,14 +81,15 @@ echo "Strings output:"
   cat $LS | ./$bin -1 $bin
   retprt
 
-  echo '====== TESTS !TO HANG (x3) ======'
+  echo '====== TESTS !TO HANG (x4) ======'
 # in case of timeout the return code is 124 not 2
-  for nm in c xec uzp; do
+  for nm in u uzp xec c; do
+      printf "\nTesting with name: $nm"
       cp -f uzpexec $nm && timeout 1 ./zeroenv ./$nm
-      printf "\tret:$?"
+      printf "\tret:$?\n"; rm -f $nm
   done
   echo
-  echo
+
   echo "====== TESTS TO FAIL (x3) ======"
 
   cat $bin $LS | DD of=ls.elf &&
@@ -110,7 +111,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/b1795ee7b07d63b39e9677605fb4fe83de30c0c9/$bin OK/" |
+sed "s/3df2672f36fd5e695d7f4b0b9bd6db0b80145970/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
