@@ -40,15 +40,14 @@ prt_versn() { { ${1:-$bin} <&- || echo; } 2>&1 | tr '\0' '\n' | grep -vi bad; }
 # RAF, TODO: enable the Makefile to update this embedded payload
 #######################################################################
 UZPAYLOAD="
-H4sIAAAAAAACA00PAxcUYXB2b5XrOdu2bbsWmXu27fsOv6Ln8Jht27ZtY748NuIjJ4xiGAb
-+AAsGoN6MBCf1gH/QA5rAn6q/1VhDGZuA4wBEGqsNIJN7FUuOKzXqY/BMnUWukVerBnT2su
-RVZof3LTm3/UCSk1at8Yrofpj3uPO8rgdNvHw0QfZv5FKctImOMxlk8vloIrujVuEZANTKP
-EDZdpf3/mO26/fNdECtddMbZk5562xYwmA5oxxNrADsflzN1E7ezKE1/WjCxMp0hkfPnPJ0
-VU2CXFI5jA6WS/W6HkSjmrz5Lo7az7X4iqoyocUH/RMa08mjo4nHwa4Hu57qenm8SaRDvnt
-E7Kc3bViGC0sN6TITkJvkFXm2nX6NLaNMg7GEjv6Vx7VCqaGEFiaG0lMCzenSE7jEBPo3VN
-nvXl5/hYZOg+Rm11N4VzN14xr09o2o872qiZNNrIZBBs9os7htk+VGj+5d1NllX7TQtrx3j
-ya+Lp369GziDTmWBpYuhs6LjLbOocULPfA/0KBb/2V3XAYws1v3Ph3d0LEj/AAbrMPlAAIA
-AA==
+H4sIAAAAAAACA6t39XFjZGRkgAEmBmYGEC+kgYXDhAEBTBgUGGCq4KqBakD4HVCAhYWBgR0
+kJsDAENH5rDenjaVbzoK5xDms896algOlv3vLfu3f0cjCsTwuvETP8GQWa8TZhs7jO1maWD
+h2AW1lyGKO6Px9tqH1AH/HK6Ax/C1PgKTmodLnr5kM/0fzbwsWb7lUKrgjhRGolDHybMNiB
+qDO19xZWhG7QWYEn23IYooA6S/JaLlUYhiVxRbRHcUCFLWP6JYyPAlkcEfsvgx0wHEWlddA
+qtdH5UfGCyAjuPPV2YbXlYYnDS8Z3vbOYgcZ8r+EPYsN7J4daUALu2VBlmUxdD7s/NT5bj/
+Ij0Atbln2QCUgoyHyQGvZumU5gCyghCPIKRXKIEv3NYL0ZrwBUq3/S1kzHgAZGSDBzoeGl4
+DuUoraOQfIO+Yi+J8riyUiiykaKMgIdIZGsqZCemZJRmmSflF+UmJeurmJQpmBnoWZQmlVQ
+WpFajKDflJmnn5VcmIJAzIACRZnQNi6aQwMoUbGFrrFDLq6DJgAAMaqVg0AAgAA
 " # END_OF_UZPAYLOAD ##################################################
 
 echo

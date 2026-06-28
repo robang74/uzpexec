@@ -81,14 +81,19 @@ echo "Strings output:"
   cat $LS | ./$bin -1 $bin
   retprt
 
-  echo '====== TESTS !TO HANG (x4) ======'
-# in case of timeout the return code is 124 not 2
-  for nm in u uzp xec c; do
-      printf "\nTesting with name: $nm"
-      cp -f uzpexec $nm && timeout 1 ./zeroenv ./$nm
-      printf "\tret:$?\n"; rm -f $nm
-  done
+  echo '====== TESTS !TO HANG (x10) ======'
   echo
+# in case of timeout the return code is 124 or 127 not 2
+  for cmd in zeroenv sigsegv; do
+    echo "Using cmd: $cmd (ret:2, all)"
+    ln=$(test "$cmd" = "sigsegv" && printf '\\n')
+    for fnm in u uzp pexe xec c; do
+        printf "\nTesting with name: $fnm $ln"
+        cp -f $bin $fnm && timeout 1 ./$cmd ./$fnm
+        printf "\tret:$?\n"; rm -f $fnm
+    done
+    echo
+  done
 
   echo "====== TESTS TO FAIL (x3) ======"
 
@@ -111,7 +116,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/3df2672f36fd5e695d7f4b0b9bd6db0b80145970/$bin OK/" |
+sed "s/0687df5e571d564acb56345a0fcfbce250ca79e2/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################

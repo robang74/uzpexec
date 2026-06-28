@@ -28,8 +28,8 @@ MAINTAINER = Roberto A. Foglietta <roberto.foglietta@gmail.com>
 BINS       = uzpexec uzpack gzcmd.gz.sh
 MANPAGES   = uzpack.1 uzpexec.1
 DOCFILES   = README.md
-DEVFILES   = uzpack.sh uzpexec.asm gzcmd.sh hello.c zeroenv.c tests.sh Makefile 
-DOCFILES  += $(DOCFILES)
+DEVFILES   = uzpack.sh uzpexec.asm hello.c zeroenv.c
+DEVFILES  += tests.sh sigsegv.c gzcmd.sh Makefile $(DOCFILES)
 RPMFILES   = $(BINS) $(MANPAGES) $(DEVFILES) uzpexec.spec.tmpl
 
 # -----------------------------------------------------------------------------
@@ -102,6 +102,14 @@ zeroenv: zeroenv.c
 	du -b $@
 	@echo
 
+sigsegv: sigsegv.c
+	@echo ====== compile $^ ======
+	@echo
+	cc -s -Os $^ -o $@ -Wl,--build-id=none
+	file $@ | sed -e "s/, int/,\n\t int/"
+	du -b $@
+	@echo
+
 uzpack: uzpexec uzpack.sh
 	@echo ====== produce $@ ======
 	@echo
@@ -123,7 +131,9 @@ clean: blkln
 	rm -f hello.gz.sh ls.elf ls.gz.elf lz
 	@echo
 
-tests: blkln distclean hello zeroenv $(BINS)
+utils: hello zeroenv sigsegv
+
+tests: blkln distclean utils $(BINS)
 	@echo ====== testing hello ======
 	@echo
 	./hello
@@ -134,6 +144,12 @@ tests: blkln distclean hello zeroenv $(BINS)
 	{ env -i sh -c "env" | sed -e "s,^,  ," | grep PWD && \
       ./zeroenv sh -c "env" | grep PWD; } || \
           printf "  PASS: ok\n"
+	@echo
+
+	@echo ====== testing sigsegv ======
+	@echo
+	echo "Y2lhbwo=" | ./sigsegv /bin/base64 -d | \
+	    sed -e "s,^,  CIAO: &,"
 	@echo
 
 	@echo ====== testing gzcmd.gz.sh ======
