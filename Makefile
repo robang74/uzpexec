@@ -144,7 +144,7 @@ nostdin:
 teststdin: nostdin
 	@echo ====== testing nostdin ======
 	@echo
-	@echo ret:2 is mandatorly expected 
+	@echo ret:2 is mandatorly expected
 	timeout 1 ./uzpexec; printf "\tret:$$?\n" | grep -e "ret:2$$" || exit
 	@rm -f uzpexec
 	@echo
@@ -174,7 +174,7 @@ tests: blkln teststdin distclean utils $(BINS)
 	./hello.gz.sh
 	@echo
 
-	@echo ====== testing uzpack.sh ======
+	@echo ====== standalone uzpack.sh ======
 	@echo
 	mv -f uzpack uzpack.bak
 	mv -f uzpexec uzpexec.bak
