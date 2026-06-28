@@ -133,7 +133,23 @@ clean: blkln
 
 utils: hello zeroenv sigsegv
 
-tests: blkln distclean utils $(BINS)
+nostdin:
+	@echo ====== compile nostdin ======
+	@echo
+	rm -f uzpexec
+	@echo
+	( make JE_STDIN=_NO_STDIN uzpexec )| grep -ve "^==="
+	@echo
+
+teststdin: nostdin
+	@echo ====== testing nostdin ======
+	@echo
+	@echo ret:2 is mandatorly expected 
+	timeout 1 ./uzpexec; printf "\tret:$$?\n" | grep -e "ret:2$$" || exit
+	@rm -f uzpexec
+	@echo
+
+tests: blkln teststdin distclean utils $(BINS)
 	@echo ====== testing hello ======
 	@echo
 	./hello
@@ -157,7 +173,7 @@ tests: blkln distclean utils $(BINS)
 	./gzcmd.gz.sh hello
 	./hello.gz.sh
 	@echo
-	@echo ====== testing uzpexec ======
+
 	@echo
 	sh tests.sh --tests-only
 
@@ -212,6 +228,8 @@ dist: deb
 	@echo
 
 distclean: clean
+	@echo ====== doing $@ ======
+	@echo
 	rm -f uzpexec-*.rpm uzpexec-*.deb zeroenv
 	rm -f $(BINS) hello uzpexec-*.t?z sigsegv
 	@echo
