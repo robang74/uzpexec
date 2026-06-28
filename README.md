@@ -10,6 +10,21 @@
 
 ---
 
+### Current release
+
+> [!INFO]
+> 
+> Unless a binary pre-compiled packages is strictly required, download the [`.zip`](https://github.com/robang74/uzpexec/archive/refs/heads/master.zip) from github master branch.
+
+Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.85** and the following are fixes for it:
+
+- [`77ec76f`](https://github.com/robang74/uzpexec/commit/77ec76f) - Makefile,uzpack.sh: adding a 'standalone mode' test for uzpack
+- [`06a5da3`](https://github.com/robang74/uzpexec/commit/06a5da3) - BUGFIX - R.v0.85 - uzpack.sh: internal payload transfer fails
+
+The only affected component is `uzpack` when working in standalone mode.
+
+---
+
 ### Presentation
 
 > [!NOTE]
