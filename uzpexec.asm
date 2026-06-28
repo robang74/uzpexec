@@ -179,12 +179,11 @@ main_start:
 ;_cmp ah, 8                     ; this avoids underflow
 ;_jb .mismatch                  ; too short, to match
 
-  lea esi, [esi-8]              ; ESI = last 8 byte argv[0]
-  mov edi, filename             ; EDI = pattern "uzpexec\0"
-  cmpsd                         ; compare "uzpe"  (dword #1)
-  jne .not_uzpexec
-  cmpsd                         ; compare "xec\0" (dword #2)
-
+  lea esi, [esi - 6]            ; ESI = last 8 byte argv[0]
+  mov edi, filename + 2         ; EDI = pattern "uzpexec\0"
+; This is an essential approach for which a keyword in the name triggers a jump
+; It also reduce the risk of argv[0] underflow by two bytes, even if it remains
+  cmpsd                         ; only check "pexe" (dword)
   pop esi
 %ifdef _NO_STDIN
   je exit_error
@@ -193,8 +192,6 @@ main_start:
 %endif
   ; ----------------------------------------------------------------------------
 .not_uzpexec:
-  pop esi
-
   ; 2. Try to open itself (embedded payload mode, only)
   xor ecx, ecx                  ; O_RDONLY
   push 5                        ; SYS_open
