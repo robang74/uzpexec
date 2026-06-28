@@ -117,12 +117,14 @@ tests: blkln distclean hello $(BINS)
 	@echo
 	./hello
 	@echo
+
 	@echo ====== testing gzcmd.gz.sh ======
 	@echo
 	./gzcmd.gz.sh hello
 	./hello.gz.sh
 	@echo
-	@echo ====== testing uzpack.sh ======
+
+	@echo ====== standalone uzpack.sh ======
 	@echo
 	mv -f uzpack uzpack.bak
 	mv -f uzpexec uzpexec.bak
@@ -130,6 +132,7 @@ tests: blkln distclean hello $(BINS)
 	mv -f uzpexec.bak uzpexec
 	mv -f uzpack.bak uzpack
 	@echo
+
 	@echo ====== testing uzpexec ======
 	@echo
 	sh tests.sh --tests-only
