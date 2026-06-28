@@ -222,6 +222,8 @@ Is `uzpexec` a stub or a payload or a pipexec? All of them, depending on the rol
 
 Moreover, all these three roles are complementary and necessary. Without pipexec it would not be able to run compressed scripts, hence it would not be able to convert itself. But it does, hence it is also a stub and a payload.
 
+This triade of roles, and related capabilities, underlines why `uzpexec` isn't limited by the *unzip-and-run* goal, which is the `uzpack` main pourpose. It is different by design, by audience, by roles.
+
 ---
 
 ### W+X memory
