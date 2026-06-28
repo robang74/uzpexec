@@ -4,6 +4,8 @@ deb/changes.log
 deb/changelog
 uzpack
 uzpexec
+zeroenv
+sigsegv
 gzcmd.gz.sh
 uzpexec-0.??.deb
 uzpexec-0.??.rpm
