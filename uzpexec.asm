@@ -151,8 +151,31 @@ main_start:
 
 ;_A defensive check but apparently ./a (argv[0] = "a\0") works properly, anyway
 ;_This imposes restriction on the converted ELF (not-script) name: 7 chars + \0
-;_This restriction is acceptable and the consequences of a violation are near-0
-;_Where "near-0" means: yet TODO an extensive argv[0] underflow investigation
+;_The backforward check would impose a much more acceptable constraint: 3c + \0
+;_As long as the 3c + \0 would not match the last part of the *filename, then 7
+;_Instead, 7c+\0 isn't acceptable but the consequences of argv[0] underflow are
+;_none to worry about because the Auxiliary Vector (1.2) and memfd_create (3.17)
+;_which every Linux > 2014.10 matches. Yet an extensive investigation is on TODO
+
+;_  [ HIGH ADDRESSES - Top of the physical stack ]
+;_  ---------------------------------------------------------
+;_  STRING BLOCK:
+;_  - execfn string (e.g. "/usr/local/bin/uzpexec\0")
+;_  - envp strings  (e.g. "USER=teo\0", "PATH=...\0")
+;_  - argv strings  (e.g. "-c\0", "./a\0")  <-- argv[0] string, underflow --v
+;_  ---------------------------------------------------------
+;_  PADDING: (Zero bytes for 16-byte alignment)
+;_  ---------------------------------------------------------
+;_  POINTER / VECTOR TABLE:
+;_  - auxv array    (key/value pairs: AT_NULL, AT_PAGESZ...)
+;_  - NULL          (envp terminator)
+;_  - envp pointers (point upward to envp strings)
+;_  - NULL          (argv terminator)
+;_  - argv pointers (point upward to argv strings)
+;_  - argc          (integer value = 1)
+;_  ---------------------------------------------------------
+;_  [ LOW ADDRESSES - ESP / RSP points here at _start ]
+
 ;_cmp ah, 8                     ; this avoids underflow
 ;_jb .mismatch                  ; too short, to match
 
