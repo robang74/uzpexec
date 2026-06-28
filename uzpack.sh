@@ -131,7 +131,7 @@ while true; do
     fi
 
     # Safely copy the uzpexec binary stub to the destination path
-    if [ "$bin" != "" ]; then
+    if [ -r "$bin" ]; then
         echo
         command cp -i "$bin" "$dst" || {
             echo "Error: failed to copy the binary stub to '$dst'." >&2
@@ -139,8 +139,8 @@ while true; do
         }
         echo
     elif [ "$UZPAYLOAD" != "" -a "$b64" != "" ]; then
-        echo "Warning: 'uzpexec' not found, using $UZPAYLOAD base64"
-        echo "$UZPAYLOAD" | $b64 -d | $gzc -dc >uzpex || {
+        echo "Warning: 'uzpexec' not found, using UZPAYLOAD base64"
+        echo "$UZPAYLOAD" | $b64 -d | $gzc -dc > "$dst" || {
             echo "Error: failed to copy the binary stub to '$dst'." >&2
             break
         }
