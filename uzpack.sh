@@ -134,7 +134,7 @@ while true; do
 
     # Safety check about the destination filename to avoid argv[0] underflow
     bdst=$(basename "$dst")
-    if ! printf "%s" "$bdst" | grep -qe ".\{7\}$"; then
+    if ! printf "%s" "$bdst" | grep -qe ".\{5\}$"; then
         echo "Warning: destination filename '$bdst' too short, min 7"
     fi
 
