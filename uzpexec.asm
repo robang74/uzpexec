@@ -384,8 +384,8 @@ exit_error:
 ; jnz exit_now
 
   ; Print copyright notice, version and internal name
-  push zcat_path - copy_vers    ; bytes to write
-  pop edx
+  push zcat_path - copy_vers    ; bytes to write --> stack
+  pop edx                       ; bytes to write <-- stack
   mov ecx, copy_vers
   mov byte [ecx + edx - 1], 10  ; line feed
   push  4                       ; SYS_write
