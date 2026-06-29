@@ -27,7 +27,7 @@ rpl=0
 emb=0
 
 nme="uzpexec"
-cpy='(c) github/''robang74 .* '$nme
+cpy='(c) github/''robang74 .*[ \\n]'$nme
 
 #######################################################################
 UZPAYLOAD="
@@ -66,7 +66,7 @@ if [ ! -r "$bin" ]; then
     bin="${d:-.}/$nme"
 fi
 if [ -r "$bin" ]; then
-    prt_versn() { echo; ${1:-$bin} <&- 2>&1 | grep -vi bad; }
+    prt_versn() { echo; dd_gtcopy; }
 else
     emb=1
    _gt_plbody() { echo "$UZPAYLOAD" | $b64 -d | $gzc -dc; }
@@ -201,7 +201,7 @@ while true; do
         ret=1; break
     }
     printf "OK\n\n"
-    if [ "$spt" -ne 0 ]; then
+    if [ "$rpl" -ne 0 ]; then
         diff "$src" "$dst" &&
         echo "Update: source and destination are identical" >&2
     fi
