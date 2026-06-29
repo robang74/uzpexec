@@ -15,12 +15,13 @@ The [uzpexec](uzpexec.asm) (micro gzip pipe exec, written in Assembler, 512 byte
 > 
 > Unless a binary pre-compiled packages is strictly required, download the source [`.zip`](https://github.com/robang74/uzpexec/archive/refs/heads/master.zip) archive from github master branch.
 
-Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.85** and the following are fixes for it:
+- Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.87**
 
-- [`3b9b8a9`](https://github.com/robang74/uzpexec/commit/3b9b8a9) - Makefile,uzpack.sh: adding a 'standalone mode' test for uzpack
-- [`06a5da3`](https://github.com/robang74/uzpexec/commit/06a5da3) - BUGFIX - R.v0.85 - uzpack.sh: internal payload transfer fails
+#### RELEVANT NOTES
 
-The only affected component is `uzpack` when working in standalone mode.
+1. Those who are planning to deploy this tool in their devops/build pipelines are **strongly** suggest to recompile with `make JE_STDIN=_NO_STDIN` to avoid converted apps would activate the exec-by-stdin mode when their file name ends with `pexe`+2c. Instead, embedded system architects/engineers more probably appreciate this feature since they have a stricter control about file naming.
+
+2. Since the project is a week old, I strongly suggest to consult the documentation, the man page, the design choices in the Assembler [source](uzpexec.asm) code comments, the coverage of [tests.sh](tests.sh) in the [Makefile](Makefile), and last but not least the [licensing](#licensing-terms) terms, which allows everyone to change the code (also at running time) but not to remove the authorship note, not even from the binary executable form.
 
 ---
 
@@ -239,30 +240,6 @@ esac
 
 ---
 
-### UPX what?
-
-A comparison that people continue to ask me but I have no clue about what:
-
-| Aspect                          | UPX                             | `uzpexec`                                 | `gzcmd.gz.sh`                           |
-| ------------------------------- | ------------------------------- | ----------------------------------------- | --------------------------------------- |
-| **Role**                        | Fixed: stub only (+ compressor) | **Mutant**: payload, stub, pipexec   | Fixed: stub only                        |
-| **Bootstrap**                   | External toolchain required     | Self-hosting via shell script             | Self-hosting via shell script           |
-| **Execution model**               | In-Process Overwriting (Proprietary) | Kernel-Offloaded Streamer (**Linux**)              | Extracts to ramfs/tmp and exec from it (POSIX)            |
-| **Size constraint**             | Optimized for compression ratio | Optimized for stub size       | Optimized for stub size          |
-| **Auditability** | Opaque, complex codebase        | **Fully auditable** (260  LoC)    | **Fully auditable** (`sh` script)      |
-| **Audience**                    | Windows apps distribution,<br>various others deployment&thinsp;⁽*⁾   | **Linux** devops&thinsp;/&thinsp;users,<br>`ELF` easy deployment      | **Linux** builders&thinsp;/&thinsp;users,<br>`sh` simple deployment |
-| **Toolchain**    | UPX binary + build system       | `sh`+`base64`+`zcat` (or `xz`, …) | `sh`+`gzip` (or `xz`, …)                 |
-| **Tool full size**       | 400 KB – 1.2 MB (multi-OS)      | `.deb` 35 KB, `uzpack` **3KB**           | Just `gzcmd.gz.sh`, **7KB**  |
-| **Stub size**          | 200 – 700 KB (variable)         | **512 bytes** (**fixed**, `dd` 1-block)             |  **512 bytes** (**fixed**, `dd` 1-block) |
-| **Timline**                          | 1998-05-26                             | 2026-06-22                                 | 2026-02-17                           |
-- UPX is also used in embedded systems, demoscene, malware (obfuscation, historically), dev pipelines.
-
-The UPX column has been created by a few steps of *harmonising* Grok, Gemini and Kimi among them.
-
-Like human's consensus, the UPX column could be a collective-AI hallucination and I do **not** know.
-
----
-
 ### W+X memory
 
 Separating exectable code (X) from writing memory (W) costs bytes of code!
@@ -401,3 +378,4 @@ In order to run the paylod, a few minimum requirements are need:
 - **environment**: `PATH`, and optional `HOME`, `USER`, `TMPDIR`
 
 All of the requirements are almost always granted in every Unix/POSIX.
+
