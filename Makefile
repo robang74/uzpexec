@@ -274,7 +274,7 @@ rpm: distclean uzpexec.spec all
 # -----------------------------------------------------------------------------
 # deb package (.deb)
 # -----------------------------------------------------------------------------
-deb: deb/control rpm
+deb: rpm  deb/control deb/changelog
 	rm -rf deb/tmp
 	mkdir -p deb/tmp/DEBIAN
 	mkdir -p deb/tmp$(PREFIX)/bin
