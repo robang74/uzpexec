@@ -232,6 +232,8 @@ esac
 
 ### Trivial facts
 
+- Security is a matter of perception, mainly. Currently, more a bureaucratics market rather than a serious R&D field. Hence, it is *destabilising* seeing an independent developer combining and surfacing 10-20yo technics that relates to: TeenyELF (2005, darkweb), `memfd_create()` (2014, Linux) in glibc (2018).
+
 - A 64 bit ELF would be much bigger, 2x potentially, and adding no value because this ELF32 doesn't process anything, not even the read() / write() hot loops (since the zero pipes implementation) but just a few system calls.
 
 - The `uzpexec` has been developed to compensate for the gzcmd.sh shortcomings and to add useful capability in dealing with STDIN pipe. So, the `gzcmd.sh` is this project's MVP to reach the production grade with `uzpexec`.
