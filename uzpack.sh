@@ -49,9 +49,10 @@ no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i "$dst"; }
 st_script() { echo "script mode status: $(strings $dst | grep bin/sh)"; }
 gt_plline() { grep -n "UZ""PAYLOAD" "$1" | head -n$2 | tail -n1 | cut -d: -f1; }
 gt_plbody() { dd if="${1:-$bin}" count=1 status=none; }
-dd_gtuzip() { dd if="${1:-$bin}"  skip=1 status=none | zcat; }
+dd_zcarry() { dd if="${1:-$bin}"  skip=1 status=none; }
 dd_gtcopy() { gt_plbody ${1:-$bin} | strings | grep -e "$cpy"; }
 dd_gtpack() { dd_gtcopy ${1:-$bin} | grep -q .; }
+dd_gtuzip() { dd_zcarry ${1:-$bin} | $gzc -dc; }
 
 # ==============================================================================
 
@@ -67,11 +68,10 @@ fi
 if [ -r "$bin" ]; then
     prt_versn() { echo; ${1:-$bin} <&- 2>&1 | grep -vi bad; }
 else
-    echo "Notice: '$nme' not found, using UZPAYLOAD base64" >&2
+    emb=1
    _gt_plbody() { echo "$UZPAYLOAD" | $b64 -d | $gzc -dc; }
     prt_versn() { echo; _gt_plbody | strings | grep -e "$cpy"; }
-   _dd_gtuzip() { gt_plbody; }
-    emb=1
+    echo "Notice: '$nme' not found, using UZPAYLOAD base64" >&2
 fi
 
 while true; do
@@ -191,16 +191,20 @@ while true; do
 
     # Append the compressed payload onto the newly built self-extracting file
     if [ $rpl -eq 0 ]; then
-        cmd="$gzc -c '$src'"
+        cmd='$gzc -c'
     else
-        cmd="dd_gtuzip '$src' | $gzc -c"
+        cmd='dd_zcarry'
     fi
-    eval "$cmd" >> "$dst" || {
+    eval "$cmd" '$src' >> "$dst" || {
         printf "KO\n\n"
         echo "ERROR: conversion failed." >&2
         ret=1; break
     }
     printf "OK\n\n"
+    if [ "$spt" -ne 0 ]; then
+        diff "$src" "$dst" &&
+        echo "Update: source and destination are identical" >&2
+    fi
 
     # Enforce safe execution permissions over the generated package
     chmod +x "$dst" || {

@@ -127,8 +127,8 @@ deb/changelog: $(GITMPLOG)
 
 clean: blkln
 	rm -rf deb/tmp uzpexec.spec.tmp uzpexec.spec
-	rm -f tests.res uzpack.uzp uzpexec.uzp
-	rm -f hello.gz.sh ls.elf ls.gz.elf lz
+	rm -f tests.res uzpack.uzp uzpexec.uzp ls.elf
+	rm -f hello.gz.sh ls.gz.elf lz uzpack.new
 	@echo
 
 utils: hello zeroenv sigsegv
@@ -176,6 +176,7 @@ tests: blkln teststdin distclean utils $(BINS)
 
 	@echo ====== standalone uzpack.sh, p.1 ======
 	@echo
+	rm -f uzpack.new
 	mv -f uzpack uzpack.bak
 	mv -f uzpexec uzpexec.bak
 	sh uzpack.sh uzpack.sh uzpack
@@ -183,10 +184,11 @@ tests: blkln teststdin distclean utils $(BINS)
 	@echo ====== standalone uzpack.sh, p.2 ======
 	@echo
 	@echo TODO
-#	./uzpack uzpack uzpack.new
-#	diff uzpack uzpack.new
+	./uzpack uzpack uzpack.new
+	diff uzpack uzpack.new
 	mv -f uzpexec.bak uzpexec
 	mv -f uzpack.bak uzpack
+	rm -f uzpack.new
 	@echo
 
 	@echo ====== executing tests.sh ======

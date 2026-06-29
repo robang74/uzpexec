@@ -99,6 +99,11 @@ echo "Strings output:"
   done
   echo
 
+  fnm="pexet"
+  printf "Testing with name (ret:0) $fnm $ln"
+  cp -f $bin $fnm && cat hello | ./$fnm | grep Hello
+  retprt; rm -f $fnm
+
   echo "====== TESTS TO FAIL (x3) ======"
 
   cat $bin $LS | DD of=ls.elf &&
@@ -124,7 +129,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/6929429903bc74ddece560326b58266490b99168/$bin OK/" |
+sed "s/19cc20a12d9e19da9c254cd1f44a26b93e68f357/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
