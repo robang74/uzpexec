@@ -32,7 +32,9 @@ Obviously RAM-only can be a benefit or a limit, `gzcmd.sh` writes on disk.
 
 ### Current release
 
-- Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.87** on the `master` branch
+Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.87** on the `master` branch, following commits should be considered patchfix:
+
+- [`d8a1742`](https://github.com/robang74/uzpexec/commit/d8a1742) - `2026-06-29` - uzpack.sh: conversion of previous uzpexec versions + bugfix
 
 ### Notes
 
