@@ -9,27 +9,9 @@ The [uzpexec](uzpexec.asm) (micro gzip pipe exec, written in Assembler, 512 byte
 - Pre-compiled `ELF32` (for all x86 arch) available in [releases](https://github.com/robang74/uzpexec/releases/).
 - Development happens in [devel](https://github.com/robang74/uzpexec/tree/devel) branch, testing on [devsrc](https://github.com/robang74/uzpexec/releases/tag/devsrc) tag.
 
-### Current release
-
-> [!NOTE]
-> 
-> Unless a binary pre-compiled packages is strictly required, download the source [`.zip`](https://github.com/robang74/uzpexec/archive/refs/heads/master.zip) archive from github master branch.
-
-- Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.87**
-
-#### RELEVANT NOTES
-
-1. Those who are planning to deploy this tool in their devops/build pipelines are **strongly** suggest to recompile with `make JE_STDIN=_NO_STDIN` to avoid converted apps would activate the exec-by-stdin mode when their file name ends with `pexe`+2c. Instead, embedded system architects/engineers more probably appreciate this feature since they have a stricter control about file naming.
-
-2. Since the project is a week old, I strongly suggest to consult the documentation, the man page, the design choices in the Assembler [source](uzpexec.asm) code comments, the coverage of [tests.sh](tests.sh) in the [Makefile](Makefile), and last but not least the [licensing](#licensing-terms) terms, which allows everyone to change the code (also at running time) but not to remove the authorship note, not even from the binary executable form.
-
 ---
 
 ### Presentation
-
-> [!NOTE]
-> 
-> Suggested file extension: **`.uzp`**
 
 The `uzpexec` is an utility for executing an ELF binary directly from stdin pipe:
 
@@ -45,6 +27,34 @@ The `uzpexec` is an utility for executing an ELF binary directly from stdin pipe
 without writing it on the remote/local systems storage (by `memfd_create`).
 
 Obviously RAM-only can be a benefit or a limit, `gzcmd.sh` writes on disk.
+
+---
+
+### Current release
+
+- Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.87** on the `master` branch
+
+### Notes
+
+#### 0. use the source
+
+- Unless a binary pre-compiled package is needed, download the source [`.zip`](https://github.com/robang74/uzpexec/archive/refs/heads/master.zip) archive from github `master` branch.
+
+#### 1. deploy responsably
+
+- Those who are planning to deploy this tool in their devops/build pipelines are **strongly** suggest to recompile with `make JE_STDIN=_NO_STDIN` to avoid converted apps would activate the exec-by-stdin mode when their file name includes `pexe` 2 chars before its end.
+
+- Instead, embedded system architects/engineers more probably appreciate this feature since they have a stricter control about file naming. Adopting `.uzp` extention mitigate risks-by-mistake.
+
+#### 2. awarenwss of power
+
+- Since the project is a week old, I strongly suggest to consult the documentation, the man page, the design choices in the Assembler [source](uzpexec.asm) code comments, the coverage of [tests.sh](tests.sh) in the [Makefile](Makefile).
+
+- Last but not least the [licensing](#licensing-terms) terms, which allows everyone to change the code (also at running time) but not to remove the authorship note, not even from the binary executable form. A powerful requires awareness about it.
+
+#### 3. files easy to find
+
+- Suggested file extension: **`.uzp`**  
 
 ---
 
