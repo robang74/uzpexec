@@ -16,7 +16,7 @@ SRCDIR     = $(DATADIR)/src
 # -----------------------------------------------------------------------------
 # Package metadata
 # -----------------------------------------------------------------------------
-VERSION   ?= 0.85
+VERSION   ?= 0.86
 PKGNAME    = uzpexec
 FILENME    = $(PKGNAME)-$(VERSION)
 ARCH       = $(shell dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null || uname -m)
@@ -27,7 +27,7 @@ MAINTAINER = Roberto A. Foglietta <roberto.foglietta@gmail.com>
 # -----------------------------------------------------------------------------
 BINS       = uzpexec uzpack gzcmd.gz.sh
 MANPAGES   = uzpack.1 uzpexec.1
-DOCFILES   = README.md
+DOCFILES   = README.md uzpack.md
 DEVFILES   = uzpack.sh uzpexec.asm hello.c zeroenv.c
 DEVFILES  += tests.sh sigsegv.c gzcmd.sh Makefile $(DOCFILES)
 RPMFILES   = $(BINS) $(MANPAGES) $(DEVFILES) uzpexec.spec.tmpl
@@ -36,16 +36,20 @@ RPMFILES   = $(BINS) $(MANPAGES) $(DEVFILES) uzpexec.spec.tmpl
 # Functions
 # -----------------------------------------------------------------------------
 
-VERSNED   := README.md uzpack.1 uzpexec.spec.tmpl uzpexec.asm
-VTOGREP   := $(VERSNED) uzpack.md
+VERSNED   := uzpexec.spec.tmpl uzpexec.asm Makefile
+VTOGREP   := $(VERSNED) uzpack.md uzpack.1
+GRPDATE   := [0-9]\{4\}-[0-9][0-9]-[0-9][0-9]
+GREPCOL   := grep --color=always
 
 ZDDCMD    := dd if=hello.gz.sh skip=1 | zcat
 GITMPLOG  := deb/changes.log
 
 define version_change
 	sed -e "s,\(github/robang74 \)v[0-9.]\{4\},\1v$1," \
-	    -e "s,\(Version[:= ]*\)[0-9.]\{4\},\1$1,I" -i $(VERSNED)
+	    -e "s,\(Version[:?= ]*\)[0-9.]\{4\},\1$1,I" -i $(VERSNED)
 	sed -e "s,^v[0-9.]\{4\},v$1," -i uzpack.md
+	sed -e  "s,v[0-9.]\{4\},v$1," -i uzpack.1
+	sed -e "s,$(GRPDATE),$$(date +%F)," -i uzpack.1 uzpack.md
 endef
 
 define git_changes_log
@@ -198,10 +202,10 @@ tests: blkln teststdin distclean utils $(BINS)
 version: distclean
 	@echo ====== VERSION: $(VERSION) ======
 	@echo
-	grep --color=always -e "v[0]\.[0-9]\{2\}" $(VTOGREP)
+	$(GREPCOL) -e '[" v][0]\.[0-9]\{2\}' $(VTOGREP)
 	$(call version_change,$(VERSION))
 	@echo
-	grep --color=always -e "v[0]\.[0-9]\{2\}" $(VTOGREP)
+	$(GREPCOL) -e '[" v]'$(VERSION) -e "$(GRPDATE)" $(VTOGREP)
 	@echo
 
 # -----------------------------------------------------------------------------
