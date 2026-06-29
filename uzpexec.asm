@@ -132,8 +132,9 @@ main_start:
 
   ; 1. Checking argv[0] to open input (itself or stdin)
   mov ebx, [esi]                ; CVE-2021-4034, pre-5.18
-  cmp byte [ebx], al            ; SIGSEGV kill the bug here
-  jz .stdin                     ; Tiny can't cover LK bugs
+  mov al, byte [ebx]            ; SIGSEGV kill the bug here
+                                ; Tiny can't cover LK bugs
+  jz .stdin                     ; Check if argv[0] is '\0'
 
   ; ----------------------------------------------------------------------------
   ; Seek the match between filename and argv[0] by teo 32-bits compares (-9b)
