@@ -185,14 +185,17 @@ main_start:
   cmpsd                         ; only check "pexe" (dword)
   pop esi                       ; Restore ESI (argv) from the stack
   push edi                      ; Save &filename[6] on the stack
+
+.jump_here:                     ; A single point of hex/ELF modding
 %ifdef _NO_STDIN
   je exit_error
-%else
+%else                           ; In the binary it's a single jump
   je .stdin
 %endif
   cmp byte [ebx], 0             ; Check if argv[0] is '\0'
-  je .stdin                     ; - Y: read from the STDIN
+  je .jump_here                 ; - Y: read from the STDIN
   ; ----------------------------------------------------------------------------
+
 .not_uzpexec:
   ; 2. Try to open itself (embedded payload mode, only)
   xor ecx, ecx                  ; O_RDONLY
