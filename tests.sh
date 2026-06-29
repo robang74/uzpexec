@@ -85,8 +85,9 @@ echo "Strings output:"
   echo
 # in case of timeout the return code is 124 or 127 not 2
   for cmd in zeroenv sigsegv; do
-    echo "Using cmd: $cmd (ret:0)"
     ln=$(test "$cmd" = "sigsegv" && printf '\\n')
+    err=${ln:+1}; err=${err:-0}
+    echo "Using cmd: $cmd (ret:$err)"
     cat hello | timeout 1 ./$cmd $bin | grep Hello
     retprt
   done
@@ -123,7 +124,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/def1baefe92d37591818fbe57990ea46bee30a2d/$bin OK/" |
+sed "s/6929429903bc74ddece560326b58266490b99168/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
