@@ -40,17 +40,17 @@ Obviously RAM-only can be a benefit or a limit, `gzcmd.sh` writes on disk.
 
 - Unless a binary pre-compiled package is needed, download the source [`.zip`](https://github.com/robang74/uzpexec/archive/refs/heads/master.zip) archive from github `master` branch.
 
-#### 1. deploy responsably
+#### 1. deploy responsibly
 
 - Those who are planning to deploy this tool in their devops/build pipelines are **strongly** suggest to recompile with `make JE_STDIN=_NO_STDIN` to avoid converted apps would activate the exec-by-stdin mode when their file name includes `pexe` 2 chars before its end.
 
-- Instead, embedded system architects/engineers more probably appreciate this feature since they have a stricter control about file naming. Adopting `.uzp` extention mitigate risks-by-mistake.
+- Instead, embedded system architects/engineers more probably appreciate this feature since they have a stricter control about file naming. Adopting `.uzp` extension mitigates risks-by-mistake.
 
-#### 2. awarenwss of power
+#### 2. awareness of power
 
 - Since the project is a week old, I strongly suggest to consult the documentation, the man page, the design choices in the Assembler [source](uzpexec.asm) code comments, the coverage of [tests.sh](tests.sh) in the [Makefile](Makefile).
 
-- Last but not least the [licensing](#licensing-terms) terms, which allows everyone to change the code (also at running time) but not to remove the authorship note, not even from the binary executable form. A powerful requires awareness about it.
+- Last but not least the [licensing](#licensing-terms) terms, which allows everyone to change the code (also at running time) but not to remove the authorship note, not even from the binary executable form. A powerful tool requires awareness about it.
 
 #### 3. files easy to find
 
