@@ -85,15 +85,18 @@ echo "Strings output:"
   echo
 # in case of timeout the return code is 124 or 127 not 2
   for cmd in zeroenv sigsegv; do
-    echo "Using cmd: $cmd (ret:2, all)"
+    echo "Using cmd: $cmd (ret:0)"
     ln=$(test "$cmd" = "sigsegv" && printf '\\n')
-    for fnm in u uzp pexe xec c; do
-        printf "\nTesting with name: $fnm $ln"
-        cp -f $bin $fnm && timeout 1 ./$cmd ./$fnm
-        printf "\tret:$?\n"; rm -f $fnm
-    done
-    echo
+    cat hello | timeout 1 ./$cmd $bin | grep Hello
+    retprt
   done
+
+  for fnm in u uzp pexe xec c; do
+      printf "Testing with name (ret:2) $fnm $ln"
+      cp -f $bin $fnm && timeout 1 ./$fnm 2>&-
+      printf "\tret:$?\n"; rm -f $fnm
+  done
+  echo
 
   echo "====== TESTS TO FAIL (x3) ======"
 
@@ -108,15 +111,19 @@ echo "Strings output:"
   ./$bin <&-
   retprt
 
-  echo "====== ARGS TO PASS (x1) ======"
+  echo "====== ARGS TO PASS (x2) ======"
 
-  ./uzpack -h
+  echo
+  ./uzpack -h 2>&1| grep .
+  echo
+  ./uzpack -v 2>&1| grep .
+  echo
 
 ) | tee     tests.res
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/0687df5e571d564acb56345a0fcfbce250ca79e2/$bin OK/" |
+sed "s/def1baefe92d37591818fbe57990ea46bee30a2d/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################

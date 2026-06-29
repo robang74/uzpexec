@@ -114,7 +114,7 @@ uzpack: uzpexec uzpack.sh
 	@echo ====== produce $@ ======
 	@echo
 	sh uzpack.sh -u uzpexec
-	@rm -f uzpack
+	rm -f uzpack
 	sh uzpack.sh uzpack.sh uzpack
 	du -b $@
 	@echo
@@ -179,7 +179,7 @@ tests: blkln teststdin distclean utils $(BINS)
 	mv -f uzpack uzpack.bak
 	mv -f uzpexec uzpexec.bak
 	sh uzpack.sh uzpack.sh uzpack
-	@echo
+
 	@echo ====== standalone uzpack.sh, p.2 ======
 	@echo
 	@echo TODO

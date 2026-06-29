@@ -132,9 +132,8 @@ main_start:
 
   ; 1. Checking argv[0] to open input (itself or stdin)
   mov ebx, [esi]                ; CVE-2021-4034, pre-5.18
-  mov al, byte [ebx]            ; SIGSEGV kill the bug here
                                 ; Tiny can't cover LK bugs
-  jz .stdin                     ; Check if argv[0] is '\0'
+                                ; SIGSEGV kill the bug soon
 
   ; ----------------------------------------------------------------------------
   ; Seek the match between filename and argv[0] by teo 32-bits compares (-9b)
@@ -142,9 +141,8 @@ main_start:
   push esi                      ; Save ESI (argv) on the stack
 
   mov esi, ebx                  ; ESI = argv[0] for lodsb
-;_xor ah, ah
+                                ; SIGSEGV kill the bug here
 .seek_eos:
-;_inc ah
   lodsb                         ; AL = *ESI++, by CPU
   test al, al                   ; Check for the EOS '\0'
   jnz .seek_eos                 ; - N: loop again
@@ -192,6 +190,8 @@ main_start:
 %else
   je .stdin
 %endif
+  cmp byte [ebx], 0             ; Check if argv[0] is '\0'
+  je .stdin                     ; - Y: read from the STDIN
   ; ----------------------------------------------------------------------------
 .not_uzpexec:
   ; 2. Try to open itself (embedded payload mode, only)
