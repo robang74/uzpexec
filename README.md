@@ -9,6 +9,10 @@ The [uzpexec](uzpexec.asm) (micro gzip pipe exec, written in Assembler, 512 byte
 - Pre-compiled `ELF32` (for all x86 arch) available in [releases](https://github.com/robang74/uzpexec/releases/).
 - Development happens in [devel](https://github.com/robang74/uzpexec/tree/devel) branch, testing on [devsrc](https://github.com/robang74/uzpexec/releases/tag/devsrc) tag.
 
+### Index
+
+- [Presentation](#presentation) - [Release](#current-release) - [Usage](#usage) - [Compile](#how-to-compile) - [Examples](#example-1) - [Customisation](#quick-customisation) - [Trivials](#trivial-facts) - [TeenyELF](#wx-memory) - [Licensing](#licensing-terms) - [gzcmd.sh](#gzcmdsh)
+
 ---
 
 ### Presentation
@@ -85,6 +89,45 @@ However `uzpexec` expects the shebang as minimum requirement (cfr. [script templ
 
 This tool comes with its `man` page [uzpack.1](uzpack.1) which can be read by github via [uzpack.md](uzpack.md).
 
+#### Script to ELF32
+
+> [!NOTE]
+> 
+> This section about shell scripts conversion is obsolete because uzpack[.sh] does it for you. It is kept for explaining the internals in terms of the original concept. Even if the implementation could have changed or it will change in the future, this section explain the basic initial concept, for better understanding the current approch and where it comes.
+
+Activating the `do_script` mode, it converts any script into an ELF32:
+
+```sh
+bin="uzpexec"
+HI() { printf '#!/bin/sh\necho Hi World!\n'| gzip -c; }
+do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i $bin; }
+no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i $bin; }
+
+do_script # set the script mode
+{ cat $bin; HI; }  > $bin.uzp &&
+chmod +x $bin.uzp && $bin.uzp
+no_script # reset back original
+```
+
+Appending a compressed script is easy and reversible without recompiling.
+
+Or even easier using the shell script provided by this repository;
+
+- `sh uzpack.sh -h` &nbsp; dowload from [here](sh uzpack.sh)
+
+Which also contains the basic shell script template for full compatibility
+
+```sh
+#!/bin/sh
+if [ -t 0 ] || [ -c /dev/tty ]; then exec </dev/tty; fi
+
+# put your shell script code here
+
+exit
+```
+
+A trivial template which is also universal and includes the `if`/`fi` for `crod`.
+
 ---
 
 ### How to compile
@@ -125,43 +168,6 @@ A different result can be obtained by double converting and executing a binary (
 > [!NOTE]
 > 
 > Performance report: this little guy in "fork bomb" mode or better said in "fork loop" mode, is capable of sucking 2 core power from my i5-8365. Two! And this number can correctly taken as an index of its performance: no any lags but pure execution.
-
----
-
-### Script to ELF32
-
-Activating the `do_script` mode, it converts any script into an ELF32:
-
-```sh
-bin="uzpexec"
-HI() { printf '#!/bin/sh\necho Hi World!\n'| gzip -c; }
-do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i $bin; }
-no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i $bin; }
-
-do_script # set the script mode
-{ cat $bin; HI; }  > $bin.uzp &&
-chmod +x $bin.uzp && $bin.uzp
-no_script # reset back original
-```
-
-Appending a compressed script is easy and reversible without recompiling.
-
-Or even easier using the shell script provided by this repository;
-
-- `sh uzpack.sh -h` &nbsp; dowload from [here](sh uzpack.sh)
-
-Which also contains the basic shell script template for full compatibility
-
-```sh
-#!/bin/sh
-if [ -t 0 ] || [ -c /dev/tty ]; then exec </dev/tty; fi
-
-# put your shell script code here
-
-exit
-```
-
-A trivial template which is also universal and includes the `if`/`fi` for `crod`.
 
 ---
 
