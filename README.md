@@ -40,6 +40,7 @@ Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.87** on
 
 - [`d8a1742`](https://github.com/robang74/uzpexec/commit/d8a1742) - `2026-06-29` - uzpack.sh: conversion of previous uzpexec versions + bugfix
 - [`a08f5d8`](https://github.com/robang74/uzpexec/commit/a08f5d8) - `2026-06-30` - uzpack.sh: general improvement + debug/auditability + gzip level
+- [`95c84af`](https://github.com/robang74/uzpexec/commit/95c84af) - `2026-06-30` - uzpack.sh: script template isn't BASH compatible
 
 In short, download the [`uzpack.sh`](uzpack.sh) and rebuild it: `sh uzpack.sh -9 uzpack.sh uzpack`
 
@@ -105,6 +106,8 @@ if [ ! -n "${BASH_VERSION:-}" ]&&[ -t 0 -o -c /dev/tty ];then exec < /dev/tty;fi
 
 exit $ret
 ```
+
+However, [gzcmd.sh](#gzcmdsh) is designed to create self-extracting executable scripts.
 
 ---
 
@@ -316,7 +319,7 @@ The `gzcmd.sh` was the predecessor of `uzpexec` in terms of project planning and
 Alternatively it can be used by activating the execution bit by `chmod +x gzcmd.sh` or calling it by the shell `sh gzcmd.sh`, the only parameter that matters is the ELF patch to convert and the converted file will be written in the current directory.
 
 ```sh
-$ sh gzcmd.sh gzcmd.sh
+$ sh gzcmd.sh gzcmd.gz.sh
 FILE: 'gzcmd.gz.sh', HEAD: 502 (512), GZIP: 6780 (7 Kb, 38 %), GZSH: v0.3.1
 ```
 
