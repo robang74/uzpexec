@@ -47,9 +47,9 @@ ckM+kmZefpVyYklDMgAJFicAeWEGhlb6BYz6Ooy6KYxYAcAIpLmlwACAAA=
 b64=$(command -v base64)
 gzc=$(command -v pigz gzip | head -n1)
 
-do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i "$dst"; }
-no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i "$dst"; }
-st_script() { echo "Script mode status: '$(strings $dst | grep bin/sh)'" >&2 ; }
+do_script() { /bin/sed -e 's,\x00\(bin/sh\),/\1,' -i "${1:-$dst}"; }
+no_script() { /bin/sed -e 's,/\(bin/sh\),\x00\1,' -i "${1:-$dst}"; }
+st_script() { echo "Script mode status: '$(strings $dst | grep bin/sh)'" ; }
 gt_plline() { grep -n "UZ""PAYLOAD" "$1" | head -n$2 | tail -n1 | cut -d: -f1; }
 gt_plbody() { dd if="${1:-$bin}" count=1 status=none; }
 dd_zcarry() { dd if="${1:-$bin}"  skip=1 status=none; }
@@ -202,13 +202,16 @@ while [ $ext -eq 0 ]; do
     fi
 
     # Alter internal routing tags inside the stub depending on carryload type
-    if [ "$spt" -eq 0 ]; then
+    if [ $spt -eq 0 ]; then
         no_script
-        st_script
+        st_script 
         printf "Compressing a binary ... " >&2
     else
         do_script
-        st_script
+        st_script | tee /proc/self/fd/2 | grep -qe "/bin/sh" || {
+            echo "ERROR: sed did not its job correctly, failed"
+            break
+        }
         printf "Compressing a script ... " >&2
         # RAF, TODO: add sanity check for the script (cfr. universal template)
     fi
