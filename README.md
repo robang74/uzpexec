@@ -74,59 +74,37 @@ Running `uzpexec` directly probably isn't your goal, but `uzpack` to create exec
 ```sh
 Usage: uzpack [-h|--help] [-v|--version]
        uzpack origin [destination[.uzp]]
+       uzpack [-x: debug | -1/-11: gzip]
 ```
 
-The help from the script is pretty clear, and its development is simplicity-oriented. Probably, you won't cope either with `uzpack.sh` as script but having an executable converter:
+This tool comes with its `man` page [uzpack.1](uzpack.1) which can be read by github via [uzpack.md](uzpack.md). However, the help from the script is pretty clear, and its development is simplicity-oriented.
 
 ```sh
 sh ./uzpack.sh uzpack.sh uzpack
 ./uzpack -v
 ```
 
-A generic script to run needs a properly set shebang (`#!`), a shell script not necessarily.
-
-However `uzpexec` expects the shebang as minimum requirement (cfr. [script template](#script-to-elf32)).
-
-This tool comes with its `man` page [uzpack.1](uzpack.1) which can be read by github via [uzpack.md](uzpack.md).
+Moreover, the shell script `uzpack.sh` is able to convert itself into an executable converter.
 
 #### Script to ELF32
 
-> [!NOTE]
-> 
-> This section about shell scripts conversion is obsolete because uzpack[.sh] does it for you. It is kept for explaining the internals in terms of the original concept. Even if the implementation could have changed or it will change in the future, this section explain the basic initial concept, for better understanding the current approch and where it comes.
+> [!WARNING]
+>
+> Shell scripts requiring user inputs need to use `</dev/tty` on each specific input request or run exclusively on `/bin/dash` (tested) because `bash` resets the `STDIN` in doing `exec </dev/tty` and this stops the script. Until an universal approach would be found, scripts conversion may requires some levels of customisation of the script and/or the payload.
 
-Activating the `do_script` mode, it converts any script into an ELF32:
-
-```sh
-bin="uzpexec"
-HI() { printf '#!/bin/sh\necho Hi World!\n'| gzip -c; }
-do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i $bin; }
-no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i $bin; }
-
-do_script # set the script mode
-{ cat $bin; HI; }  > $bin.uzp &&
-chmod +x $bin.uzp && $bin.uzp
-no_script # reset back original
-```
-
-Appending a compressed script is easy and reversible without recompiling.
-
-Or even easier using the shell script provided by this repository;
-
-- `sh uzpack.sh -h` &nbsp; dowload from [here](sh uzpack.sh)
-
-Which also contains the basic shell script template for full compatibility
+A shell script may have a shebang (`#!`), while `uzpexec` expects the shebang as a minimum requirement and a kind of template / wrapper for the script to convert in order to deal with the input from the users. Moreover, at the writing time only `dash` works smoothly.
 
 ```sh
 #!/bin/sh
-if [ -t 0 ] || [ -c /dev/tty ]; then exec </dev/tty; fi
+if [ ! -n "${BASH_VERSION:-}" ]&&[ -t 0 -o -c /dev/tty ];then exec < /dev/tty;fi
+# RAF, TODO: for testing the console ## read -p "proceed with '$-' ? " xp  # <&3
 
-# put your shell script code here
+            # ############################################### #
+            # ####### put your shell script code here ####### #
+            # ############################################### #
 
-exit
+exit $ret
 ```
-
-A trivial template which is also universal and includes the `if`/`fi` for `crod`.
 
 ---
 
