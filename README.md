@@ -319,7 +319,7 @@ The `gzcmd.sh` was the predecessor of `uzpexec` in terms of project planning and
 Alternatively it can be used by activating the execution bit by `chmod +x gzcmd.sh` or calling it by the shell `sh gzcmd.sh`, the only parameter that matters is the ELF patch to convert and the converted file will be written in the current directory.
 
 ```sh
-$ sh gzcmd.sh gzcmd.gz.sh
+$ sh gzcmd.sh gzcmd.sh
 FILE: 'gzcmd.gz.sh', HEAD: 502 (512), GZIP: 6780 (7 Kb, 38 %), GZSH: v0.3.1
 ```
 

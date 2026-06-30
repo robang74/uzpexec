@@ -6,7 +6,7 @@
 # Hint    : set blocksize as headersize +2 from gzcmd.sh for min.size
 # Host    : [[export] TMPDIR=path] [shell] elf.gz.sh
 # Install : sudo sh -c "[export] TMPDIR=/usr/local/bin; elf.gz.sh"
-  RVERSION="v0.3.1"
+  RVERSION="v0.3.2"
 #
 # Suggestion for minimal size with musl static compilation of a single file.c:
 #
@@ -352,10 +352,12 @@ exit; fi # x--do-tests #########################################################
 
 gzelf=${1:-gzelf}
 GZCSUMCK=${GZCSUMCK:-md5sum}
-ORIGNAME=$(basename "${2:-$gzelf}"  | head -c8)
-ORIGNAME=$(echo "$ORIGNAME"         | sed -e "s/\.gz$//" -e "s/\.sh$//")
-MD5CKSUM=$($GZCSUMCK  "$gzelf"      | head -c14)
-BFN=$(echo ${ORIGNAME:-x}:$MD5CKSUM | tr ' ' _ | head -c16)
+ORIGNAME=$(basename "${2:-$gzelf}")
+ORIGNAME=$(echo "$ORIGNAME"          |
+  sed -e "s/\.sh$//" -e "s/\.gz$//" -e "s/\.gz\.sh$//")
+MD5CKSUM=$($GZCSUMCK  "$gzelf"       | head -c14)
+BFN=$(echo ${ORIGNAME:-x} | tr ' ' _ | head -c8)
+BFN=$(echo $BFN:$MD5CKSUM | head -c16)
 ORIGSIZE=$(stat -Lc%s "$gzelf")
 gzelfle="$ORIGNAME.gz.sh"
 BLKSIZE=${3:-32}
@@ -367,7 +369,6 @@ headstr=$(cat <<ZELF
 # (C) 2026 robang74 l.MIT $RVERSION git.new/ttRvFBu
 BFN=$BFN;SZE=$(((ORIGSIZE+4095)>>12))
 : \${PATH:=/bin:/usr/bin:/usr/local/bin}
-exec 2>&-
 T=".gzc-\$BFN-\${USER:-\$(id -u)}"
 for d in "\${TMPDIR:-/tmp}" /run /dev/shm "\${HOME:-.}/.cache"
 do
@@ -376,11 +377,11 @@ F="\$d/\$T"
 rm -f "\$F"
 F=
 done
-dd if=\$0 skip=1|\$(command -v pigz gzip gunzip zcat|head -n1) -dc>"\$F"&&{
+dd if=\$0 skip=1 2>&-|\$(command -v pigz gzip gunzip zcat|head -n1) -dc>"\$F"&&{
 grep -qe "tmpfs.*\$d" /proc/mounts&&trap 'rm -f "\$F"_' EXIT INT TERM
-mv -f "\$F" "\$F"_&&(F=;exec "\$d/\$T"_ "\$@")
+mv -f "\$F" "\$F"_||exit
 }
-exit
+F=;exec "\$d/\$T"_ "\$@"
 #1_3456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #2_3456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
 #3_3456789_123456789_123456789_123456789_123456789_123456789_123456789_123456789
