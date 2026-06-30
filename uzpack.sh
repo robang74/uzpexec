@@ -17,8 +17,10 @@ usage() {
     echo
     echo "Usage: uzpack [-h|--help] [-v|--version]"
     echo "       uzpack origin [destination[.uzp]]"
+    echo "       uzpack [-x: debug | -1/-11: gzip]"
 }
 
+lvl=
 spt=0
 ext=0
 upd=0
@@ -46,7 +48,7 @@ gzc=$(command -v pigz gzip | head -n1)
 
 do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i "$dst"; }
 no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i "$dst"; }
-st_script() { echo "script mode status: $(strings $dst | grep bin/sh)"; }
+st_script() { echo "Script mode status: '$(strings $dst | grep bin/sh)'" >&2 ; }
 gt_plline() { grep -n "UZ""PAYLOAD" "$1" | head -n$2 | tail -n1 | cut -d: -f1; }
 gt_plbody() { dd if="${1:-$bin}" count=1 status=none; }
 dd_zcarry() { dd if="${1:-$bin}"  skip=1 status=none; }
@@ -55,10 +57,21 @@ dd_gtpack() { dd_gtcopy ${1:-$bin} | grep -q .; }
 dd_gtuzip() { dd_zcarry ${1:-$bin} | $gzc -dc; }
 
 # ==============================================================================
+# SHELL SCRIPT COMMANDS EXECUTION -- ABOVE ONLY DEFINITIONS
+# ==============================================================================
 
-{ echo; echo "uzpack argc: $#, argv: $0 '$@'"; } >&2
-
-#set -x
+# RAF: for debug, and run-time inspectability
+case "${1:-}" in
+  -q) exec 2>&-
+      shift
+      ;;
+  -x) set -x
+      shift
+      ;;
+  +x) set +x
+      shift
+      ;;
+esac
 
 bin=$(command -v $nme || echo ./$nme)
 if [ ! -r "$bin" ]; then
@@ -74,35 +87,48 @@ else
     echo "Notice: '$nme' not found, using UZPAYLOAD base64" >&2
 fi
 
-while true; do
-    # Parse arguments
-    case "${1:-}" in
-        -v|--version)
-            prt_versn "$bin"
-            shift
-            ext=1
-            ;;
-        -h|--help)
-            usage
-            shift
-            ext=1
-            ;;
-        -s|--script)
-            echo "WARNING: option '-s' enforces the script mode (dev onnly)" >&2
-            shift
-            spt=1
-            ;;
-        -u|--update)
-            shift
-            upd=1
-            ;;
-    esac
-    test $ext -eq 0 || { ret=1; break; }
+# Parse arguments
+case "${1:-}" in
+  -v|--version)
+      prt_versn "$bin"
+      shift
+      ext=1
+      ;;
+  -h|--help)
+      usage
+      shift
+      ext=1
+      ;;
+  -[0-9]|-11)
+      lvl=$1
+      shift
+      ;;
+  -s|--script)
+      echo "WARNING: option '-s' enforces the script mode (dev onnly)" >&2
+      shift
+      spt=1
+      ;;
+  -u|--update)
+      echo "WARNING: option '-u' updates the script payload (dev onnly)" >&2
+      shift
+      upd=1
+      ;;
+esac
 
-    if [ ! -x "$gzc" ]; then
-        echo "ERROR: neither pigz nor gzip is available or executable." >&2
+while [ $ext -eq 0 ]; do
+    {
+      echo
+      echo "Running uzpack argc: $#, argv: $0"
+      echo "    src: '${1:-}'"
+      echo "    dst: '${2:-}'"
+    } >&2
+
+    if [ "$gzc" = "" ]; then
+        echo "ERROR: neither pigz nor gzip is available in path." >&2
         ret=1; break
     fi
+    printf "Notice: using '%s' compression level" "$(basename "$gzc")"  >&2
+    printf "set to '$lvl' (default: '${GZIPLVL:-}')\n"  >&2
 
     if [ $upd -ne 0 ]; then
         test -r "${1:-}" && bin="$1"
@@ -120,7 +146,6 @@ while true; do
         printf "%s\n%s\n%s\n" "$hf1" "$pld" "$hf2" >"$0".tmp
         trap "mv -f '$0'.tmp '$0'" EXIT
         echo "Successfully updated: $bin --> $0"
-        echo
         break
     fi
 
@@ -161,12 +186,10 @@ while true; do
 
     # Safely copy the uzpexec binary stub to the destination path
     if [ -r "$bin" ]; then
-        echo
-        command cp -i "$bin" "$dst" || {
+        command cp -f "$bin" "$dst" || {
             echo "ERROR: failed to copy the binary stub to '$dst'." >&2
             ret=1; break
         }
-        echo
     elif [ "$UZPAYLOAD" != "" -a "$b64" != "" ]; then
         echo "$UZPAYLOAD" | $b64 -d | $gzc -dc > "$dst" || {
             echo "ERROR: failed to copy the binary stub to '$dst'." >&2
@@ -181,44 +204,50 @@ while true; do
     if [ "$spt" -eq 0 ]; then
         no_script
         st_script
-        printf "Compressing a binary ... "
+        printf "Compressing a binary ... " >&2
     else
         do_script
         st_script
-        printf "Compressing a script ... "
+        printf "Compressing a script ... " >&2
         # RAF, TODO: add sanity check for the script (cfr. universal template)
     fi
 
     # Append the compressed payload onto the newly built self-extracting file
+    _l1_cmd() { $gzc -c "$@"; }
     if [ $rpl -eq 0 ]; then
-        cmd='$gzc -c'
+        _l2_cmd() { _l1_cmd ${lvl:-${GZIPLVL:-}} "$@"; }
+    elif [ -n "$lvl" ]; then
+        _l2_cmd() { dd_gtuzip "$@" | _l1_cmd $lvl; }
     else
-        cmd='dd_zcarry'
+        _l2_cmd() { dd_zcarry "$@"; }
     fi
-    eval "$cmd" '$src' >> "$dst" || {
-        printf "KO\n\n"
-        echo "ERROR: conversion failed." >&2
+    { _l2_cmd "$src" >> "$dst"; } ||
+    {
+        echo "KO"
+        echo
+        echo "ERROR: conversion failed."
         ret=1; break
-    }
-    printf "OK\n\n"
+    } >&2
+    { echo "OK"; echo; } >&2
     if [ "$rpl" -ne 0 ]; then
-        diff "$src" "$dst" &&
-        echo "Update: source and destination are identical" >&2
+        val="identical"
+        diff "$src" "$dst" >/dev/null || val="different"
+        echo "Update: source and destination are $val" >&2
     fi
 
     # Enforce safe execution permissions over the generated package
     chmod +x "$dst" || {
-        echo "ERROR: can not make target '$dst' executable." >&2
-        ret=1; break
+        echo "WARNING: can not make target '$dst' executable." >&2
+        break
     }
 
-    echo "Successfully generated: $dst" >&2
+    echo "Successfully generated: $dst"
     # $(du -b "$dst")
     # command ls -l "$dst"
     break
 done
 test $ret -eq 0 || rm -f "$dst"
-echo
+echo >&2
 # ------------------------------------------------------------------------------
 exit $ret
 # ------------------------------------------------------------------------------

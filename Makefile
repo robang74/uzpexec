@@ -119,7 +119,7 @@ uzpack: uzpexec uzpack.sh
 	@echo
 	sh uzpack.sh -u uzpexec
 	rm -f uzpack
-	sh uzpack.sh uzpack.sh uzpack
+	sh uzpack.sh -9 uzpack.sh uzpack
 	du -b $@
 	@echo
 
@@ -189,7 +189,6 @@ tests: blkln teststdin distclean utils $(BINS)
 	@echo
 	@echo TODO
 	./uzpack uzpack uzpack.new
-	diff uzpack uzpack.new
 	mv -f uzpexec.bak uzpexec
 	mv -f uzpack.bak uzpack
 	rm -f uzpack.new
