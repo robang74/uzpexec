@@ -274,15 +274,20 @@ child:
   ; 3c. Execute zcat passing "-f" when reading from the STDIN (**)
   push 11                      ; SYS_execve
   pop eax
-  mov ebx, zcat_path           ;
+
+; mov ebx, zcat_path           ;
+  pop ebx                      ; buf <-- c::stack { filename, 0 }
+  pop ebx                      ; filename <-- c::stack { 0 }
+; push zcat_path               ;
+  add ebx, zcat_path-filename  ; zcat_path = filename + strlen(filename)
+
   push 0                       ; end of envp/argv
   test edi, edi
-
   jnz .no_force                ; only on STDIN
   push force_arg               ; "-f"
 .no_force:
 
-  push zcat_path               ; argv[0] is "/bin/zcat"
+  push ebx                     ; zcat_path --> argv[0]
   mov ecx, esp                 ; argv[1...]
   xor edx, edx                 ; envp null
   int 0x80
