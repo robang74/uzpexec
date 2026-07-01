@@ -201,20 +201,26 @@ parent:
   xor ecx, ecx                 ; 0 = stdin
   int 0x80
 
-  ; Esecuzione dell'interprete /bin/sh
-  mov ebx, do_sh_path          ;
-
-  ; Manipolazione dello stack per ereditare i parametri
-  mov dword [esi-4], ebx       ; Sovrascrive lo slot argc con "/bin/sh"
-  mov dword [esi+0], stdin_arg  ; Mette "-s" in argv[0]
-  mov dword [esi+4], dual_dash
-  lea ecx,  [esi-4]            ; ECX punta al nuovo vettore
-
+  ; ----------------------------------------------------------------------------
+  ; Spawns a /bin/sh whose STDIN is piped to zcat, passing along original argvs
   push 11                      ; SYS_execve
   pop eax
-  mov edx, ebp                 ; envp intatto
+  mov ebx, do_script           ; script interpreter
+
+  ; Safeguard: if argc is 0 <-- No, the issue was argv=NULL, SIGSEGV solves
+  ; Therefore the branch "no_args" would never traversed and can be removed
+
+  ; In-place stack manipulation using ESP (argv is at [esp]):
+  mov dword [esp], dual_dash   ; overwrite original argv[0] with "--"
+  lea ecx, [esp - 8]           ; original arguments argv[1] ... [n]
+  push stdin_arg               ; pushing "-s"
+  push ebx                     ; pushing on current argv[0] do_script
+
+  ; basic operations for calling the execve()
+  mov edx, ebp                 ; envp (intact from main_start)
   int 0x80
   jmp exit_error
+  ; ----------------------------------------------------------------------------
 
   ; ----------------------------------------------------------------------------
   ; ELF BINARY MODE: Esecuzione diretta nativa
@@ -281,14 +287,14 @@ exit_error:
 ; ==============================================================================
 ; COMPACT DATA SECTION (appended to code)
 ; ==============================================================================
-copy_vers:  db "(c) github/robang74 v0.90 "                       ;
-filename :  db      "uzpexec", 0                                  ;
-zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ;
-do_sh_path: db "/bin/sh", 0                                       ;
-stdin_arg:  db "-s", 0                                            ;
-force_arg:  db "-f", 0                                            ;
-eof_tests:  db "U238"                                             ;
-dual_dash:  db "--", 0
+copy_vers: db "(c) github/robang74 v0.90 "                       ;
+filename : db      "uzpexec", 0                                  ;
+zcat_path: db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ;
+do_script: db "/bin/sh", 0                                       ;
+stdin_arg: db "-s", 0                                            ;
+force_arg: db "-f", 0                                            ;
+eof_tests: db "U238"                                             ;
+dual_dash: db "--", 0
 
 ; ==============================================================================
 ; PADDING: Allineamento perfetto a 512 byte
