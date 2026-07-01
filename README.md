@@ -273,9 +273,9 @@ Like the human's consensus, the UPX column could be a collective-AI hallucinatio
 
 ### W+X memory
 
-Separating exectable code (X) from writing memory (W) costs bytes of code!
+Separating executable code (X) from writing memory (W) costs too many bytes of code in stubs when a proper design can prevent any practical exploitation of that memory by an *unprivileged enough* attacker (aka before privileges escalation happens, aka for `uzpexec` not being the primary vector because this W+X memory design).
 
-```txt
+```asm
   dd 7                        ; p_flags (R+W+X - Read, Write, and Execute)
   dd 0x1000                   ; p_align (Standard page alignment)
 
@@ -294,6 +294,25 @@ Separating exectable code (X) from writing memory (W) costs bytes of code!
   ; which means the R+W+X flag introduces zero additional risk.
 
   ; WRX is the least of your troubles, but uzpexec as obscenely-powerful tool.
+```
+
+Instead, sealing the anonymous file descriptor in RO before execve() strongly supports security and integrity of the ELF code set to run by `uzpexec`.
+
+```asm
+  ; ----------------------------------------------------------------------------
+  ; ELF BINARY MODE (Security: harden ELF execution via read-only memfd seals)
+  ;
+  ; Apply F_ADD_SEALS (F_SEAL_WRITE, etc.) to the memfd exclusively
+  ; within the ELF execution path before invoking execveat().
+  ;
+  ; - ELF hardening: prevents any runtime exploits from tampering with
+  ;   or rewriting the binary payload resident in RAM via /proc/self/fd/.
+  ;
+  ; - Script compatibility: this security measure is omitted for the
+  ;   shell interpreter branch because /bin/sh and its sub-utilities
+  ;   often require standard read/write descriptors or create temporary
+  ;   files, meaning write-restricted seals could break compatibility.
+  ; ----------------------------------------------------------------------------
 ```
 
 ---

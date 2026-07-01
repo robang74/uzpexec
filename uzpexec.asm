@@ -236,19 +236,40 @@ parent:
 ; jmp exit_error               ; eventually will fail later
 
   ; ----------------------------------------------------------------------------
-  ; ELF BINARY MODE
+  ; ELF BINARY MODE (Security: harden ELF execution via read-only memfd seals)
+  ;
+  ; Apply F_ADD_SEALS (F_SEAL_WRITE, etc.) to the memfd exclusively
+  ; within the ELF execution path before invoking execveat().
+  ;
+  ; - ELF hardening: prevents any runtime exploits from tampering with
+  ;   or rewriting the binary payload resident in RAM via /proc/self/fd/.
+  ;
+  ; - Script compatibility: this security measure is omitted for the
+  ;   shell interpreter branch because /bin/sh and its sub-utilities
+  ;   often require standard read/write descriptors or create temporary
+  ;   files, meaning write-restricted seals could break compatibility.
   ; ----------------------------------------------------------------------------
 .execute_elf:
-  ; 1e. Execute the ELF binary using a Linux specific syscall
+; 1e. Sealing the memfd/ELF in RO mode, for security and integrity
+  push 92
+  pop eax                      ; SYS_fcntl
+; mov ebx, [memfd]             ; EBX = memfd, already
+  mov ecx, 1033                ; ECX = F_ADD_SEALS (0x0409)
+  ; F_SEAL_WRITE | F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL = 15 (0x0f)
+  push 15
+  pop edx                      ; EDX = 0x0f, write only fd
+  int 0x80                     ; ELF hardening provided
+
+  ; 2e. Execute the ELF binary using a Linux specific syscall
   mov eax, 358                 ; SYS_execveat
-; mov ebx, [memfd]             ; EBX = memfd
+; mov ebx, [memfd]             ; EBX = memfd, already
   push 0                       ; "" on the stack
   mov ecx, esp                 ; ECX points to ""
   mov edx, esi                 ; EDX = argv (original)
   mov esi, ebp                 ; ESI = envp (original)
   mov edi, 0x1000              ; EDI = AT_EMPTY_PATH
   int 0x80
-  jmp exit_error
+  jmp exit_error               ; never returns unless syscall fails
 
 ; ============================================================================
 ; CHILD PROCESS ( c::stack { [memfd], buf, filename, 0 } )
