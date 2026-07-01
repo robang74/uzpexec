@@ -30,7 +30,8 @@ rpl=0
 emb=0
 
 nme="uzpexec"
-cpy='(c) github/''robang74 .*[ \\n]'$nme
+cpy='(c) github/''robang74 v[^ ]* '$nme
+
 
 #######################################################################
 UZPAYLOAD="
@@ -47,15 +48,22 @@ HyoVhGMhuYphW6y1ebuMQ969IAecaix/gMt5M0cAAIAAA==
 b64=$(command -v base64)
 gzc=$(command -v pigz gzip | head -n1)
 
+grp() { strings | command grep --color=none "$@"; }
+get_copy() { grp -E "robang74|$nme" | tr '\n' ' ' | grp "$cpy"; }
+
 st_script() {
-  echo "Script mode status: '$(strings $dst | grep -e "bin/.*sh")'" >&2
+  echo "Script mode status: '$(cat $dst |\
+    grp -e "bin/.*sh")'" >&2
 }
-gt_plline() { grep -n "UZ""PAYLOAD" "$1" | head -n$2 | tail -n1 | cut -d: -f1; }
+gt_plline() {
+  grep --color=none -n "UZ""PAYLOAD" "$1" |\
+    head -n$2 | tail -n1 | cut -d: -f1
+}
 gt_plbody() { dd if="${1:-$bin}" count=1 status=none; }
 dd_zcarry() { dd if="${1:-$bin}"  skip=1 status=none; }
-dd_gtcopy() { gt_plbody ${1:-$bin} | strings | grep -e "$cpy"; }
+dd_gtcopy() { gt_plbody ${1:-$bin} | get_copy ; }
 dd_gtpack() { dd_gtcopy ${1:-$bin} | grep -q .; }
-dd_gtuzip() { dd_zcarry ${1:-$bin} | $gzc -dc; }
+dd_gtuzip() { dd_zcarry ${1:-$bin} | $gzc -dc ; }
 
 # ==============================================================================
 # SHELL SCRIPT COMMANDS EXECUTION -- ABOVE ONLY DEFINITIONS
