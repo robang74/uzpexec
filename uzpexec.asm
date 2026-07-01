@@ -89,10 +89,19 @@ main_start:
   ; 0. Checking argv[0] to open input (itself or stdin)
   mov ebx, [esi]               ; CVE-2021-4034, pre-5.18
                                ; Tiny can't cover LK bugs
+                               ; It will fail soon after
 ; push esi                     ; Save ESI (argv) on the stack
   ; ============================================================================
 
-  ; 1. Try to open the memfd, as first operation
+  ; 1. Try to open itself file by argv[0] (CVE-2021-4034, ends here)
+; mov ebx, [esi]               ; EBX = argv[0]
+  xor ecx, ecx                 ; O_RDONLY
+  push 5                       ; SYS_open
+  pop eax
+  int 0x80
+  mov edi, eax                 ; Move fd in EDI to save it for later
+
+  ; 2. Try to open the memfd, as first operation
   mov eax, 356                 ; SYS_memfd_create
   mov ebx, filename            ; Linux requires a name here
   push ebx                     ; filename
@@ -101,15 +110,7 @@ main_start:
   int 0x80
   mov [memfd], eax             ; Save the memfd in RAM
 
-  ; 1. Try to open itself file by argv[0]
-  mov ebx, [esi]               ; EBX = argv[0]
-  xor ecx, ecx                 ; O_RDONLY
-  push 5                       ; SYS_open
-  pop eax
-  int 0x80
-  mov edi, eax                 ; Move fd in EDI to save it for later
-
-  ; 2. Try to read from the file the 1st block + 4 bytes to check the carryload
+  ; 3. Try to read from the file the 1st block + 4 bytes to check the carryload
   mov ecx, buf
   mov edx, 516                 ; read size (512+4), 32-bit aligned
 .skip_loop:
@@ -122,7 +123,7 @@ main_start:
   jz .stdin                    ; if premature EOF, read STDIN
   sub edx, eax
   jnz .skip_loop
-  jmp .fork_now                ; EDI = fd at +516 bytes
+  jmp .fork_now                ; EDI = fd at +516 bytes (**)
 
 .stdin:
 %ifdef _NO_STDIN
@@ -132,13 +133,13 @@ main_start:
 %endif
 
 .fork_now:
-  ; 3a. File pointer set
+  ; 4a. File pointer set
   push 19                      ; SYS_lseek
   pop eax
   mov ecx, 512                 ; offset = 512
   xor edx, edx                 ; SEEK_SET = 0
   int 0x80
-  ; 3b. Fork the process
+  ; 4b. Fork the process
   push 2                       ; SYS_fork
   pop eax
   int 0x80
@@ -149,7 +150,7 @@ main_start:
   ; PARENT PROCESS
   ; ============================================================================
 parent:
-  ; 4p. The parent waits for the child completes zcat writing in memfd
+  ; 1p. The parent waits for the child completes zcat writing in memfd
   xor ecx, ecx
   xor edx, edx
   xor ebx, ebx
@@ -158,7 +159,7 @@ parent:
   pop eax
   int 0x80
 
-  ; 5p. Closing the real file once read in full (but we save bytes, instead)
+  ; 2p. Closing the real file once read in full (but we save bytes, instead)
   ; test edi, edi
   ; jz .rewind_memfd
   ; push 6                       ; SYS_close
@@ -167,7 +168,7 @@ parent:
   ; int 0x80
 
 .rewind_memfd:
-  ; 6p. Rewind memfd at the starting point to check for the shebang script
+  ; 3p. Rewind memfd at the starting point to check for the shebang script
   push 19                      ; SYS_lseek
   pop eax
   mov ebx, [memfd]             ;
@@ -175,7 +176,7 @@ parent:
   xor edx, edx                 ; SEEK_SET = 0
   int 0x80
 
-  ; 7p. Read the first uncompressed 4 bytes (just two for the shebang)
+  ; 4p. Read the first uncompressed 4 bytes (just two for the shebang)
   push 3                       ; SYS_read
   pop eax
   mov ecx, buf                 ;
@@ -183,14 +184,14 @@ parent:
   pop edx                      ; count = 4
   int 0x80
 
-  ; 8p. Check about ELF magic chars sequence (\x7FELF)
+  ; 5p. Check about ELF magic chars sequence (\x7FELF)
   cmp dword [buf], 0x464c457f  ; Match Little-Endian
   jz .execute_elf              ; If ELF, do execve()
 
   ; ----------------------------------------------------------------------------
   ; SCRIPT MODE
   ; ----------------------------------------------------------------------------
-  ; 9p. Rewind memfd at the starting point to pass it to the shell
+  ; 1s. Rewind memfd at the starting point to pass it to the shell
   push 19                      ; SYS_lseek
   pop eax
   mov ebx, [memfd]
@@ -198,16 +199,14 @@ parent:
   xor edx, edx                 ; SEEK_SET = 0
   int 0x80
 
-  ; 10p. Connect the memfd to the shell STDIN (fd 0)
+  ; 2s. Connect the memfd to the shell STDIN (fd 0)
   push 63                      ; SYS_dup2
   pop eax
   mov ebx, [memfd]
   xor ecx, ecx                 ; 0 = stdin
   int 0x80
 
-  ; ----------------------------------------------------------------------------
-  ; Spawns a /bin/sh whose STDIN is piped to zcat, passing along original argvs
-  ; ----------------------------------------------------------------------------
+  ; 3s. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
   push 11                      ; SYS_execve
   pop eax
   ; pushing on current argv[0] do_script
@@ -227,12 +226,12 @@ parent:
   mov edx, ebp                 ; envp (intact from main_start)
   int 0x80
 ; jmp exit_error               ; eventually will fail later
-  ; ----------------------------------------------------------------------------
 
   ; ----------------------------------------------------------------------------
   ; ELF BINARY MODE
   ; ----------------------------------------------------------------------------
 .execute_elf:
+  ; 1e. Execute the ELF binary using a Linux specific syscall
   mov eax, 358                 ; SYS_execveat
   mov ebx, [memfd]             ; EBX = memfd
   push 0                       ; "" on the stack
@@ -247,14 +246,14 @@ parent:
 ; CHILD PROCESS
 ; ============================================================================
 child:
-  ; 1st dup2: connect input (EDI) to STDIN (0) for both modes
+  ; 1c. 1st dup2: connect input (EDI) to STDIN (0) for both modes
   push 63                      ; SYS_dup2
   pop eax
   mov ebx, edi                 ; FD di input
   xor ecx, ecx                 ; 0 = stdin
   int 0x80
 
-  ; 2nd dup2: connect output to STDOUT (1) of the child which is MEMFD
+  ; 2c. 2nd dup2: connect output to STDOUT (1) of the child which is MEMFD
   push 63                      ; SYS_dup2
   pop eax
   mov ebx, [memfd]             ; zcat writes in memfd
@@ -263,15 +262,17 @@ child:
   test eax, eax
   js exit_error
 
-  ; Esecuzione di zcat con l'argomento "-f" sempre attivo
+  ; 3c. Execute zcat passing "-f" when reading from the STDIN (**)
   push 11                      ; SYS_execve
   pop eax
   mov ebx, zcat_path           ;
   push 0                       ; end of envp/argv
   test edi, edi
+
   jnz .no_force                ; only on STDIN
   push force_arg               ; "-f"
-.no_force
+.no_force:
+
   push zcat_path               ; argv[0] is "/bin/zcat"
   mov ecx, esp                 ; argv[1...]
   xor edx, edx                 ; envp null
