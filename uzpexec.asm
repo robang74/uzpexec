@@ -125,10 +125,14 @@ main_start:
   jmp .fork_now                ; Successo: EDI contiene l'FD del file pronto (+516 byte)
 
 .stdin:
+%ifdef _NO_STDIN
+  jmp exit_error               ; single point of detour
+%else
   xor edi, edi                 ; EDI = 0 (STDIN)
+%endif
 
 .fork_now:
-
+  ; 3. File pointer set
   push 19                      ; SYS_lseek
   pop eax
   mov ecx, 512                 ; offset = 512
@@ -291,10 +295,10 @@ copy_vers: db "(c) github/robang74 v0.90 "                       ;
 filename : db      "uzpexec", 0                                  ;
 zcat_path: db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ;
 do_script: db "/bin/sh", 0                                       ;
-stdin_arg: db "-s", 0                                            ;
-force_arg: db "-f", 0                                            ;
 eof_tests: db "U238"                                             ;
-dual_dash: db "--", 0
+stdin_arg: db "-s", 0                                            ;
+dual_dash: db "--", 0                                            ;
+force_arg: db "-f", 0                                            ;
 
 ; ==============================================================================
 ; PADDING: Allineamento perfetto a 512 byte
