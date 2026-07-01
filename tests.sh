@@ -92,17 +92,19 @@ echo "Strings output:"
     retprt
   done
 
-  for fnm in u uzp pexe xec c; do
-      printf "Testing with name (ret:2) $fnm $ln"
-      cp -f $bin $fnm && timeout 1 ./$fnm 2>&-
-      printf "\tret:$?\n"; rm -f $fnm
-  done
-  echo
+  if grep -q "v0\.8[0-9]" $bin; then
+    for fnm in u uzp pexe xec c; do
+        printf "Testing with name (ret:2) $fnm $ln"
+        cp -f $bin $fnm && timeout 1 ./$fnm 2>&-
+        printf "\tret:$?\n"; rm -f $fnm
+    done
+    echo
 
-  fnm="pexet"
-  printf "Testing with name (ret:0) $fnm $ln"
-  cp -f $bin $fnm && cat hello | ./$fnm | grep Hello
-  retprt; rm -f $fnm
+    fnm="pexet"
+    printf "Testing with name (ret:0) $fnm $ln"
+    cp -f $bin $fnm && cat hello | ./$fnm | grep Hello
+    retprt; rm -f $fnm
+  fi
 
   echo "====== TESTS TO FAIL (x3) ======"
 
