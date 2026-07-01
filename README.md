@@ -36,13 +36,7 @@ Obviously RAM-only can be a benefit or a limit, `gzcmd.sh` writes on disk.
 
 ### Current release
 
-Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.87** on the `master` branch, following commits should be considered improvements:
-
-- [`d8a1742`](https://github.com/robang74/uzpexec/commit/d8a1742) - `2026-06-29` - uzpack.sh: conversion of previous uzpexec versions + bugfix
-- [`a08f5d8`](https://github.com/robang74/uzpexec/commit/a08f5d8) - `2026-06-30` - uzpack.sh: general improvement + debug/auditability + gzip level
-- [`95c84af`](https://github.com/robang74/uzpexec/commit/95c84af) - `2026-06-30` - uzpack.sh: script template isn't BASH compatible
-
-In short, download the [`uzpack.sh`](uzpack.sh) and rebuild it: `sh uzpack.sh -9 uzpack.sh uzpack`
+- Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.91** on the `master` branch
 
 ### Notes
 
@@ -250,30 +244,6 @@ esac
 - Moreover, all these three roles are complementary and necessary. Without pipexec it would not be able to run compressed scripts, hence it would not be able to convert itself. But it does, hence it is also a stub and a payload.
 
 - This triade of roles, and related capabilities, underlines why `uzpexec` isn't limited by the *unzip-and-run* goal, which is the `uzpack` main pourpose. It is different by design, by audience, by roles.
-
----
-
-### UPX what?
-
-A comparison that people continue to ask me but I have no clue about what:
-
-| Aspect                          | UPX                             | `uzpexec`                                 | `gzcmd.gz.sh`                           |
-| ------------------------------- | ------------------------------- | ----------------------------------------- | --------------------------------------- |
-| **Role**                        | Fixed: stub only (+ compressor) | **Mutant**: payload, stub, pipexec   | Fixed: stub only                        |
-| **Bootstrap**                   | External toolchain required     | Self-hosting via shell script             | Self-hosting via shell script           |
-| **Execution model**               | In-Process Overwriting (Proprietary) | Kernel-Offloaded Streamer (**Linux**)              | Extracts to ramfs/tmp and exec from it (POSIX)            |
-| **Size constraint**             | Optimized for compression ratio | Optimized for stub size       | Optimized for stub size          |
-| **Auditability** | Opaque, complex codebase        | **Fully auditable** (260  LoC)    | **Fully auditable** (`sh` script)      |
-| **Audience**                    | Windows apps distribution,<br>various others deployment&thinsp;⁽*⁾   | **Linux** devops&thinsp;/&thinsp;users,<br>`ELF` easy deployment      | **Linux** builders&thinsp;/&thinsp;users,<br>`sh` simple deployment |
-| **Toolchain**    | UPX binary + build system       | `sh`+`base64`+`zcat` (or `xz`, …) | `sh`+`gzip` (or `xz`, …)                 |
-| **Tool full size**       | 400 KB – 1.2 MB (multi-OS)      | `.deb` 35 KB, `uzpack` **3KB**           | Just `gzcmd.gz.sh`, **7KB**  |
-| **Stub size**          | 200 – 700 KB (variable)         | **512 bytes** (**fixed**, `dd` 1-block)             |  **512 bytes** (**fixed**, `dd` 1-block) |
-| **Timline**                          | 1998-05-26                             | 2026-06-22                                 | 2026-02-17                           |
-- UPX is also used in embedded systems, demoscene, malware (obfuscation, historically), dev pipelines.
-
-The UPX column has been created by a few steps of *harmonising* Grok, Gemini and Kimi among them.
-
-Like the human's consensus, the UPX column could be a collective-AI hallucination and I do **not** know.
 
 ---
 
