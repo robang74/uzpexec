@@ -250,6 +250,30 @@ esac
 
 ---
 
+### UPX what?
+
+A comparison that people continue to ask me but I have no clue about what:
+
+| Aspect                          | UPX                             | `uzpexec`                                 | `gzcmd.gz.sh`                           |
+| ------------------------------- | ------------------------------- | ----------------------------------------- | --------------------------------------- |
+| **Role**                        | Fixed: stub only (+&nbsp;compressor) | **Polymorphic**: payload, stub, pipexec (+&nbsp;converter)   | Fixed: stub only (+&nbsp;converter)                        |
+| **Bootstrap**                   | External toolchain required     | Self-hosting via shell script             | Self-hosting via shell script           |
+| **Execution model**               | In-Process Overwriting (Proprietary) | Kernel-Offloaded Streamer (**Linux**)              | Extracts to ramfs/tmp and exec from it (POSIX)            |
+| **Size constraint**             | Optimized for compression ratio | Optimized for stub size       | Optimized for stub size          |
+| **Auditability** | Opaque, complex codebase        | **Fully auditable** (300 LoC)    | **Fully auditable** (`sh` script)      |
+| **Audience**                    | Windows apps distribution,<br>various others deployment&thinsp;⁽*⁾   | **Linux** devops&thinsp;/&thinsp;users,<br>`ELF` easy deployment      | **Linux** builders&thinsp;/&thinsp;users,<br>`sh` simple deployment |
+| **Toolchain**    | UPX binary + build system       | `sh`+`base64`+`zcat` (or `xz`, …) | `sh`+`gzip` (or `xz`, …)                 |
+| **Tool full size**       | 400 KB – 1.2 MB (multi-OS)      | `.deb` 35 KB, `uzpack` **3KB**           | Just `gzcmd.gz.sh`, **7KB**  |
+| **Stub size**          | 200 – 700 KB (variable)         | **512 bytes** (**fixed**, `dd` 1-block)             |  **512 bytes** (**fixed**, `dd` 1-block) |
+| **Timline**                          | 1998-05-26                             | 2026-06-22                                 | 2026-02-17                           |
+- UPX is also used in embedded systems, demoscene, malware (obfuscation, historically), dev pipelines.
+
+The UPX column has been created by a few steps of *harmonising* Grok, Gemini and Kimi among them.
+
+Like the human's consensus, the UPX column could be a collective-AI hallucination and I do **not** know.
+
+---
+
 ### W+X memory
 
 Separating executable code (X) from writing memory (W) costs too many bytes of code in stubs when a proper design can prevent any practical exploitation of that memory by an *unprivileged enough* attacker (aka before privileges escalation happens, aka for `uzpexec` not being the primary vector because this W+X memory design).
