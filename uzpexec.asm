@@ -108,12 +108,10 @@ main_start:
   int 0x80                      ; prctl() in best-effort
 
   ; prctl(PR_SET_DUMPABLE, 0, 0, 0, 0)
-  push 172                      ; SYS_prctl
-  pop eax
-  push 4                        ; EBX = PR_SET_DUMPABLE
-  pop ebx
-  xor ecx, ecx                  ; ECX = 0 (RAM !coredump)
+  mov al, 172                   ; SYS_prctl
+  mov bl, 4                     ; EBX = PR_SET_DUMPABLE
                                 ; EDX = 0, already
+  mov ecx, edx                  ; ECX = 0 (RAM !coredump)
   int 0x80                      ; prctl() in best-effort
 
   ; Checking argv[0] to open input (itself or stdin)
@@ -312,8 +310,7 @@ child:
   int 0x80
 
   ; 2c. 2nd dup2: connect output to STDOUT (1) of the child which is MEMFD
-  push 63                      ; SYS_dup2
-  pop eax
+  mov al, 63                   ; SYS_dup2
 ; mov ebx, [memfd]             ; zcat writes in memfd
   pop ebx                      ; [memfd] <-- c::stack { buf, filename, 0 }
   inc ecx                      ; 1 = stdout
