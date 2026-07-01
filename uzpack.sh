@@ -34,13 +34,14 @@ cpy='(c) github/''robang74 .*[ \\n]'$nme
 
 #######################################################################
 UZPAYLOAD="
-H4sIAAAAAAACA6VPM6AcURS9MzuKVce2bdsaNB9r2zar9H36JraxbNPEdhPjvgn7fwbv6Cm
-xcccmiqLgD2jQAFEHkoywAP5hAYyBP62/beyQ7xIaDAPAE28ogFh6XLPmmcqouTfMrFhPlq
-4d12LlVCXFCPvNlFRP7jkBaUY4ydAAZo1Y+lJP5s4HBS839aLvzQt67g/zCPEEYDi3U0+aa
-ZHE3vDcG3M7c+9sN/OosaAQjUwjqouZGbmeTK0klNzJuxArvxurkeAwQDx1FE9wbcME5gwZ
-mQkncajtmPDRSMj+0vN68rgeD2qG0r3S+9Lrc+Qy9eSLebhC6QtZA4myVj3sKLLcEZxmhtw
-PH2s8j9RIdOmeuuc4+YQL1dUNw370NzOimVbQpPDkU3qnjjGYvEZfz2y3o6fbbli8YIx/zq
-ylc8b4wk5dUNcLs3tM9tnh3m4v/AfV9Bh/q4Pz5i+Z6YGZM2GmHvqEn1u4o7MAAgAA
+H4sIAAAAAAACA31PQ+MbURCf3bzU7rm2GyeX2nYXMTevtttF7X6N2rYV3mrbvdSYF97+s5y
+f3syqwaOGcBwH5eLBBKybpJI6dqiWHVpDWVVRo4Y9zxAgBKA2w5oACBtebpm+lii7Af9pR5
+lyoiWfUvfvPkQ25FLqppaWG9QspNQN145H0Xpql0bqTERRSj0BOqkzftxJwgNQk7DhV0pdc
+35xnfm1ulxc8Okdb/lHmwsnAEmWR3mB0fNXWW5Y8pZ7I2lt7FEgsz6lol+kREqpmoctOd+B
+VInpiz/4qS+cuo5HXxvUnjxgX9L+Ln62jGr/XWE/Eze8RZFXOFGXANDGmHQ8zgFQ2PBkw9c
+NH8+xVVPqOzvti4OywP195f6FgdtgtCgbl+pQiGueVpvmkzX/FpiVx4XQJ4UR2kondmB7dV
+DTf/UoESgvI8jhAp0jXVonkvOVBeFec2eFQzMTLnvrhb17eiytFyydHVsci0CvcHJmr6WR0
+HyoVhGMhuYphW6y1ebuMQ969IAecaix/gMt5M0cAAIAAA==
 " # END_OF_UZPAYLOAD ##################################################
 
 b64=$(command -v base64)
