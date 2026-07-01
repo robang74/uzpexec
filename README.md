@@ -52,7 +52,7 @@ Obviously RAM-only can be a benefit or a limit, `gzcmd.sh` writes on disk.
 
 #### 2. awareness of power
 
-- Since the project is a week old, I strongly suggest to consult the documentation, the man page, the design choices in the Assembler [source](uzpexec.asm) code comments, the coverage of [tests.sh](tests.sh) in the [Makefile](Makefile).
+- Since the project is less than 2 weeks old, I strongly suggest to consult the documentation, the man page, the design choices in the Assembler [source](uzpexec.asm) code comments, the coverage of [tests.sh](tests.sh) in the [Makefile](Makefile).
 
 - Last but not least the [licensing](#licensing-terms) terms, which allows everyone to change the code (also at running time) but not to remove the authorship note, not even from the binary executable form. A powerful tool requires awareness about how to use it.
 
