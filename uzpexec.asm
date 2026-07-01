@@ -207,18 +207,21 @@ parent:
 
   ; ----------------------------------------------------------------------------
   ; Spawns a /bin/sh whose STDIN is piped to zcat, passing along original argvs
+  ; ----------------------------------------------------------------------------
   push 11                      ; SYS_execve
   pop eax
+                 ; pushing on current argv[0] do_script
   mov ebx, do_script           ; script interpreter
 
   ; Safeguard: if argc is 0 <-- No, the issue was argv=NULL, SIGSEGV solves
   ; Therefore the branch "no_args" would never traversed and can be removed
 
   ; In-place stack manipulation using ESP (argv is at [esp]):
-  mov dword [esp], dual_dash   ; overwrite original argv[0] with "--"
-  lea ecx, [esp - 8]           ; original arguments argv[1] ... [n]
+  mov dword [esp + 4], dual_dash   ; overwrite original argv[] with "--"
+  mov dword [esp + 0], stdin_arg   ; overwrite original argv[] with "-s"
+  lea ecx,  [esp - 8]           ; original arguments argv[1] ... [n]
   push stdin_arg               ; pushing "-s"
-  push ebx                     ; pushing on current argv[0] do_script
+  push dword ebx
 
   ; basic operations for calling the execve()
   mov edx, ebp                 ; envp (intact from main_start)
