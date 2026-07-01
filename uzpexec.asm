@@ -86,30 +86,30 @@ main_start:
   mov esi, esp                 ; ESI = argv
   lea ebp, [esi+eax*4+4]       ; EBP = envp (callee-saved!)
 
-  ; Checking argv[0] to open input (itself or stdin)
+  ; 0. Checking argv[0] to open input (itself or stdin)
   mov ebx, [esi]               ; CVE-2021-4034, pre-5.18
                                ; Tiny can't cover LK bugs
 ; push esi                     ; Save ESI (argv) on the stack
   ; ============================================================================
 
-  ; 0. Creazione incondizionata del memfd
+  ; 1. Try to open the memfd, as first operation
   mov eax, 356                 ; SYS_memfd_create
-  mov ebx, filename            ; Nome del file fittizio
+  mov ebx, filename            ; Linux requires a name here
   push ebx                     ; filename
   push 1                       ; MFD_CLOEXEC
   pop ecx
   int 0x80
-  mov [memfd], eax             ; Salva l'FD del memfd
+  mov [memfd], eax             ; Save the memfd in RAM
 
-  ; 1. Tentativo di apertura di argv[0]
+  ; 1. Try to open itself file by argv[0]
   mov ebx, [esi]               ; EBX = argv[0]
   xor ecx, ecx                 ; O_RDONLY
   push 5                       ; SYS_open
   pop eax
   int 0x80
-  mov edi, eax                 ; Sposta l'FD in EDI per preservarlo
+  mov edi, eax                 ; Move fd in EDI to save it for later
 
-  ; 2. Verifica se l'apertura ha avuto successo tramite lettura dell'header
+  ; 2. Try to read from the file the 1st block + 4 bytes to check the carryload
   mov ecx, buf
   mov edx, 516                 ; read size (512+4), 32-bit aligned
 .skip_loop:
@@ -118,11 +118,11 @@ main_start:
   mov ebx, edi                 ; input fd
   int 0x80
   test eax, eax
-  js .stdin                    ; Se errore, passa a STDIN
-  jz .stdin                    ; Se EOF prematuro, passa a STDIN
+  js .stdin                    ; if read fails, read STDIN
+  jz .stdin                    ; if premature EOF, read STDIN
   sub edx, eax
   jnz .skip_loop
-  jmp .fork_now                ; Successo: EDI contiene l'FD del file pronto (+516 byte)
+  jmp .fork_now                ; EDI = fd at +516 bytes
 
 .stdin:
 %ifdef _NO_STDIN
@@ -132,24 +132,24 @@ main_start:
 %endif
 
 .fork_now:
-  ; 3. File pointer set
+  ; 3a. File pointer set
   push 19                      ; SYS_lseek
   pop eax
   mov ecx, 512                 ; offset = 512
   xor edx, edx                 ; SEEK_SET = 0
   int 0x80
-  ; 3. Fork del processo
+  ; 3b. Fork the process
   push 2                       ; SYS_fork
   pop eax
   int 0x80
   test eax, eax
-  jz child                     ; Se figlio, salta al blocco child
+  jz child                     ; the child jump to its routine
 
   ; ============================================================================
   ; PARENT PROCESS
   ; ============================================================================
 parent:
-  ; Il genitore attende che il figlio (zcat) completi il dump nel memfd
+  ; 4p. The parent waits for the child completes zcat writing in memfd
   xor ecx, ecx
   xor edx, edx
   xor ebx, ebx
@@ -158,16 +158,16 @@ parent:
   pop eax
   int 0x80
 
-  ; Se abbiamo aperto un file reale, chiudiamo l'FD non più necessario
-  test edi, edi
-  jz .rewind_memfd
-  push 6                       ; SYS_close
-  pop eax
-  mov ebx, edi
-  int 0x80
+  ; 5p. Closing the real file once read in full (but we save bytes, instead)
+  ; test edi, edi
+  ; jz .rewind_memfd
+  ; push 6                       ; SYS_close
+  ; pop eax
+  ; mov ebx, edi
+  ; int 0x80
 
 .rewind_memfd:
-  ; Rewind del memfd all'inizio per lo sniffing dei magic bytes
+  ; 6p. Rewind memfd at the starting point to check for the shebang script
   push 19                      ; SYS_lseek
   pop eax
   mov ebx, [memfd]             ;
@@ -175,7 +175,7 @@ parent:
   xor edx, edx                 ; SEEK_SET = 0
   int 0x80
 
-  ; Lettura dei primi 4 byte
+  ; 7p. Read the first uncompressed 4 bytes (just two for the shebang)
   push 3                       ; SYS_read
   pop eax
   mov ecx, buf                 ;
@@ -183,22 +183,22 @@ parent:
   pop edx                      ; count = 4
   int 0x80
 
-  ; Verifica la firma dell'ELF (\x7FELF)
+  ; 8p. Check about ELF magic chars sequence (\x7FELF)
   cmp dword [buf], 0x464c457f  ; Match Little-Endian
-  jz .execute_elf              ; Se ELF, salta alla transizione diretta
+  jz .execute_elf              ; If ELF, do execve()
 
   ; ----------------------------------------------------------------------------
-  ; SCRIPT MODE: Gestione interpretata via /bin/sh
+  ; SCRIPT MODE
   ; ----------------------------------------------------------------------------
-  ; Riporta il memfd a 0 affinché la shell possa leggerlo dall'inizio
+  ; 9p. Rewind memfd at the starting point to pass it to the shell
   push 19                      ; SYS_lseek
   pop eax
   mov ebx, [memfd]
-  xor ecx, ecx
-  xor edx, edx
+  xor ecx, ecx                 ; offset = 0
+  xor edx, edx                 ; SEEK_SET = 0
   int 0x80
 
-  ; Collega il memfd allo STDIN (fd 0) per l'interprete
+  ; 10p. Connect the memfd to the shell STDIN (fd 0)
   push 63                      ; SYS_dup2
   pop eax
   mov ebx, [memfd]
@@ -210,35 +210,35 @@ parent:
   ; ----------------------------------------------------------------------------
   push 11                      ; SYS_execve
   pop eax
-                 ; pushing on current argv[0] do_script
+  ; pushing on current argv[0] do_script
   mov ebx, do_script           ; script interpreter
 
   ; Safeguard: if argc is 0 <-- No, the issue was argv=NULL, SIGSEGV solves
   ; Therefore the branch "no_args" would never traversed and can be removed
 
   ; In-place stack manipulation using ESP (argv is at [esp]):
-  mov dword [esp + 4], dual_dash   ; overwrite original argv[] with "--"
-  mov dword [esp + 0], stdin_arg   ; overwrite original argv[] with "-s"
-  lea ecx,  [esp - 8]           ; original arguments argv[1] ... [n]
+  mov dword [esp+4], dual_dash ; overwrite original argv[] with "--"
+  mov dword [esp+0], stdin_arg ; overwrite original argv[] with "-s"
+  lea ecx,  [esp-8]            ; original arguments argv[1] ... [n]
   push stdin_arg               ; pushing "-s"
   push dword ebx
 
   ; basic operations for calling the execve()
   mov edx, ebp                 ; envp (intact from main_start)
   int 0x80
-  jmp exit_error
+; jmp exit_error               ; eventually will fail later
   ; ----------------------------------------------------------------------------
 
   ; ----------------------------------------------------------------------------
-  ; ELF BINARY MODE: Esecuzione diretta nativa
+  ; ELF BINARY MODE
   ; ----------------------------------------------------------------------------
 .execute_elf:
   mov eax, 358                 ; SYS_execveat
-  mov ebx, [memfd]             ; EBX = FD del memfd
-  push 0                       ; Stringa vuota "" su stack
-  mov ecx, esp                 ; ECX punta a ""
-  mov edx, esi                 ; EDX = argv originario
-  mov esi, ebp                 ; ESI = envp
+  mov ebx, [memfd]             ; EBX = memfd
+  push 0                       ; "" on the stack
+  mov ecx, esp                 ; ECX points to ""
+  mov edx, esi                 ; EDX = argv (original)
+  mov esi, ebp                 ; ESI = envp (original)
   mov edi, 0x1000              ; EDI = AT_EMPTY_PATH
   int 0x80
   jmp exit_error
