@@ -90,7 +90,7 @@ main_start:
   mov ebx, [esi]               ; CVE-2021-4034, pre-5.18
                                ; Tiny can't cover LK bugs
                                ; It will fail soon after
-; push esi                     ; Save ESI (argv) on the stack
+
   ; ============================================================================
 
   ; 1. Try to open itself file by argv[0] (CVE-2021-4034, ends here)
@@ -276,14 +276,18 @@ child:
   pop eax
 
 ; mov ebx, zcat_path           ;
-  pop ebx                      ; buf <-- c::stack { filename, 0 }
+  pop ecx                      ; buf <-- c::stack { filename, 0 }
   pop ebx                      ; filename <-- c::stack { 0 }
 ; push zcat_path               ;
   add ebx, zcat_path-filename  ; zcat_path = filename + strlen(filename)
 
   push 0                       ; end of envp/argv
+
+  cmp word [ecx], 0x8b1f       ; match Little-Endian per GZIP (0x1F, 0x8B)
+  jz .ok_force                 ; be strict on gzip input (no -f option)
   test edi, edi
   jnz .no_force                ; only on STDIN
+.ok_force:
   push force_arg               ; "-f"
 .no_force:
 
