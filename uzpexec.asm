@@ -76,7 +76,7 @@ phdr:
   ; WRX is the least of your troubles, but uzpexec as obscenely-powerful tool.
 
 ; ==============================================================================
-; upexec CODE (Execution starts here)
+; CODE (uzpexec stub execution starts here)
 ; ==============================================================================
 main_start:
   ; This would be the main() in a C-language sourcemain_start
@@ -86,10 +86,39 @@ main_start:
   mov esi, esp                 ; ESI = argv
   lea ebp, [esi+eax*4+4]       ; EBP = envp (callee-saved!)
 
-  ; 0. Checking argv[0] to open input (itself or stdin)
-  mov ebx, [esi]               ; CVE-2021-4034, pre-5.18
-                               ; Tiny can't cover LK bugs
-                               ; It will fail soon after
+  ; ----------------------------------------------------------------------------
+  ; HARDENING: NO_NEW_PRIVS & ANTI-CORE-DUMP
+  ;
+  ; Using umask() is omitted because memfd ignores filesystem permissions.
+  ; Additional hardening:
+  ; - prctl(NO_NEW_PRIVS) prevents SUID escalation,
+  ; - prctl(PR_SET_DUMPABLE, 0) prevents core dumps,
+  ; - F_SEAL_SEAL locks the memfd seals permanently,
+  ; - MFD_CLOEXEC and F_SEAL_WRITE are already set.
+  ; ----------------------------------------------------------------------------
+
+  ; prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)
+  push 172                      ; SYS_prctl
+  pop eax
+  push 38                       ; EBX = PR_SET_NO_NEW_PRIVS
+  pop ebx
+  push 1                        ; ECX = 1 (enable)
+  pop ecx
+  xor edx, edx                  ; EDX = 0
+  int 0x80                      ; prctl() in best-effort
+
+  ; prctl(PR_SET_DUMPABLE, 0, 0, 0, 0)
+  push 172                      ; SYS_prctl
+  pop eax
+  push 4                        ; EBX = PR_SET_DUMPABLE
+  pop ebx
+  xor ecx, ecx                  ; ECX = 0 (RAM !coredump)
+                                ; EDX = 0, already
+  int 0x80                      ; prctl() in best-effort
+
+  ; Checking argv[0] to open input (itself or stdin)
+  mov ebx, [esi]               ; CVE-2021-4034, pre-5.18, can't cover LK bugs
+                               ; Let SIGSEGV do the work and/or syscalls fail
 
   ; ============================================================================
 
