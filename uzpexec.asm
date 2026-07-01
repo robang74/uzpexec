@@ -122,7 +122,8 @@ main_start:
 
   ; 1. Try to open itself file by argv[0] (CVE-2021-4034, ends here)
 ; mov ebx, [esi]               ; EBX = argv[0]
-  xor ecx, ecx                 ; O_RDONLY
+; xor ecx, ecx                 ; O_RDONLY
+  mov ecx, 0x80000             ; O_RDONLY | O_CLOEXEC
   push 5                       ; SYS_open
   pop eax
   int 0x80
@@ -192,6 +193,7 @@ parent:
 
   ; 2p. Closing the real file once read in full, also for safety,
   ;     but fd is RD_ONLY so we can save bytes here, avoiding it.
+  ;     Expecially because with O_CLOEXEC, it lasts just a little
   ; test edi, edi
   ; jz .rewind_memfd
   ; push 6                       ; SYS_close
