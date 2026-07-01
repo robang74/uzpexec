@@ -67,6 +67,7 @@ endef
 .PHONY: all blkln tests clean install uninstall deb rpm
 
 JE_STDIN ?= "_DO_STDIN"
+JE_FORCE ?= "_DO_FORCE"
 
 all: $(BINS)
 
@@ -83,7 +84,7 @@ gzcmd.gz.sh: gzcmd.sh
 uzpexec: uzpexec.asm
 	@echo ====== compile $^ ======
 	@echo
-	nasm -d$(JE_STDIN) -O2 -f bin $^ -o $@
+	nasm -d$(JE_STDIN) -d$(JE_FORCE) -O2 -f bin $^ -o $@
 	@chmod +x $@
 	ln -sf uzpack.1 uzpexec.1
 	file $@ | sed -e 's/V), s/V),\n\ts/'

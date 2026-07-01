@@ -286,7 +286,11 @@ child:
   cmp word [ecx], 0x8b1f       ; match Little-Endian per GZIP (0x1F, 0x8B)
   jz .ok_force                 ; be strict on gzip input (no -f option)
   test edi, edi
-  jnz .no_force                ; only on STDIN
+%ifdef _NO_FORCE
+  jnz exit_error               ; the -f option could be completely excluded
+%else
+  jnz .no_force                ; zcat reading from STDIN can be relaxed (-f)
+%endif
 .ok_force:
   push force_arg               ; "-f"
 .no_force:
