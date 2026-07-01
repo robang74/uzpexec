@@ -190,7 +190,7 @@ parent:
   ; 5p. Check about ELF magic chars sequence (\x7FELF)
   ;     A 32-bit comparison is shorter, safer and faster
   ;     compared with checking for the shebang (optional)
-  cmp dword [buf], 0x464c457f  ; Match Little-Endian
+  cmp dword [ecx], 0x464c457f  ; Match Little-Endian
   jz .execute_elf              ; If ELF, do execve()
 
   ; ----------------------------------------------------------------------------
@@ -317,7 +317,7 @@ exit_error:
 ; in do_script mode the 2 paths shrink to 20 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
 ;                                                                   LN | FD | SH
-copy_vers:  db "(c) github/robang74 v0.90 "                       ; 26 | 26 | 26
+copy_vers:  db "(c) github/robang74 v0.91 "                       ; 26 | 26 | 26
 filename :  db      "uzpexec", 0                                  ;  8 |  8 |  8
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ; 21 | 42 | 21
 ; following fields are conditionally overwritable, do unions      : --------- 55
