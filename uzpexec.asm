@@ -247,17 +247,17 @@ parent:
 ; CHILD PROCESS
 ; ============================================================================
 child:
-  ; 1st dup2: Direziona l'input (file posizionato o STDIN) nello STDIN del child
+  ; 1st dup2: connect input (EDI) to STDIN (0) for both modes
   push 63                      ; SYS_dup2
   pop eax
   mov ebx, edi                 ; FD di input
   xor ecx, ecx                 ; 0 = stdin
   int 0x80
 
-  ; 2nd dup2: Connette l'output del memfd allo STDOUT del child
+  ; 2nd dup2: connect output to STDOUT (1) of the child which is MEMFD
   push 63                      ; SYS_dup2
   pop eax
-  mov ebx, [memfd]             ; Scrive nel memfd condiviso
+  mov ebx, [memfd]             ; zcat writes in memfd
   inc ecx                      ; 1 = stdout
   int 0x80
   test eax, eax
@@ -274,23 +274,29 @@ child:
 .no_force
   push zcat_path               ; argv[0] is "/bin/zcat"
   mov ecx, esp                 ; argv[1...]
-  xor edx, edx                 ; envp nullo
+  xor edx, edx                 ; envp null
   int 0x80
 
-; ============================================================================
+  ; ============================================================================
 exit_error:
-  ; Stampa della notifica d'errore/copyright
-  push zcat_path - copy_vers   ;
-  pop edx                      ;
-  mov ecx, copy_vers           ;
-  mov byte [ecx + edx - 1], 10  ;
-  push 4                       ; SYS_write
+; test ebx, ebx
+; jnz exit_now
+
+  ; Print copyright notice, version and internal name
+  push zcat_path - copy_vers    ; bytes to write --> stack
+  pop edx                       ; bytes to write <-- stack
+  mov ecx, copy_vers
+  mov byte [ecx + edx - 1], 10  ; line feed
+  push  4                       ; SYS_write
   pop eax
-  push 2                       ; stderr
+  push  2                       ; stderr
   pop ebx
   int 0x80
 
-  push 1                       ; Exit code 1
+; exit_now:
+; xor ebx, ebx
+; inc ebx                       ; Exit code 1
+  push 1
   pop eax
   int 0x80
 
