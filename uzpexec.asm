@@ -267,10 +267,13 @@ child:
   push 11                      ; SYS_execve
   pop eax
   mov ebx, zcat_path           ;
-  push 0                       ; Fine envp/argv
-  push force_arg               ; Forza il trattamento trasparente ("-f")
-  push zcat_path               ; argv[0] per il tool
-  mov ecx, esp                 ; Costruisce il vettore degli argomenti
+  push 0                       ; end of envp/argv
+  test edi, edi
+  jnz .no_force                ; only on STDIN
+  push force_arg               ; "-f"
+.no_force
+  push zcat_path               ; argv[0] is "/bin/zcat"
+  mov ecx, esp                 ; argv[1...]
   xor edx, edx                 ; envp nullo
   int 0x80
 
