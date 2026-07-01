@@ -33,14 +33,13 @@ cpy='(c) github/''robang74 .*[ \\n]'$nme
 
 #######################################################################
 UZPAYLOAD="
-H4sIAAAAAAACA6t39XFjZGRkgAEmBmYGEC+kgYXDhAEBTBgUGGCq4KqBakD4E1CAg4WBgR0
-kJsDAENH5rDenjaVbbkcKUGb3rkYWjuAsxsizDYsZmlg4uuUMT2axRpxt6Dy+kwXI38XCxM
-CQxRzR+ftsQ+uBCo4SNs1Dpe9fMxn+zxKO2MkAlDS8dLYhiykCJM3fMo8BKHDS8JLhbe8sd
-pDY/xL2LDawbqD6blmQFSB5IJc5AmxBFkvU2YZGWxAT5NsSZ3R19nAukMMdsfs60MHHXVRY
-3oBoFpWXQKrXR+VHBogR3PnqbMNr/x1pQJ9BdGUxdD7s/NT5bj/I60A54yx7oGuAZiEMdgT
-7TApk9qFGkI6M90AqA8TufAh2glLUzgVA3jEXwf9cWSwRWUzRQEFGoPc0kjUV0jNLMkqT9I
-vykxLz0s1NFMoM9CwNFEqrClIrUpMZ9JMy8/SrkhNLGJABSLA4A8oJNTK20C1m0NVl0E1jQ
-AUAVJ5RsQACAAA=
+H4sIAAAAAAACA6VPM6AcURS9MzuKVce2bdsaNB9r2zar9H36JraxbNPEdhPjvgn7fwbv6Cm
+xcccmiqLgD2jQAFEHkoywAP5hAYyBP62/beyQ7xIaDAPAE28ogFh6XLPmmcqouTfMrFhPlq
+4d12LlVCXFCPvNlFRP7jkBaUY4ydAAZo1Y+lJP5s4HBS839aLvzQt67g/zCPEEYDi3U0+aa
+ZHE3vDcG3M7c+9sN/OosaAQjUwjqouZGbmeTK0klNzJuxArvxurkeAwQDx1FE9wbcME5gwZ
+mQkncajtmPDRSMj+0vN68rgeD2qG0r3S+9Lrc+Qy9eSLebhC6QtZA4myVj3sKLLcEZxmhtw
+PH2s8j9RIdOmeuuc4+YQL1dUNw370NzOimVbQpPDkU3qnjjGYvEZfz2y3o6fbbli8YIx/zq
+ylc8b4wk5dUNcLs3tM9tnh3m4v/AfV9Bh/q4Pz5i+Z6YGZM2GmHvqEn1u4o7MAAgAA
 " # END_OF_UZPAYLOAD ##################################################
 
 b64=$(command -v base64)
@@ -84,7 +83,7 @@ else
     prt_versn() { echo; _gt_plbody | strings | grep -e "$cpy"; }
     echo "Notice: '$nme' not found, using UZPAYLOAD base64" >&2
 fi
-if prt_versn | grep -qe "v0\.8[0-9]"; then
+if prt_versn |  grep -qe " v0\.8[0-9] "; then
     do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i "$dst"; }
     no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i "$dst"; }
 else
