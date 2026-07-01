@@ -4,10 +4,16 @@
 
 - &nbsp;Click on the button to know how to &nbsp;[![Sponsor me](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ff69b4?style=flat&logo=github)](https://github.com/sponsors/robang74)&nbsp; this project and get in touch with me.
 
+---
+
 The [uzpexec](uzpexec.asm) (micro gzip pipe exec, written in Assembler, 512 bytes of payload equivalent to a single `dd` standard I/O block) offers native support for `gzip` self-inflate self-execution, running in RAM also when started by the `STDIN` pipe.
 
 - Pre-compiled `ELF32` (for all x86 arch) available in [releases](https://github.com/robang74/uzpexec/releases/).
 - Development happens in [devel](https://github.com/robang74/uzpexec/tree/devel) branch, testing on [devsrc](https://github.com/robang74/uzpexec/releases/tag/devsrc) tag.
+
+> [!NOTE]
+>
+> Only the stub, which executes the compressed binary or script, runs as ELF32 and it makes perfect sense since its role is to deal with few system calls and runs everywhere (x86 all arches, because the Assembler is a machine specific language). Obviously the ELF32 nature of the launcher doesn't affect in any manner what is executed which runs by its own kind. Cfr. [Examples](#example-1).
 
 ### Index
 
