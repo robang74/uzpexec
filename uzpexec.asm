@@ -108,7 +108,8 @@ main_start:
   push 1                       ; MFD_CLOEXEC
   pop ecx
   int 0x80
-  mov [memfd], eax             ; Save the memfd in RAM
+; mov [memfd], eax             ; Save the memfd in RAM
+  push eax                     ; Save the memfd on the stack
 
   ; 3. Try to read from the file the 1st block + 4 bytes to check the carryload
   mov ecx, buf
@@ -159,7 +160,8 @@ parent:
   pop eax
   int 0x80
 
-  ; 2p. Closing the real file once read in full (but we save bytes, instead)
+  ; 2p. Closing the real file once read in full, also for safety,
+  ;     but fd is RD_ONLY so we can save bytes here, avoiding it.
   ; test edi, edi
   ; jz .rewind_memfd
   ; push 6                       ; SYS_close
@@ -171,7 +173,8 @@ parent:
   ; 3p. Rewind memfd at the starting point to check for the shebang script
   push 19                      ; SYS_lseek
   pop eax
-  mov ebx, [memfd]             ;
+; mov ebx, [memfd]             ;
+  pop ebx                      ; [memfd]
   xor ecx, ecx                 ; offset = 0
   xor edx, edx                 ; SEEK_SET = 0
   int 0x80
@@ -185,6 +188,8 @@ parent:
   int 0x80
 
   ; 5p. Check about ELF magic chars sequence (\x7FELF)
+  ;     A 32-bit comparison is shorter, safer and faster
+  ;     compared with checking for the shebang (optional)
   cmp dword [buf], 0x464c457f  ; Match Little-Endian
   jz .execute_elf              ; If ELF, do execve()
 
@@ -194,7 +199,7 @@ parent:
   ; 1s. Rewind memfd at the starting point to pass it to the shell
   push 19                      ; SYS_lseek
   pop eax
-  mov ebx, [memfd]
+; mov ebx, [memfd]
   xor ecx, ecx                 ; offset = 0
   xor edx, edx                 ; SEEK_SET = 0
   int 0x80
@@ -202,7 +207,7 @@ parent:
   ; 2s. Connect the memfd to the shell STDIN (fd 0)
   push 63                      ; SYS_dup2
   pop eax
-  mov ebx, [memfd]
+; mov ebx, [memfd]
   xor ecx, ecx                 ; 0 = stdin
   int 0x80
 
@@ -233,7 +238,7 @@ parent:
 .execute_elf:
   ; 1e. Execute the ELF binary using a Linux specific syscall
   mov eax, 358                 ; SYS_execveat
-  mov ebx, [memfd]             ; EBX = memfd
+; mov ebx, [memfd]             ; EBX = memfd
   push 0                       ; "" on the stack
   mov ecx, esp                 ; ECX points to ""
   mov edx, esi                 ; EDX = argv (original)
@@ -256,7 +261,8 @@ child:
   ; 2c. 2nd dup2: connect output to STDOUT (1) of the child which is MEMFD
   push 63                      ; SYS_dup2
   pop eax
-  mov ebx, [memfd]             ; zcat writes in memfd
+; mov ebx, [memfd]             ; zcat writes in memfd
+  pop ebx                      ; shared stack but indipendent after fork()
   inc ecx                      ; 1 = stdout
   int 0x80
   test eax, eax
@@ -333,7 +339,6 @@ times (512 - ($ - $$)) db 0     ; Padding to 512 bytes for skip=1
 ; ==============================================================================
 bss_start equ $$ + 512
 
-memfd:    equ bss_start         ; Only variable needed besides the buffer
-buf:      equ memfd + 4
+buf:      equ bss_start         ; Only variable needed besides the buffer
 bss_end:  equ buf + 516         ; Reserve 512 + 4 bytes for the buffer
 
