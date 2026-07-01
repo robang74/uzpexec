@@ -10,8 +10,7 @@
 ################################################################################
 
 # ------------------------------------------------------------------------------
-if [ ! -n "${BASH_VERSION:-}" ]&&[ -t 0 -o -c /dev/tty ];then exec < /dev/tty;fi
-# RAF, TODO: for testing the console ## read -p "proceed with '$-' ? " xp  # <&3
+if [ -t 0 ] || [ -c /dev/tty ]; then exec </dev/tty; fi
 # ------------------------------------------------------------------------------
 
 usage() {
@@ -47,9 +46,7 @@ AUAVJ5RsQACAAA=
 b64=$(command -v base64)
 gzc=$(command -v pigz gzip | head -n1)
 
-do_script() { /bin/sed -e 's,\x00\(bin/sh\),/\1,' -i "${1:-$dst}"; }
-no_script() { /bin/sed -e 's,/\(bin/sh\),\x00\1,' -i "${1:-$dst}"; }
-st_script() { echo "Script mode status: '$(strings $dst | grep bin/sh)'" ; }
+st_script() { echo "Script mode status: '$(strings $dst | grep bin/sh)'" >&2 ; }
 gt_plline() { grep -n "UZ""PAYLOAD" "$1" | head -n$2 | tail -n1 | cut -d: -f1; }
 gt_plbody() { dd if="${1:-$bin}" count=1 status=none; }
 dd_zcarry() { dd if="${1:-$bin}"  skip=1 status=none; }
@@ -87,11 +84,18 @@ else
     prt_versn() { echo; _gt_plbody | strings | grep -e "$cpy"; }
     echo "Notice: '$nme' not found, using UZPAYLOAD base64" >&2
 fi
+if prt_versn | grep -qe "v0\.8[0-9]"; then
+    do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i "$dst"; }
+    no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i "$dst"; }
+else
+    do_script() { true; }
+    no_script() { true; }
+fi
 
 # Parse arguments
 case "${1:-}" in
   -v|--version)
-      prt_versn "$bin"
+      prt_versn
       shift
       ext=1
       ;;
@@ -202,16 +206,13 @@ while [ $ext -eq 0 ]; do
     fi
 
     # Alter internal routing tags inside the stub depending on carryload type
-    if [ $spt -eq 0 ]; then
+    if [ "$spt" -eq 0 ]; then
         no_script
-        st_script 
+        st_script
         printf "Compressing a binary ... " >&2
     else
         do_script
-        st_script | tee /proc/self/fd/2 | grep -qe "/bin/sh" || {
-            echo "ERROR: sed did not its job correctly, failed"
-            break
-        }
+        st_script
         printf "Compressing a script ... " >&2
         # RAF, TODO: add sanity check for the script (cfr. universal template)
     fi
