@@ -281,7 +281,7 @@ Like the human's consensus, the UPX column could be a collective-AI hallucinatio
 
 Separating executable code (X) from writing memory (W) costs too many bytes of code in stubs when a proper design can prevent any practical exploitation of that memory by an *unprivileged enough* attacker (aka before privileges escalation happens, aka for `uzpexec` not being the primary vector because this W+X memory design).
 
-```asm
+```txt
   dd 7                        ; p_flags (R+W+X - Read, Write, and Execute)
   dd 0x1000                   ; p_align (Standard page alignment)
 
@@ -304,7 +304,7 @@ Separating executable code (X) from writing memory (W) costs too many bytes of c
 
 Instead, sealing the anonymous file descriptor in RO before execve() strongly supports security and integrity of the ELF code set to run by `uzpexec`.
 
-```asm
+```txt
   ; ----------------------------------------------------------------------------
   ; ELF BINARY MODE (Security: harden ELF execution via read-only memfd seals)
   ;
@@ -318,6 +318,21 @@ Instead, sealing the anonymous file descriptor in RO before execve() strongly su
   ;   shell interpreter branch because /bin/sh and its sub-utilities
   ;   often require standard read/write descriptors or create temporary
   ;   files, meaning write-restricted seals could break compatibility.
+  ; ----------------------------------------------------------------------------
+```
+
+A couple more of constraints strengthen the hardening policy:
+
+```txt
+  ; ----------------------------------------------------------------------------
+  ; HARDENING: NO_NEW_PRIVS & ANTI-CORE-DUMP
+  ;
+  ; Using umask() is omitted because memfd ignores filesystem permissions.
+  ; Additional hardening:
+  ; - prctl(NO_NEW_PRIVS) prevents SUID escalation,
+  ; - prctl(PR_SET_DUMPABLE, 0) prevents core dumps,
+  ; - F_SEAL_SEAL locks the memfd seals permanently,
+  ; - MFD_CLOEXEC and F_SEAL_WRITE are already set.
   ; ----------------------------------------------------------------------------
 ```
 
