@@ -89,12 +89,13 @@ main_start:
   ; Checking argv[0] to open input (itself or stdin)
   mov ebx, [esi]               ; CVE-2021-4034, pre-5.18
                                ; Tiny can't cover LK bugs
-  push esi                     ; Save ESI (argv) on the stack
+; push esi                     ; Save ESI (argv) on the stack
   ; ============================================================================
 
   ; 0. Creazione incondizionata del memfd
   mov eax, 356                 ; SYS_memfd_create
   mov ebx, filename            ; Nome del file fittizio
+  push ebx                     ; filename
   push 1                       ; MFD_CLOEXEC
   pop ecx
   int 0x80
@@ -110,23 +111,29 @@ main_start:
 
   ; 2. Verifica se l'apertura ha avuto successo tramite lettura dell'header
   mov ecx, buf
-  mov edx, 512                 ; Legge esattamente l'ampiezza dell'header
+  mov edx, 516                 ; read size (512+4), 32-bit aligned
 .skip_loop:
   push 3                       ; SYS_read
   pop eax
   mov ebx, edi                 ; input fd
   int 0x80
   test eax, eax
-  js .stdin                    ; Se errore (es. non è un file apribile), passa a STDIN
+  js .stdin                    ; Se errore, passa a STDIN
   jz .stdin                    ; Se EOF prematuro, passa a STDIN
   sub edx, eax
   jnz .skip_loop
-  jmp .fork_now                ; Successo: EDI contiene l'FD del file pronto (+512 byte)
+  jmp .fork_now                ; Successo: EDI contiene l'FD del file pronto (+516 byte)
 
 .stdin:
   xor edi, edi                 ; EDI = 0 (STDIN)
 
 .fork_now:
+
+  push 19                      ; SYS_lseek
+  pop eax
+  mov ecx, 512                 ; offset = 512
+  xor edx, edx                 ; SEEK_SET = 0
+  int 0x80
   ; 3. Fork del processo
   push 2                       ; SYS_fork
   pop eax
@@ -296,5 +303,5 @@ bss_start equ $$ + 512
 
 memfd:    equ bss_start + 0    ;
 buf:      equ memfd + 4        ;
-bss_end:  equ buf + 514        ;
+bss_end:  equ buf + 516        ;
 
