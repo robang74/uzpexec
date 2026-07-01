@@ -104,15 +104,18 @@ main_start:
   ; 2. Try to open the memfd, as first operation
   mov eax, 356                 ; SYS_memfd_create
   mov ebx, filename            ; Linux requires a name here
-  push ebx                     ; filename
+  push ebx                     ; in stack { filename, 0 }
   push 1                       ; MFD_CLOEXEC
   pop ecx
   int 0x80
+
+  ; Organising the stack in the proper order (inverse order of popping)
+  mov ecx, buf
+  push ecx                     ; in stack { buf, filename, 0 }
 ; mov [memfd], eax             ; Save the memfd in RAM
-  push eax                     ; Save the memfd on the stack
+  push eax                     ; in stack { [memfd], buf, filename, 0 }
 
   ; 3. Try to read from the file the 1st block + 4 bytes to check the carryload
-  mov ecx, buf
   mov edx, 516                 ; read size (512+4), 32-bit aligned
 .skip_loop:
   push 3                       ; SYS_read
@@ -148,7 +151,7 @@ main_start:
   jz child                     ; the child jump to its routine
 
   ; ============================================================================
-  ; PARENT PROCESS
+  ; PARENT PROCESS ( p::stack { [memfd], buf, filename, 0 } )
   ; ============================================================================
 parent:
   ; 1p. The parent waits for the child completes zcat writing in memfd
@@ -174,7 +177,7 @@ parent:
   push 19                      ; SYS_lseek
   pop eax
 ; mov ebx, [memfd]             ;
-  pop ebx                      ; [memfd]
+  pop ebx                      ; [memfd] <-- p::stack { buf, filename, 0 }
   xor ecx, ecx                 ; offset = 0
   xor edx, edx                 ; SEEK_SET = 0
   int 0x80
@@ -182,7 +185,7 @@ parent:
   ; 4p. Read the first uncompressed 4 bytes (just two for the shebang)
   push 3                       ; SYS_read
   pop eax
-  mov ecx, buf                 ;
+  pop ecx                      ; buf <-- p::stack { filename, 0 }
   push 4                       ;
   pop edx                      ; count = 4
   int 0x80
@@ -199,7 +202,7 @@ parent:
   ; 1s. Rewind memfd at the starting point to pass it to the shell
   push 19                      ; SYS_lseek
   pop eax
-; mov ebx, [memfd]
+; mov ebx, [memfd]             ; already set
   xor ecx, ecx                 ; offset = 0
   xor edx, edx                 ; SEEK_SET = 0
   int 0x80
@@ -207,7 +210,7 @@ parent:
   ; 2s. Connect the memfd to the shell STDIN (fd 0)
   push 63                      ; SYS_dup2
   pop eax
-; mov ebx, [memfd]
+; mov ebx, [memfd]             ; already set
   xor ecx, ecx                 ; 0 = stdin
   int 0x80
 
@@ -248,7 +251,7 @@ parent:
   jmp exit_error
 
 ; ============================================================================
-; CHILD PROCESS
+; CHILD PROCESS ( c::stack { [memfd], buf, filename, 0 } )
 ; ============================================================================
 child:
   ; 1c. 1st dup2: connect input (EDI) to STDIN (0) for both modes
@@ -262,7 +265,7 @@ child:
   push 63                      ; SYS_dup2
   pop eax
 ; mov ebx, [memfd]             ; zcat writes in memfd
-  pop ebx                      ; shared stack but indipendent after fork()
+  pop ebx                      ; [memfd] <-- c::stack { buf, filename, 0 }
   inc ecx                      ; 1 = stdout
   int 0x80
   test eax, eax
