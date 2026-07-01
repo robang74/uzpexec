@@ -294,27 +294,36 @@ exit_error:
 ; ==============================================================================
 ; COMPACT DATA SECTION (appended to code)
 ; ==============================================================================
-copy_vers: db "(c) github/robang74 v0.90 "                       ;
-filename : db      "uzpexec", 0                                  ;
-zcat_path: db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ;
-do_script: db "/bin/sh", 0                                       ;
-eof_tests: db "U238"                                             ;
-stdin_arg: db "-s", 0                                            ;
-dual_dash: db "--", 0                                            ;
-force_arg: db "-f", 0                                            ;
+; filename can be changed by sed up to 7 chars + ending \0
+; zcat -f is cat when input isn't gzip, options up to -6c\0
+; /bin/zcat can be changed by sed up to 41 chars + ending \0
+; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
+; in do_script mode the 2 paths shrink to 20 chars + ending \0
+; eof_strng helps to find the EOF, and where \0 padding starts
+;                                                                   LN | FD | SH
+copy_vers:  db "(c) github/robang74 v0.90 "                       ; 26 | 26 | 26
+filename :  db      "uzpexec", 0                                  ;  8 |  8 |  8
+zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ; 21 | 42 | 21
+; following fields are conditionally overwritable, do unions      : --------- 55
+do_script:  db    0, "bin/sh", 0, 0, 0,0,0, 0,0  ; for sh         ; 14 |  - | 18
+eof_tests:  db "U238",                           ; for tests      :  4 |  - |  -
+stdin_arg:  db "-s", 0                           ; for sh         :  3 |  - |  3
+dual_dash:  db "--", 0                           ; for sh         :  3 |  - |  3
+force_arg:  db "-f", 0                           ; for zcat       :  3 |  3 |  3
+;              |<-- 8 chars -->|<- +8c ->|                        : --------- 27
+                                                                  ; 82 (tot.) 82
+; ==============================================================================
+; PADDING: Aligned exactly to 512 bytes (dd skip=1)
+; ==============================================================================
+file_end:                       ; Physical end of the binary file!
+times (512 - ($ - $$)) db 0     ; Padding to 512 bytes for skip=1
 
 ; ==============================================================================
-; PADDING: Allineamento perfetto a 512 byte
-; ==============================================================================
-file_end:
-times (512 - ($ - $$)) db 0    ;
-
-; ==============================================================================
-; BSS SECTION (RAM temporary storage)
+; BSS SECTION (RAM only, aligned to 512 bytes)
 ; ==============================================================================
 bss_start equ $$ + 512
 
-memfd:    equ bss_start + 0    ;
-buf:      equ memfd + 4        ;
-bss_end:  equ buf + 516        ;
+memfd:    equ bss_start         ; Only variable needed besides the buffer
+buf:      equ memfd + 4
+bss_end:  equ buf + 516         ; Reserve 512 + 4 bytes for the buffer
 
