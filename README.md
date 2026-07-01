@@ -110,7 +110,13 @@ if [ ${BASHPID:-0} -eq 0 ] && [ -t 0 -o -c /dev/tty ]; then exec < /dev/tty; fi
 exit $ret
 ```
 
+Since `/bin/dash` is far faster than `/bin/bash` is usually the default shell on most
+Linux desktop installations and almost always available. For this reason the `uzpexec`
+calls `/bin/dash` explicitly. Clearly this creates another issue known as bashisms.
+
 However, [gzcmd.sh](#gzcmdsh) is designed to create self-extracting executable scripts.
+Therefore, when the script is complex, implements bashisms unsupported by `/bin/dash` or
+performs peculiar activity with the console, the [gzcmd.sh](gzcmd.sh) remains a solid way to go.
 
 ---
 
