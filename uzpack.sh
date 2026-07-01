@@ -10,7 +10,8 @@
 ################################################################################
 
 # ------------------------------------------------------------------------------
-if [ -t 0 ] || [ -c /dev/tty ]; then exec </dev/tty; fi
+if [ ${BASHPID:-0} -eq 0 ] && [ -t 0 -o -c /dev/tty ]; then exec < /dev/tty; fi
+# RAF, TODO: for testing the console ## read -p "proceed with '$-' ? " xp  #<&3
 # ------------------------------------------------------------------------------
 
 usage() {
@@ -45,7 +46,9 @@ ylc8b4wk5dUNcLs3tM9tnh3m4v/AfV9Bh/q4Pz5i+Z6YGZM2GmHvqEn1u4o7MAAgAA
 b64=$(command -v base64)
 gzc=$(command -v pigz gzip | head -n1)
 
-st_script() { echo "Script mode status: '$(strings $dst | grep bin/sh)'" >&2 ; }
+st_script() {
+  echo "Script mode status: '$(strings $dst | grep -e "bin/.*sh")'" >&2
+}
 gt_plline() { grep -n "UZ""PAYLOAD" "$1" | head -n$2 | tail -n1 | cut -d: -f1; }
 gt_plbody() { dd if="${1:-$bin}" count=1 status=none; }
 dd_zcarry() { dd if="${1:-$bin}"  skip=1 status=none; }

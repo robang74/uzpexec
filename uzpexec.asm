@@ -337,10 +337,10 @@ copy_vers:  db "(c) github/robang74 v0.91 "                       ; 26 | 26 | 26
 filename :  db      "uzpexec", 0                                  ;  8 |  8 |  8
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ; 21 | 42 | 21
 ; following fields are conditionally overwritable, do unions      : --------- 55
-do_script:  db      "/bin/sh", 0, 0, 0,0,0, 0,0  ; for sh         ; 14 |  - | 18
+do_script:  db      "/bin/dash", 0, 0, 0,0,0     ; for shell      ; 14 |  - | 18
 eof_tests:  db "U238",                           ; for tests      :  4 |  - |  -
-stdin_arg:  db "-s", 0                           ; for sh         :  3 |  - |  3
-dual_dash:  db "--", 0                           ; for sh         :  3 |  - |  3
+stdin_arg:  db "-s", 0                           ; for shell      :  3 |  - |  3
+dual_dash:  db "--", 0                           ; for shell      :  3 |  - |  3
 force_arg:  db "-f", 0                           ; for zcat       :  3 |  3 |  3
 ;              |<-- 8 chars -->|<- +8c ->|                        : --------- 27
                                                                   ; 82 (tot.) 82
