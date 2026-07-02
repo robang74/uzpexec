@@ -255,7 +255,11 @@ parent:
   //     A 32-bit comparison is shorter, safer and faster
   //     compared with checking for the shebang (optional)
   ldr w0, [x24]
-  ldr w1, =0x464c457f                   // Match Little-Endian
+// !!! fa inserire all’assemblatore un literal pool (4 byte sdi dati
+//     nel .text) che rompe il conteggio dei 1024 byte e sposta tutto.
+//ldr w1, =0x464c457f                   // Match Little-Endian
+  mov  w1, #0x457f
+  movk w1, #0x464c, lsl #16
   cmp w0, w1
   b.eq .execute_elf                     // If ELF, do execve()
 
@@ -442,10 +446,11 @@ dashdash:   .ascii "--\0"                                      //   3 |  3 |   3
 // PADDING: Aligned exactly to 1024 bytes (dd skip=1)
 // ==============================================================================
 file_end:                               // Physical end of the binary file!
-.org 1020                               // Padding to 1024 bytes for skip=2
+.org 1024                               // Padding to 1024 bytes for skip=2
 
 // ==============================================================================
-// BSS SECTION (RAM-only)
+// BSS SECTION (RAM only)
 // ==============================================================================
-buf:                                    // Label immediately after 1024 byte
+buf:                                    // Label at offset 1024, RAM only
+.equ bss_end, . + 516                   // Reserve 512 + 4 bytes for the buffer
 
