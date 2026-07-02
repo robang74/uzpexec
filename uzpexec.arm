@@ -182,9 +182,9 @@ main_start:
   svc #0
   cbz x0, child                         // the child jump to its routine
 
-  // ===========================================================================
+  // ============================================================================
   // PARENT PROCESS ( p::stack { [memfd], buf, filename, 0 } )
-  // ===========================================================================
+  // ============================================================================
 parent:
   // 1p. The parent waits for the child completes zcat writing in memfd
   mov x8, #260                          // SYS_wait4
@@ -204,20 +204,20 @@ parent:
   // mov ebx, edi
   // int 0x80
 
-  // ---------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------
   // HARDENING: F_ADD_SEALS TO MEMFD
-  //
+  // 
   // Apply F_ADD_SEALS (F_SEAL_WRITE, etc.) to the memfd exclusively
   // within the ELF execution path before invoking execveat().
-  //
+  // 
   // - ELF hardening: prevents any runtime exploits from tampering with
   //   or rewriting the binary payload resident in RAM via /proc/self/fd/.
-  //
+  // 
   // - Script compatibility: this security measure is omitted for the
   //   shell interpreter branch because /bin/sh and its sub-utilities
   //   often require standard read/write descriptors or create temporary
   //   files, meaning write-restricted seals could break compatibility.
-  // ---------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------
   // 2p. Sealing the memfd/ELF in RO mode, for security and integrity
   mov x8, #92                           // SYS_fcntl
   mov x0, x23                           // memfd
@@ -249,9 +249,9 @@ parent:
   cmp w0, w1
   b.eq .execute_elf                     // If ELF, do execve()
 
-  // ---------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------
   // SCRIPT MODE
-  // ---------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------
   // 1s. Rewind memfd at the starting point to pass it to the shell
   mov x8, #62                           // SYS_lseek
   mov x0, x23
@@ -272,6 +272,9 @@ parent:
 
   // Safeguard: if argc is 0 <-- No, the issue was argv=NULL, SIGSEGV solves
   // Therefore the branch "no_args" would never traversed and can be removed
+
+  // In-place stack manipulation using ESP (argv is at [esp]):
+  // ["/bin/sh", "-c", ". /dev/fd/9", "--", original_args...]
 
   // Build new argv in-place: overwrite first 4 slots, shift original args
   adr x0, do_script
@@ -301,9 +304,9 @@ parent:
   svc #0
   b exit_error                          // eventually will fail later
 
-  // ---------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------
   // ELF BINARY MODE (Security: harden ELF execution via read-only memfd seals)
-  // ---------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------
 .execute_elf:
   // Execute the ELF binary using a Linux specific syscall
   mov x8, #281                          // SYS_execveat
@@ -315,9 +318,9 @@ parent:
   svc #0
   b exit_error                          // never returns unless syscall fails
 
-// =============================================================================
+// ============================================================================
 // CHILD PROCESS ( c::stack { [memfd], buf, filename, 0 } )
-// =============================================================================
+// ============================================================================
 child:
   // 1c. 1st dup2: connect input (EDI) to STDIN (0) for both modes
   mov x8, #24                           // SYS_dup3
@@ -366,8 +369,11 @@ child:
   mov x2, #0                            // envp null
   svc #0
 
-// =============================================================================
+  // ============================================================================
 exit_error:
+// test ebx, ebx
+// jnz exit_now
+
   // Print copyright notice, version and internal name
   adr x1, copy_vers
 .ifdef _DO_EXTRA
@@ -383,13 +389,16 @@ exit_error:
   mov x0, #2                            // stderr
   svc #0
 
+// exit_now:
+// xor ebx, ebx
+// inc ebx                              // Exit code 1
   mov x8, #93                           // SYS_exit
   mov x0, #1                            // Exit code 1
   svc #0
 
-// =============================================================================
+// ==============================================================================
 // COMPACT DATA SECTION (appended to code)
-// =============================================================================
+// ==============================================================================
 // filename can be changed by sed up to 7 chars + ending \0
 // zcat -f is cat when input isn't gzip, options up to -6c\0
 // /bin/zcat can be changed by sed up to 41 chars + ending \0
@@ -419,14 +428,14 @@ dashdash:   .ascii "--\0"                                      //   3 |  3 |   3
 //              |<-- 8 chars -->|<- +8c ->|                    //  ---------  45
                                                                // 110 (tot.) 110
 
-// =============================================================================
+// ==============================================================================
 // PADDING: Aligned exactly to 1024 bytes (dd skip=1)
-// =============================================================================
+// ==============================================================================
 file_end:                               // Physical end of the binary file!
 .org 1020                               // Padding to 1024 bytes for skip=2
 
-// =============================================================================
+// ==============================================================================
 // BSS SECTION (RAM-only)
-// =============================================================================
+// ==============================================================================
 buf:                                    // Label immediately after 1024 byte
 
