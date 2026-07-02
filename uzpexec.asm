@@ -23,7 +23,8 @@
 ; ==============================================================================
 
 BITS 32
-org 0x08048000
+BASE_ADDR equ 0x08048000       ; Loading base definition
+org BASE_ADDR
 
 ; ==============================================================================
 ; ELF32 HEADER (Micro-Loader a 32-bit, Teeny ELF)
@@ -45,15 +46,14 @@ elf_header:
   ; Many Linux kernel ELF parsers completely ignore these 6
   ; bytes when section offset e_shoff = 0, as in this case.
   dw 0, 0, 0                   ; Section info (zeroed out)
-  ; Finally managed to suck more bits out from nowhere to rescue these six 0s
 
 phdr:
   dd 1                         ; p_type (PT_LOAD - Segment to load)
   dd 0                         ; p_offset
-  dd 0x08048000                ; p_vaddr (Virtual address in memory)
-  dd 0x08048000                ; p_paddr
+  dd BASE_ADDR                 ; p_vaddr (Virtual address in memory)
+  dd BASE_ADDR                 ; p_paddr
   dd file_end - elf_header     ; p_filesz (Size of the code within the file)
-  dd bss_end - elf_header      ; p_memsz (Size of the code within memory)
+  dd  bss_end - elf_header     ; p_memsz (Size of the code within memory)
 
   ;-----------------------------------------------------------------------------
   dd 7                         ; p_flags (R+W+X - Read, Write, and Execute)
