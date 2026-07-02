@@ -1,4 +1,4 @@
-// =============================================================================
+// ==============================================================================
 //
 // (C) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT+1 license
 //
@@ -22,8 +22,8 @@
 //
 // =============================================================================
 // sed -e "s,^//,;," -e "s,// ,; ," -i uzpexec.arm
-// sed -e "s,^;,//," -e "s,; ,// ," -i uzpexec.arm
-// =============================================================================
+// sed -e "s,^;,//," -e "s,// ,; ," -i uzpexec.arm
+// ==============================================================================
 // aarch64-linux-gnu-as             -o uzprm64.o uzpexec.arm
 // aarch64-linux-gnu-objcopy -O binary uzprm64.o uzprm64
 // =============================================================================
@@ -32,9 +32,9 @@
 .global _start
 .equ BASE_ADDR, 0x00400000              // Loading base definition
 
-// =============================================================================
+// ==============================================================================
 // ELF64 HEADER (Micro-Loader a 64-bit, Teeny ELF)
-// =============================================================================
+// ==============================================================================
 elf_header:
   .byte 0x7F,'E','L','F',2,1,1,0        // e_ident (Magic, Class 64bit, LSB, Version)
   .fill 8, 1, 0                         // Padding e_ident
@@ -48,7 +48,7 @@ elf_header:
   .short 64                             // e_ehsize (Size di questo header ELF64)
   .short 56                             // e_phentsize (Size di un Program Header entry)
   .short 1                              // e_phnum (Un solo segmento)
-  // ---------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------
   // Many Linux kernel ELF parsers completely ignore these 6
   // bytes when section offset e_shoff = 0, as in this case.
   .short 0, 0, 0                        // Section info (zeroed)
@@ -61,7 +61,7 @@ phdr:
   .quad file_end - elf_header           // p_filesz
   .quad file_end - elf_header + 516     // p_memsz
 
-  // ---------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------
   .word 7                               // p_flags (R+W+X) - Preservato AS-IS
   .quad 0x1000                          // p_align (Allineamento standard)
 
@@ -81,9 +81,9 @@ phdr:
 
   // WRX is the least of your troubles, but uzpexec as obscenely-powerful tool.
 
-// =============================================================================
-// CODE (uzpexec stub execution per ARM64)
-// =============================================================================
+// ==============================================================================
+// CODE (uzpexec stub execution starts here)
+// ==============================================================================
 main_start:
   // This would be the main() in a C-language sourcemain_start
   // Save original argv and calculate envp from the initial stack layout
@@ -95,16 +95,16 @@ main_start:
   add x0, x0, #8
   add x20, x19, x0                      // X20 = envp (callee-saved!)
 
-  // ---------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------
   // HARDENING: NO_NEW_PRIVS & ANTI-CORE-DUMP
-  //
+  // 
   // Using umask() is omitted because memfd ignores filesystem permissions.
   // Additional hardening:
   // - prctl(NO_NEW_PRIVS) prevents SUID escalation,
   // - prctl(PR_SET_DUMPABLE, 0) prevents core dumps,
   // - F_SEAL_SEAL locks the memfd seals permanently,
   // - MFD_CLOEXEC and F_SEAL_WRITE are already set.
-  // ---------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------
 
   // prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)
   mov x8, #167                          // SYS_prctl
