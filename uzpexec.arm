@@ -31,7 +31,7 @@
 .equ BASE_ADDR, 0x00400000              // Definizione pura della base di caricamento
 
 // ==============================================================================
-// ELF64 HEADER (Struttura lineare a 64-bit senza overlapping)
+// ELF64 HEADER (Micro-Loader a 64-bit, Teeny ELF)
 // ==============================================================================
 elf_header:
   .byte 0x7F, 'E', 'L', 'F', 2, 1, 1, 0 // e_ident (Magic, Class 64bit, LSB, Version)
@@ -94,7 +94,7 @@ main_start:
   ldr x1, [x19]                         // X1 = argv[0]
 
   // ============================================================================
-  // 1. Apri se stesso tramite openat (ARM64 non ha SYS_open)
+  // 1. Try to open itself file by argv[0] (CVE-2021-4034, ends here)
   mov x8, #56                           // SYS_openat
   movn x0, #99                          // AT_FDCWD (Emula open partendo dalla dir corrente)
   // X1 contiene già argv[0]
@@ -102,7 +102,7 @@ main_start:
   svc #0
   mov x22, x0                           // Ripone l'input FD in X22 (il nostro vecchio EDI)
 
-  // 2. Crea il memfd
+  // 2. Try to open the memfd, as first operation
   mov x8, #279                          // SYS_memfd_create su ARM64
   ldr x0, =filename                     // Nome descrittivo
   mov x1, #1                            // MFD_CLOEXEC
@@ -112,7 +112,7 @@ main_start:
   // Prepara l'area buffer nello stack/BSS per simulare la struttura originale
   ldr x24, =buf                         // X24 = indirizzo del buffer
 
-  // 3. Loop di lettura del primo blocco di 516 byte
+  // 3. Try to read from the file the 1st block + 4 bytes to check the carryload
   mov x2, #516                          // Size iniziale da leggere
 .read_loop:
   mov x8, #63                           // SYS_read su ARM64
@@ -133,14 +133,14 @@ main_start:
 .endif
 
 .fork_now:
-  // 4a. Riposiziona il puntatore del file a 512 se stavamo leggendo da file
+  // 4a. File pointer set
   mov x8, #62                           // SYS_lseek su ARM64
   mov x0, x22                           // Input FD
-  mov x1, #512                          // Offset
+  mov x1, #512                          // offset = 512
   mov x2, #0                            // SEEK_SET
   svc #0
 
-  // 4b. Fork del processo tramite SYS_clone (Fork classica è spesso omessa o deprecata su ARM64)
+  // 4b. Fork the process
   mov x8, #220                          // SYS_clone (senza flag equivale a una fork biologica)
   mov x0, #17                           // SIGCHLD nell'argomento dei flag
   mov x1, #0
@@ -151,10 +151,10 @@ main_start:
   cbz x0, child                         // Se 0, siamo nel processo figlio
 
   // ============================================================================
-  // PARENT PROCESS
+  // PARENT PROCESS ( p::stack { [memfd], buf, filename, 0 } )
   // ============================================================================
 parent:
-  // 1p. Attesa del figlio via wait4 (ARM64 non ha waitpid nativo autonomo)
+  // 1p. The parent waits for the child completes zcat writing in memfd
   mov x8, #260                          // SYS_wait4
   mov x0, #-1                           // Qualunque processo figlio
   mov x1, #0
@@ -170,21 +170,23 @@ parent:
   svc #0
 
 .rewind_memfd:
-  // 3p. Rewind del memfd a 0
+  // 3p. Rewind memfd at the starting point to check for the shebang script
   mov x8, #62                           // SYS_lseek
   mov x0, x23
   mov x1, #0
   mov x2, #0
   svc #0
 
-  // 4p. Legge i primi 4 byte per capire se è uno script o un ELF
+  // 4p. Read the first uncompressed 4 bytes (just two for the shebang)
   mov x8, #63                           // SYS_read
   mov x0, x23
   mov x1, x24                           // Buffer temporaneo
   mov x2, #4
   svc #0
 
-  // 5p. Verifica il Magic dell'ELF (\x7FELF)
+  // 5p. Check about ELF magic chars sequence (\x7FELF)
+  //     A 32-bit comparison is shorter, safer and faster
+  //     compared with checking for the shebang (optional)
   ldr w0, [x24]
   ldr w1, =0x464c457f                   // Little-Endian per \x7FELF
   cmp w0, w1
@@ -193,22 +195,23 @@ parent:
   // ----------------------------------------------------------------------------
   // SCRIPT MODE
   // ----------------------------------------------------------------------------
-  // 1s. Riposiziona il memfd a 0 per la shell
+  // 1s. Rewind memfd at the starting point to pass it to the shell
   mov x8, #62                           // SYS_lseek
   mov x0, x23
   mov x1, #0
   mov x2, #0
   svc #0
 
-  // 2s. Duplica il memfd sul descrittore di sistema 9 tramite dup3 (ARM64 non ha dup2)
+  // 2s. Connect the memfd to the shell STDIN (fd 0)
   mov x8, #24                           // SYS_dup3
   mov x0, x23                           // Da memfd
   mov x1, #9                            // A FD 9
   mov x2, #0                            // No flags (comportamento identico a dup2)
   svc #0
 
-  // 3s. Esecuzione shell: sostituzione parametri in-place nello stack
-  // Per fedeltà assoluta sovrascriviamo la struttura logica
+  // 3s. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
+  // In-place stack manipulation using ESP (argv is at [esp]):
+  // ["/bin/sh", "-c", ". /dev/fd/9", "--", original_args...]
   adr x0, do_script
   str x0, [x19, #0]                     // argv[0] = "/bin/sh"
   adr x1, commd_arg
@@ -224,9 +227,10 @@ parent:
   b exit_error
 
   // ----------------------------------------------------------------------------
-  // ELF BINARY MODE
+  // ELF BINARY MODE (Security: harden ELF execution via read-only memfd seals)
   // ----------------------------------------------------------------------------
 .execute_elf:
+  // Execute the ELF binary using a Linux specific syscall
   mov x8, #281                          // SYS_execveat su ARM64
   mov x0, x23                           // target FD (memfd)
   adr x1, empty_string                  // Path vuoto ""
@@ -237,19 +241,19 @@ parent:
   b exit_error
 
 // ============================================================================
-// CHILD PROCESS
+// CHILD PROCESS ( c::stack { [memfd], buf, filename, 0 } )
 // ============================================================================
 child:
-  // 1c. Collega l'input FD (X22) allo STDIN (0) tramite dup3
+  // 1c. 1st dup2: connect input (EDI) to STDIN (0) for both modes
   mov x8, #24                           // SYS_dup3
-  mov x0, x22
+  mov x0, x22                           // FD di input
   mov x1, #0                            // STDIN
   mov x2, #0
   svc #0
 
-  // 2c. Collega il memfd (X23) allo STDOUT (1) tramite dup3
+  // 2c. 2nd dup2: connect output to STDOUT (1) of the child which is MEMFD
   mov x8, #24                           // SYS_dup3
-  mov x0, x23
+  mov x0, x23                           // zcat writes in memfd
   mov x1, #1                            // STDOUT
   mov x2, #0
   svc #0
@@ -286,13 +290,12 @@ child:
   svc #0
 
 // ============================================================================
-// EXIT / ERROR HANDLING
-// ============================================================================
 exit_error:
+  // Print copyright notice, version and internal name
   mov x8, #64                           // SYS_write su ARM64
   mov x0, #2                            // Stderr
   adr x1, copy_vers
-  mov x2, #26                           // Lunghezza stringa stimata
+  mov x2, #26                           // bytes to write
   svc #0
 
   mov x8, #93                           // SYS_exit su ARM64
