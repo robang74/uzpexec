@@ -30,9 +30,9 @@
 
 .equ BASE_ADDR, 0x00400000              // Definizione pura della base di caricamento
 
-// ==============================================================================
+// =============================================================================
 // ELF64 HEADER (Micro-Loader a 64-bit, Teeny ELF)
-// ==============================================================================
+// =============================================================================
 elf_header:
   .byte 0x7F, 'E', 'L', 'F', 2, 1, 1, 0 // e_ident (Magic, Class 64bit, LSB, Version)
   .fill 8, 1, 0                         // Padding e_ident
@@ -75,9 +75,9 @@ phdr:
 
   // WRX is the least of your troubles, but uzpexec as obscenely-powerful tool.
 
-// ==============================================================================
+// =============================================================================
 // CODE (uzpexec stub execution per ARM64)
-// ==============================================================================
+// =============================================================================
 main_start:
   // This would be the main() in a C-language sourcemain_start
   // Save original argv and calculate envp from the initial stack layout
@@ -89,7 +89,7 @@ main_start:
   add x0, x0, #8
   add x20, x19, x0                      // X20 = envp (callee-saved!)
 
-  // ----------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // HARDENING: NO_NEW_PRIVS & ANTI-CORE-DUMP
   //
   // Using umask() is omitted because memfd ignores filesystem permissions.
@@ -98,7 +98,7 @@ main_start:
   // - prctl(PR_SET_DUMPABLE, 0) prevents core dumps,
   // - F_SEAL_SEAL locks the memfd seals permanently,
   // - MFD_CLOEXEC and F_SEAL_WRITE are already set.
-  // ----------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
 
   // prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)
   mov x8, #167                          // SYS_prctl
@@ -119,7 +119,7 @@ main_start:
                                         // CVE-2021-4034, pre-5.18, can't cover LK bugs
                                         // Let SIGSEGV do the work and/or syscalls fail
 
-  // ============================================================================
+  // ===========================================================================
 
   // 1. Try to open itself file by argv[0] (CVE-2021-4034, ends here)
   mov x8, #56                           // SYS_openat
@@ -131,13 +131,13 @@ main_start:
 
   // 2. Try to open the memfd, as first operation
   mov x8, #279                          // SYS_memfd_create
-  ldr x0, =filename                     // Linux requires a name here
+  adr x0, filename                      // Linux requires a name here
   mov x1, #1                            // MFD_CLOEXEC
   svc #0
   mov x23, x0                           // X23 = [memfd]
 
   // Organising the stack in the proper order (inverse order of popping)
-  ldr x24, =buf                         // X24 = buf
+  adr x24, buf                          // X24 = buf
 
   // 3. Try to read from the file the 1st block + 4 bytes to check the carryload
   mov x2, #516                          // read size (512+4), 64-bit aligned
@@ -177,9 +177,9 @@ main_start:
   svc #0
   cbz x0, child                         // the child jump to its routine
 
-  // ============================================================================
+  // ===========================================================================
   // PARENT PROCESS ( p::stack { [memfd], buf, filename, 0 } )
-  // ============================================================================
+  // ===========================================================================
 parent:
   // 1p. The parent waits for the child completes zcat writing in memfd
   mov x8, #260                          // SYS_wait4
@@ -194,12 +194,12 @@ parent:
   //     Expecially because with O_CLOEXEC, it lasts just a little
   // test edi, edi
   // jz .rewind_memfd
-  // push 6                       ; SYS_close
+  // push 6                              ; SYS_close
   // pop eax
   // mov ebx, edi
   // int 0x80
 
-  // ----------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // HARDENING: F_ADD_SEALS TO MEMFD
   //
   // Apply F_ADD_SEALS (F_SEAL_WRITE, etc.) to the memfd exclusively
@@ -212,7 +212,7 @@ parent:
   //   shell interpreter branch because /bin/sh and its sub-utilities
   //   often require standard read/write descriptors or create temporary
   //   files, meaning write-restricted seals could break compatibility.
-  // ----------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // 2p. Sealing the memfd/ELF in RO mode, for security and integrity
   mov x8, #92                           // SYS_fcntl
   mov x0, x23                           // memfd
@@ -244,9 +244,9 @@ parent:
   cmp w0, w1
   b.eq .execute_elf                     // If ELF, do execve()
 
-  // ----------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // SCRIPT MODE
-  // ----------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // 1s. Rewind memfd at the starting point to pass it to the shell
   mov x8, #62                           // SYS_lseek
   mov x0, x23
@@ -268,13 +268,25 @@ parent:
   // Safeguard: if argc is 0 <-- No, the issue was argv=NULL, SIGSEGV solves
   // Therefore the branch "no_args" would never traversed and can be removed
 
-  // In-place stack manipulation using ESP (argv is at [esp]):
+  // Build new argv in-place: overwrite first 4 slots, shift original args
   adr x0, do_script
-  str x0, [x19, #0]                     // overwrite original argv[0] with "/bin/sh"
-  adr x1, commd_arg
-  str x1, [x19, #8]                     // overwrite original argv[1] with "-c"
-  adr x2, commd_src
-  str x2, [x19, #16]                    // overwrite original argv[2] with ". /proc/self/fd/9"
+  str x0, [x19, #0]                     // argv[0] = "/bin/sh"
+  adr x0, commd_arg
+  str x0, [x19, #8]                     // argv[1] = "-c"
+  adr x0, commd_src
+  str x0, [x19, #16]                    // argv[2] = ". /proc/self/fd/9"
+  adr x0, dashdash
+  str x0, [x19, #24]                    // argv[3] = "--"
+
+  // Copy original argv[1]..argv[argc] (incl. NULL) to argv[4..]
+  add x1, x19, #32                      // dest = &argv[4]
+  add x2, x19, #8                       // src = &argv[1]
+  mov x3, x21                           // count = argc
+.copy_args:
+  ldr x0, [x2], #8
+  str x0, [x1], #8
+  subs x3, x3, #1
+  b.ne .copy_args
 
   // basic operations for calling the execve()
   mov x8, #221                          // SYS_execve
@@ -284,9 +296,9 @@ parent:
   svc #0
   b exit_error                          // eventually will fail later
 
-  // ----------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // ELF BINARY MODE (Security: harden ELF execution via read-only memfd seals)
-  // ----------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
 .execute_elf:
   // Execute the ELF binary using a Linux specific syscall
   mov x8, #281                          // SYS_execveat
@@ -298,9 +310,9 @@ parent:
   svc #0
   b exit_error                          // never returns unless syscall fails
 
-// ============================================================================
+// =============================================================================
 // CHILD PROCESS ( c::stack { [memfd], buf, filename, 0 } )
-// ============================================================================
+// =============================================================================
 child:
   // 1c. 1st dup2: connect input (EDI) to STDIN (0) for both modes
   mov x8, #24                           // SYS_dup3
@@ -350,7 +362,7 @@ child:
   mov x2, #0                            // envp null
   svc #0
 
-// ============================================================================
+// =============================================================================
 exit_error:
   // Print copyright notice, version and internal name
   adr x1, copy_vers
@@ -371,9 +383,9 @@ exit_error:
   mov x0, #1                            // Exit code 1
   svc #0
 
-// ==============================================================================
+// =============================================================================
 // COMPACT DATA SECTION (appended to code)
-// ==============================================================================
+// =============================================================================
 // filename can be changed by sed up to 7 chars + ending \0
 // zcat -f is cat when input isn't gzip, options up to -6c\0
 // /bin/zcat can be changed by sed up to 41 chars + ending \0
@@ -387,7 +399,7 @@ provider :  .ascii      "12345678\n\0"                         //  10 | 10 |  10
 zcat_path:  .ascii         "/bin/zcat\0"                       //  11 | 42 |  21
             .fill 10, 1, 0                                     //  10 |  - |  -
 do_script:  .ascii "/bin/sh\0"                                 //  16 |  - |  21
-              .fill 8, 1, 0
+            .fill 8, 1, 0
 eof_tests:  .ascii "U238\0"                                    //   5 |  - |   -
 commd_arg:  .ascii "-c\0"                                      //   3 |  - |   3
 // This introduces the need of having the /proc mounted, granted after the /init
@@ -399,16 +411,17 @@ commd_src:  .ascii ". /proc/self"
 .endif
             .ascii "/fd/9\0"                                   //  18 |  - |  18
 force_arg:  .ascii "-f\0"                                      //   3 |  3 |   3
+dashdash:   .ascii "--\0"                                      //   3 |  3 |   3
 //              |<-- 8 chars -->|<- +8c ->|                    //  ---------  45
                                                                // 110 (tot.) 110
 
-// ==============================================================================
+// =============================================================================
 // PADDING: Aligned exactly to 1024 bytes (dd skip=1)
-// ==============================================================================
-file_end:                       // Physical end of the binary file!
-.fill (1024 - (. - elf_header) -24), 1, 0  // Padding to 1024 bytes for skip=1
+// =============================================================================
+file_end:                               // Physical end of the binary file!
+.org 1020                               // Padding to 1024 bytes for skip=2
 
-// ==============================================================================
+// =============================================================================
 // BSS SECTION (RAM-only)
-// ==============================================================================
-buf:                                    // Etichetta agganciata subito dopo i 1024 byte
+// =============================================================================
+buf:                                    // label immediately after 1024 byte
