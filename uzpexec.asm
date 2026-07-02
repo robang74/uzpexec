@@ -240,7 +240,9 @@ parent:
   push 63                      ; SYS_dup2
   pop eax
 ; mov ebx, [memfd]             ; already set
-  xor ecx, ecx                 ; 0 = stdin
+; xor ecx, ecx                 ; 0 = stdin
+  push 9
+  pop ecx                      ; file descriptor
   int 0x80
 
   ; 3s. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
@@ -253,10 +255,13 @@ parent:
   ; Therefore the branch "no_args" would never traversed and can be removed
 
   ; In-place stack manipulation using ESP (argv is at [esp]):
-  mov dword [esp+4], dual_dash ; overwrite original argv[] with "--"
-  mov dword [esp+0], stdin_arg ; overwrite original argv[] with "-s"
+  ; ["/bin/sh", "-c", ". /dev/fd/9", "--", original_args...]
+
+  ; In-place stack manipulation using ESP (argv is at [esp]):
+  mov dword [esp+4], ebx ; overwrite original argv[] with "--"
+  mov dword [esp+0], commd_src ; overwrite original argv[] with "-c"
   lea ecx,  [esp-8]            ; original arguments argv[1] ... [n]
-  push stdin_arg               ; pushing "-s"
+  push commd_arg               ; pushing "-c"
   push dword ebx
 
   ; basic operations for calling the execve()
@@ -382,14 +387,14 @@ exit_error:
 ; in do_script mode the 2 paths shrink to 20 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
 ;                                                                   LN | FD | SH
-copy_vers:  db "(c) github/robang74 v0.91 "                       ; 26 | 26 | 26
+copy_vers:  db "(c) github/robang74 v0.92 "                       ; 26 | 26 | 26
 filename :  db      "uzpexec", 0                                  ;  8 |  8 |  8
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ; 21 | 42 | 21
 ; following fields are conditionally overwritable, do unions      : --------- 55
-do_script:  db      "/bin/dash", 0, 0, 0,0,0     ; for shell      ; 14 |  - | 18
+do_script:  db      "/bin/sh", 0, 0, 0,0,0, 0,0  ; for shell      ; 14 |  - | 18
+commd_src:  db ". /proc/self/fd/9", 0
 eof_tests:  db "U238",                           ; for tests      :  4 |  - |  -
-stdin_arg:  db "-s", 0                           ; for shell      :  3 |  - |  3
-dual_dash:  db "--", 0                           ; for shell      :  3 |  - |  3
+commd_arg:  db "-c", 0                           ; for shell      :  3 |  - |  3
 force_arg:  db "-f", 0                           ; for zcat       :  3 |  3 |  3
 ;              |<-- 8 chars -->|<- +8c ->|                        : --------- 27
                                                                   ; 82 (tot.) 82
