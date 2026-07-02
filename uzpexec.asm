@@ -48,7 +48,7 @@ elf_header:
   ; ----------------------------------------------------------------------------
   ; Many Linux kernel ELF parsers completely ignore these 6
   ; bytes when section offset e_shoff = 0, as in this case.
-  dw 0, 0, 0                   ; Section info (zeroed out)
+  ;dw 0, 0, 0                   ; Section info (zeroed out)
 
 phdr:
   dd 1                         ; p_type (PT_LOAD - Segment to load)
@@ -126,7 +126,7 @@ main_start:
   ; 1. Try to open itself file by argv[0] (CVE-2021-4034, ends here)
 ; mov ebx, [esi]               ; EBX = argv[0]
 ; xor ecx, ecx                 ; O_RDONLY
-  mov ecx, 0x80000             ; O_RDONLY | O_CLOEXEC
+  mov ecx, 0x00080000          ; O_RDONLY | O_CLOEXEC
   push 5                       ; SYS_open
   pop eax
   int 0x80
@@ -154,11 +154,19 @@ main_start:
   mov ebx, edi                 ; input fd
   int 0x80
   test eax, eax
-  js .stdin                    ; if read fails, read STDIN
+  js exit_error                ; read fails --> error (bugfix)
   jz .stdin                    ; if premature EOF, read STDIN
   sub edx, eax
   jnz .read_loop
-  jmp .fork_now                ; EDI = fd at +516 bytes (**)
+
+.rewind:                       ; EDI = fd at +516 bytes (**)
+  ; 4a. File pointer set
+  push 19                      ; SYS_lseek
+  pop eax
+  mov ecx, 512                 ; offset = 512
+; xor edx, edx                 ; SEEK_SET = 0, already
+  int 0x80
+  jmp .fork
 
 .stdin:
 %ifdef _NO_STDIN
@@ -167,13 +175,7 @@ main_start:
   xor edi, edi                 ; EDI = 0 (STDIN)
 %endif
 
-.fork_now:
-  ; 4a. File pointer set
-  push 19                      ; SYS_lseek
-  pop eax
-  mov ecx, 512                 ; offset = 512
-; xor edx, edx                 ; SEEK_SET = 0, already
-  int 0x80
+.fork:
   ; 4b. Fork the process
   push 2                       ; SYS_fork
   pop eax
@@ -187,7 +189,7 @@ main_start:
 parent:
   ; 1p. The parent waits for the child completes zcat writing in memfd
   xor ecx, ecx
-  xor edx, edx
+  xor edx, edx                 ; = 0, already
   xor ebx, ebx
   dec ebx                      ; -1
   push 7                       ; SYS_waitpid
@@ -199,7 +201,7 @@ parent:
   ;     Expecially because with O_CLOEXEC, it lasts just a little
   ; test edi, edi
   ; jz .rewind_memfd
-  ; push 6                       ; SYS_close
+  ; push 6                     ; SYS_close
   ; pop eax
   ; mov ebx, edi
   ; int 0x80
@@ -293,8 +295,7 @@ parent:
 
   ; basic operations for calling the execve()
   mov edx, ebp                 ; envp (intact from main_start)
-  int 0x80
-; jmp exit_error               ; eventually will fail later
+  jmp .do_int
 
   ; ----------------------------------------------------------------------------
   ; ELF BINARY MODE (Security: harden ELF execution via read-only memfd seals)
@@ -308,8 +309,9 @@ parent:
   mov edx, esi                 ; EDX = argv (original)
   mov esi, ebp                 ; ESI = envp (original)
   mov edi, 0x1000              ; EDI = AT_EMPTY_PATH
-  int 0x80
-  jmp exit_error               ; never returns unless syscall fails
+ .do_int:
+  int 0x80                     ; this system call never returns
+  jmp exit_error               ; unless it fails
 
 ; ============================================================================
 ; CHILD PROCESS ( c::stack { [memfd], buf, filename, 0 } )
@@ -401,7 +403,7 @@ exit_error:
 ; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
 ; in do_script mode the 2 paths shrink to 20 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
-;                                                                  LN | FD |  SH
+;                                                                  LN | XE |  SH
 copy_vers:  db "(c) github/robang74 v0.92 "                     ;  26 | 26 |  26
 filename :  db      "uzpexec", 0                                ;   8 |  8 |   8
 provider :  db      "12345678", 0x0a, 0                         ;  10 | 10 |  10
