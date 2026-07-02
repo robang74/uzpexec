@@ -56,30 +56,54 @@ phdr:
   .quad BASE_ADDR                       // p_paddr
   .quad file_end - elf_header           // p_filesz
   .quad file_end - elf_header + 516     // p_memsz
+
   .quad 0x1000                          // p_align (Allineamento standard)
+
+  // Security-by-Design VS Security-by-Subtraction
+
+  // Because uzpexec contains no input parsing logic that could be corrupted and
+  // its fixed 512-byte read loop cannot be overflowed, the writeable-executable
+  // segment offers no exploitable attack vector.
+
+  // Since the loader immediately forfeits control through atomic fork() / exec()
+  // or execveat() transitions that never return, an attacker cannot redirect
+  // execution to modified code before the process image is replaced.
+
+  // An adversary who can already write to the process memory holds sufficient
+  // privileges to inject code via ptrace or mprotect on any standard binary,
+  // which means the R+W+X flag introduces zero additional risk.
+
+  // WRX is the least of your troubles, but uzpexec as obscenely-powerful tool.
 
 // ==============================================================================
 // CODE (uzpexec stub execution per ARM64)
 // ==============================================================================
 main_start:
-  // Al boot su ARM64 Linux:
-  // X0 = argc
-  // SP = punta ad argv[0], argv[1], ...
-  mov x21, x0                           // Salva argc in X21 (equivalente concettuale di EAX originale)
-  mov x19, sp                           // X19 = argv (il nostro vecchio ESI)
+  // This would be the main() in a C-language sourcemain_start
+  // Save original argv and calculate envp from the initial stack layout
+  // Stack: [argc] [argv[0]] ... [argv[N]] [NULL] [envp...]
+  mov x21, x0                           // argc (was X0)
+  mov x19, sp                           // X19 = argv
 
-  // Calcolo di envp: EBP = argv + (argc * 8) + 8
-  lsl x0, x21, #3                       // argc * 8 (puntatori a 64-bit)
+  lsl x0, x21, #3                       // argc * 8 (64-bit pointers)
   add x0, x0, #8
-  add x20, x19, x0                      // X20 = envp (il nostro vecchio EBP, callee-saved)
+  add x20, x19, x0                      // X20 = envp (callee-saved!)
 
   // ----------------------------------------------------------------------------
-  // HARDENING: NO_NEW_PRIVS & ANTI-CORE-DUMP (Identico all'originale)
+  // HARDENING: NO_NEW_PRIVS & ANTI-CORE-DUMP
+  //
+  // Using umask() is omitted because memfd ignores filesystem permissions.
+  // Additional hardening:
+  // - prctl(NO_NEW_PRIVS) prevents SUID escalation,
+  // - prctl(PR_SET_DUMPABLE, 0) prevents core dumps,
+  // - F_SEAL_SEAL locks the memfd seals permanently,
+  // - MFD_CLOEXEC and F_SEAL_WRITE are already set.
   // ----------------------------------------------------------------------------
+
   // prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)
-  mov x8, #167                          // SYS_prctl su ARM64
+  mov x8, #167                          // SYS_prctl
   mov x0, #38                           // PR_SET_NO_NEW_PRIVS
-  mov x1, #1                            // abilita
+  mov x1, #1                            // enable
   mov x2, #0
   mov x3, #0
   svc #0
@@ -87,68 +111,71 @@ main_start:
   // prctl(PR_SET_DUMPABLE, 0, 0, 0, 0)
   mov x8, #167                          // SYS_prctl
   mov x0, #4                            // PR_SET_DUMPABLE
-  mov x1, #0                            // disabilita
+  mov x1, #0                            // disable
   svc #0
 
-  // Recupero argv[0] per tentare l'apertura
+  // Checking argv[0] to open input (itself or stdin)
   ldr x1, [x19]                         // X1 = argv[0]
+                                        // CVE-2021-4034, pre-5.18, can't cover LK bugs
+                                        // Let SIGSEGV do the work and/or syscalls fail
 
   // ============================================================================
+
   // 1. Try to open itself file by argv[0] (CVE-2021-4034, ends here)
   mov x8, #56                           // SYS_openat
-  movn x0, #99                          // AT_FDCWD (Emula open partendo dalla dir corrente)
-  // X1 contiene già argv[0]
+  movn x0, #99                          // AT_FDCWD
+  // X1 contains argv[0]
   movz x2, #8, lsl #16                  // O_RDONLY | O_CLOEXEC
   svc #0
-  mov x22, x0                           // Ripone l'input FD in X22 (il nostro vecchio EDI)
+  mov x22, x0                           // Move fd in X22 to save it for later
 
   // 2. Try to open the memfd, as first operation
-  mov x8, #279                          // SYS_memfd_create su ARM64
-  ldr x0, =filename                     // Nome descrittivo
+  mov x8, #279                          // SYS_memfd_create
+  ldr x0, =filename                     // Linux requires a name here
   mov x1, #1                            // MFD_CLOEXEC
   svc #0
   mov x23, x0                           // X23 = [memfd]
 
-  // Prepara l'area buffer nello stack/BSS per simulare la struttura originale
-  ldr x24, =buf                         // X24 = indirizzo del buffer
+  // Organising the stack in the proper order (inverse order of popping)
+  ldr x24, =buf                         // X24 = buf
 
   // 3. Try to read from the file the 1st block + 4 bytes to check the carryload
-  mov x2, #516                          // Size iniziale da leggere
+  mov x2, #516                          // read size (512+4), 64-bit aligned
 .read_loop:
-  mov x8, #63                           // SYS_read su ARM64
-  mov x0, x22                           // Input FD
+  mov x8, #63                           // SYS_read
+  mov x0, x22                           // input fd
   mov x1, x24                           // Buffer
   svc #0
   cmp x0, #0
-  b.le .stdin                           // Se <= 0 (errore o EOF), passa a STDIN
+  b.le .stdin                           // if read fails, read STDIN
   sub x2, x2, x0
   cbnz x2, .read_loop
   b .fork_now
 
 .stdin:
 .ifdef _NO_STDIN
-  b exit_error
+  b exit_error                          // single point of detour
 .else
   mov x22, #0                           // X22 = 0 (STDIN)
 .endif
 
 .fork_now:
   // 4a. File pointer set
-  mov x8, #62                           // SYS_lseek su ARM64
-  mov x0, x22                           // Input FD
+  mov x8, #62                           // SYS_lseek
+  mov x0, x22                           // input fd
   mov x1, #512                          // offset = 512
-  mov x2, #0                            // SEEK_SET
+  mov x2, #0                            // SEEK_SET = 0
   svc #0
 
   // 4b. Fork the process
-  mov x8, #220                          // SYS_clone (senza flag equivale a una fork biologica)
-  mov x0, #17                           // SIGCHLD nell'argomento dei flag
+  mov x8, #220                          // SYS_clone (no flags = biological fork)
+  mov x0, #17                           // SIGCHLD
   mov x1, #0
   mov x2, #0
   mov x3, #0
   mov x4, #0
   svc #0
-  cbz x0, child                         // Se 0, siamo nel processo figlio
+  cbz x0, child                         // the child jump to its routine
 
   // ============================================================================
   // PARENT PROCESS ( p::stack { [memfd], buf, filename, 0 } )
@@ -156,41 +183,66 @@ main_start:
 parent:
   // 1p. The parent waits for the child completes zcat writing in memfd
   mov x8, #260                          // SYS_wait4
-  mov x0, #-1                           // Qualunque processo figlio
+  mov x0, #-1                           // any child
   mov x1, #0
   mov x2, #0
   mov x3, #0                            // No rusage
   svc #0
 
-  // 2p. Harden memfd aggiungendo i sigilli di protezione (F_ADD_SEALS)
-  mov x8, #92                           // SYS_fcntl su ARM64
-  mov x0, x23                           // FD del nostro memfd
+  // 2p. Closing the real file once read in full, also for safety,
+  //     but fd is RD_ONLY so we can save bytes here, avoiding it.
+  //     Expecially because with O_CLOEXEC, it lasts just a little
+  // test edi, edi
+  // jz .rewind_memfd
+  // push 6                       ; SYS_close
+  // pop eax
+  // mov ebx, edi
+  // int 0x80
+
+  // ----------------------------------------------------------------------------
+  // HARDENING: F_ADD_SEALS TO MEMFD
+  //
+  // Apply F_ADD_SEALS (F_SEAL_WRITE, etc.) to the memfd exclusively
+  // within the ELF execution path before invoking execveat().
+  //
+  // - ELF hardening: prevents any runtime exploits from tampering with
+  //   or rewriting the binary payload resident in RAM via /proc/self/fd/.
+  //
+  // - Script compatibility: this security measure is omitted for the
+  //   shell interpreter branch because /bin/sh and its sub-utilities
+  //   often require standard read/write descriptors or create temporary
+  //   files, meaning write-restricted seals could break compatibility.
+  // ----------------------------------------------------------------------------
+  // 2p. Sealing the memfd/ELF in RO mode, for security and integrity
+  mov x8, #92                           // SYS_fcntl
+  mov x0, x23                           // memfd
   mov x1, #1033                         // F_ADD_SEALS (0x0409)
-  mov x2, #15                           // F_SEAL_WRITE | F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL
+  // F_SEAL_WRITE | F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL = 15 (0x0f)
+  mov x2, #15                           // write only fd
   svc #0
 
 .rewind_memfd:
   // 3p. Rewind memfd at the starting point to check for the shebang script
   mov x8, #62                           // SYS_lseek
   mov x0, x23
-  mov x1, #0
-  mov x2, #0
+  mov x1, #0                            // offset = 0
+  mov x2, #0                            // SEEK_SET = 0
   svc #0
 
   // 4p. Read the first uncompressed 4 bytes (just two for the shebang)
   mov x8, #63                           // SYS_read
   mov x0, x23
-  mov x1, x24                           // Buffer temporaneo
-  mov x2, #4
+  mov x1, x24                           // Buffer
+  mov x2, #4                            // count = 4
   svc #0
 
   // 5p. Check about ELF magic chars sequence (\x7FELF)
   //     A 32-bit comparison is shorter, safer and faster
   //     compared with checking for the shebang (optional)
   ldr w0, [x24]
-  ldr w1, =0x464c457f                   // Little-Endian per \x7FELF
+  ldr w1, =0x464c457f                   // Match Little-Endian
   cmp w0, w1
-  b.eq .execute_elf
+  b.eq .execute_elf                     // If ELF, do execve()
 
   // ----------------------------------------------------------------------------
   // SCRIPT MODE
@@ -198,47 +250,53 @@ parent:
   // 1s. Rewind memfd at the starting point to pass it to the shell
   mov x8, #62                           // SYS_lseek
   mov x0, x23
-  mov x1, #0
-  mov x2, #0
+  mov x1, #0                            // offset = 0
+  mov x2, #0                            // SEEK_SET = 0
   svc #0
 
   // 2s. Connect the memfd to the shell STDIN (fd 0)
   mov x8, #24                           // SYS_dup3
-  mov x0, x23                           // Da memfd
-  mov x1, #9                            // A FD 9
-  mov x2, #0                            // No flags (comportamento identico a dup2)
+  mov x0, x23                           // from memfd
+  mov x1, #9                            // to FD 9
+  mov x2, #0                            // No flags
   svc #0
 
   // 3s. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
   // In-place stack manipulation using ESP (argv is at [esp]):
   // ["/bin/sh", "-c", ". /dev/fd/9", "--", original_args...]
-  adr x0, do_script
-  str x0, [x19, #0]                     // argv[0] = "/bin/sh"
-  adr x1, commd_arg
-  str x1, [x19, #8]                     // argv[1] = "-c"
-  adr x1, commd_src
-  str x1, [x19, #16]                    // argv[2] = ". /proc/self/fd/9"
 
-  mov x8, #221                          // SYS_execve su ARM64
+  // Safeguard: if argc is 0 <-- No, the issue was argv=NULL, SIGSEGV solves
+  // Therefore the branch "no_args" would never traversed and can be removed
+
+  // In-place stack manipulation using ESP (argv is at [esp]):
   adr x0, do_script
-  mov x1, x19                           // Nuovo argv manipolato
-  mov x2, x20                           // envp originale
+  str x0, [x19, #0]                     // overwrite original argv[0] with "/bin/sh"
+  adr x1, commd_arg
+  str x1, [x19, #8]                     // overwrite original argv[1] with "-c"
+  adr x2, commd_src
+  str x2, [x19, #16]                    // overwrite original argv[2] with ". /proc/self/fd/9"
+
+  // basic operations for calling the execve()
+  mov x8, #221                          // SYS_execve
+  adr x0, do_script
+  mov x1, x19                           // argv (manipulated)
+  mov x2, x20                           // envp (intact from main_start)
   svc #0
-  b exit_error
+  b exit_error                          // eventually will fail later
 
   // ----------------------------------------------------------------------------
   // ELF BINARY MODE (Security: harden ELF execution via read-only memfd seals)
   // ----------------------------------------------------------------------------
 .execute_elf:
   // Execute the ELF binary using a Linux specific syscall
-  mov x8, #281                          // SYS_execveat su ARM64
-  mov x0, x23                           // target FD (memfd)
-  adr x1, empty_string                  // Path vuoto ""
-  mov x2, x19                           // argv originale
-  mov x3, x20                           // envp originale
+  mov x8, #281                          // SYS_execveat
+  mov x0, x23                           // memfd
+  adr x1, empty_string                  // ""
+  mov x2, x19                           // argv (original)
+  mov x3, x20                           // envp (original)
   mov x4, #0x1000                       // AT_EMPTY_PATH
   svc #0
-  b exit_error
+  b exit_error                          // never returns unless syscall fails
 
 // ============================================================================
 // CHILD PROCESS ( c::stack { [memfd], buf, filename, 0 } )
@@ -246,14 +304,14 @@ parent:
 child:
   // 1c. 1st dup2: connect input (EDI) to STDIN (0) for both modes
   mov x8, #24                           // SYS_dup3
-  mov x0, x22                           // FD di input
+  mov x0, x22                           // input FD
   mov x1, #0                            // STDIN
   mov x2, #0
   svc #0
 
   // 2c. 2nd dup2: connect output to STDOUT (1) of the child which is MEMFD
   mov x8, #24                           // SYS_dup3
-  mov x0, x23                           // zcat writes in memfd
+  mov x0, x23                           // memfd
   mov x1, #1                            // STDOUT
   mov x2, #0
   svc #0
@@ -269,36 +327,47 @@ child:
   mov w2, #0x8b1f                       // match Little-Endian per GZIP (0x1F, 0x8B)
   cmp w1, w2
   b.eq .ok_force                        // be strict on gzip input (no -f option)
+  cbz x22, .ok_force                    // zcat reading from STDIN can be relaxed (-f)
 .ifdef _NO_FORCE
   b exit_error                          // the -f option could be completely excluded
 .else
-  cbnz x22, .no_force                   // zcat reading from file can't be relaxed (-f)
+  b .no_force                           // zcat reading from file can't be relaxed (-f)
 .endif
+
 .ok_force:
   adr x1, force_arg
   str x1, [sp, #8]                      // argv[1] = "-f"
   str xzr, [sp, #16]                    // NULL terminator
   b .do_exec_child
+
 .no_force:
   str xzr, [sp, #8]                     // NULL terminator
 
 .do_exec_child:
   mov x8, #221                          // SYS_execve
-  // X0 contiene già zcat_path
-  mov x1, sp                            // Il nostro array argv locale
-  mov x2, #0                            // envp NULL
+  // X0 contains zcat_path
+  mov x1, sp                            // argv
+  mov x2, #0                            // envp null
   svc #0
 
 // ============================================================================
 exit_error:
   // Print copyright notice, version and internal name
-  mov x8, #64                           // SYS_write su ARM64
-  mov x0, #2                            // Stderr
   adr x1, copy_vers
-  mov x2, #26                           // bytes to write
+.ifdef _DO_EXTRA
+  mov x2, #(zcat_path - copy_vers - 1)  // bytes to write
+  mov w3, #32
+  strb w3, [x1, #(zcat_path - copy_vers - 1 - 10)]
+.else
+  mov x2, #(provider - copy_vers)       // bytes to write
+  mov w3, #10
+  strb w3, [x1, #(provider - copy_vers - 1)]
+.endif
+  mov x8, #64                           // SYS_write
+  mov x0, #2                            // stderr
   svc #0
 
-  mov x8, #93                           // SYS_exit su ARM64
+  mov x8, #93                           // SYS_exit
   mov x0, #1                            // Exit code 1
   svc #0
 
@@ -311,16 +380,16 @@ exit_error:
 // - for example: /usr/local/bin/xzcat is 20 chars + ending \0
 // in do_script mode the 2 paths shrink to 20 chars + ending \0
 // eof_strng helps to find the EOF, and where \0 padding starts
-//                                                                  LN | FD |  SH
-copy_vers:  .ascii "(c) github/robang74 v0.92 "                 //  26 | 26 |  26
-filename :  .ascii      "uzprm64\0"                             //   8 |  8 |   8
-provider :  .ascii      "12345678\n\0"                          //  10 | 10 |  10
-zcat_path:  .ascii         "/bin/zcat\0"                        //  11 | 42 |  21
-            .fill 10, 1, 0                                      //  10 |  - |  -
-do_script:  .ascii "/bin/sh\0"                                  //  16 |  - |  21
+//                                                                 LN | FD |  SH
+copy_vers:  .ascii "(c) github/robang74 v0.92 "                //  26 | 26 |  26
+filename :  .ascii      "uzprm64\0"                            //   8 |  8 |   8
+provider :  .ascii      "12345678\n\0"                         //  10 | 10 |  10
+zcat_path:  .ascii         "/bin/zcat\0"                       //  11 | 42 |  21
+            .fill 10, 1, 0                                     //  10 |  - |  -
+do_script:  .ascii "/bin/sh\0"                                 //  16 |  - |  21
               .fill 8, 1, 0
-eof_tests:  .ascii "U238\0"                                     //   5 |  - |   -
-commd_arg:  .ascii "-c\0"                                       //   3 |  - |   3
+eof_tests:  .ascii "U238\0"                                    //   5 |  - |   -
+commd_arg:  .ascii "-c\0"                                      //   3 |  - |   3
 // This introduces the need of having the /proc mounted, granted after the /init
 // The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
 .ifdef _USE_DEVFS
@@ -328,10 +397,10 @@ commd_src:  .ascii ". /dev"
 .else
 commd_src:  .ascii ". /proc/self"
 .endif
-            .ascii "/fd/9\0"                                     //  18 |  - |  18
-force_arg:  .ascii "-f\0"                                        //   3 |  3 |   3
-//              |<-- 8 chars -->|<- +8c ->|                      //  ---------  45
-                                                                 // 110 (tot.) 110
+            .ascii "/fd/9\0"                                   //  18 |  - |  18
+force_arg:  .ascii "-f\0"                                      //   3 |  3 |   3
+//              |<-- 8 chars -->|<- +8c ->|                    //  ---------  45
+                                                               // 110 (tot.) 110
 
 // ==============================================================================
 // PADDING: Aligned exactly to 1024 bytes (dd skip=1)
