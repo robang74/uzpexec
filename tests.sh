@@ -7,7 +7,7 @@
 bin=uzpexec
 LS=$(command -v ls)
 S='Hello ($0) World!'
-eof_str="U238.-c.. /proc/self/fd/9.-f"
+eof_str="U238.-c.../proc/self/fd/9.-f."
 eof_len=$(echo "$eof_str" | wc -c)
 DD() { dd status=none "$@"; }
 retprt() { printf "\tret:${1:-$?}\n\n"; }
@@ -26,7 +26,7 @@ fi
 
 echo "Code size with EOF string:"
 n=$(grep --color=never -abo "$eof_str" $bin | cut -f1 -d:)
-printf "\t%d bytes\n\n" $(( ${n:--eof_len} + $eof_len ))
+printf "\t%d bytes\n\n" $(( ${n:--2-$eof_len} + 2 + $eof_len ))
 
 echo "Strings output:"
 ( exec 2>&1
