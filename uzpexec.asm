@@ -240,9 +240,7 @@ parent:
   push 63                      ; SYS_dup2
   pop eax
 ; mov ebx, [memfd]             ; already set
-;  xor ecx, ecx                 ; 0 = stdin
-  push 9
-  pop ecx
+  xor ecx, ecx                 ; 0 = stdin
   int 0x80
 
   ; 3s. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
