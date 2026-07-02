@@ -34,6 +34,14 @@ The `uzpexec` is an utility for executing an ELF binary directly from stdin pipe
 - it works with `dash`, `bash`, and busybox `ash`
 - reserved `provider` BSS field for customisation
 
+Using `uzpexec` to launch `uzpack.sh` generates a tool that can convert executables.
+
+Soon after `uzpack.sh` incorporates `uzpexec` as payload, it can work in standalone mode.
+
+In a standalone mode, it can convert itself in `uzpack` and it becomes self-hosted, also.
+
+- `stub + script --> script w/ payload --> self-hosted ELF32 executable converter tool`
+
 #### Requirements
 
 - `/bin/sh`, `/bin/zcat` (gunzip), `/proc` mounted, Linux kernel 3.19 or later
