@@ -44,37 +44,36 @@
 // ==============================================================================
 elf_header:
   .byte 0x7F,'E','L','F',2,1,1,0        // e_ident (Magic, Class 64bit, LSB, Version)
-  .fill 8, 1, 0                         // Padding e_ident
-  .short 2                              // e_type (Executable)
-  .short 183                            // e_machine (ARM AArch64)
+.fill 8, 1, 0                           // Padding e_ident
+  .short 2                              // e_type (ET_EXEC, Executable)
+  .short 183                            // e_machine (EM_AARCH64, ARM AArch64)
   .word 1                               // e_version
-  .quad BASE_ADDR + main_start          // e_entry (64-bit entry point)
-  .quad phdr - elf_header               // e_phoff (Offset Program Header)
-  .quad 0                               // e_shoff (No Section Header Table)
+  .quad BASE_ADDR + 120                 // e_entry (Salto matematico sicuro a main_start)
+  .quad 64                              // e_phoff (Il Program Header inizia a offset 64)
+  .quad 0                               // e_shoff
   .word 0                               // e_flags
-  .short 64                             // e_ehsize (Size di questo header ELF64)
-  .short 56                             // e_phentsize (Size di un Program Header entry)
-  .short 1                              // e_phnum (Un solo segmento)
+  .short 64                             // e_ehsize
+  .short 56                             // e_phentsize
+  .short 1                              // e_phnum
   // ----------------------------------------------------------------------------
   // Many Linux kernel ELF parsers completely ignore these 6
   // bytes when section offset e_shoff = 0, as in this case.
-  .short 0, 0, 0                        // Section info (zeroed)
+  .short 0                              // e_shentsize
+  .short 0                              // e_shnum
+  .short 0                              // e_shstrndx
 
 phdr:
-  .long 1                               // p_type = PT_LOAD
-  .long 0                               // p_flags (verrà sovrascritto dopo)
+  .word 1                               // p_type = PT_LOAD
+  .word 7                               // p_flags (PF_R + PF_W + PF_X)
   .quad 0                               // p_offset
   .quad BASE_ADDR                       // p_vaddr
   .quad BASE_ADDR                       // p_paddr
-  .quad file_end - elf_header           // p_filesz
-  .quad file_end - elf_header + 0x1000  // p_memsz  (aggiungi almeno una pagina)
+  .quad 1024                            // p_filesz (file size)
+  .quad 1024 + 516                      // p_memsz  (file size + buf size)
   .quad 0x1000                          // p_align
 
-  // p_flags (R+W+X) - va messo dopo come word separata in ELF64
+  // p_flags (PF_R + PF_W + PF_X)
   // ----------------------------------------------------------------------------
-  .word 7                               // p_flags (R+W+X) - Preservato AS-IS
-  .quad 0x1000                          // p_align (Allineamento standard)
-
   // Security-by-Design VS Security-by-Subtraction
 
   // Because uzpexec contains no input parsing logic that could be corrupted and
@@ -95,6 +94,18 @@ phdr:
 // CODE (uzpexec stub execution starts here)
 // ==============================================================================
 main_start:
+.ifdef _SAY_HELLO //////////////////////////////////////////////////////////////
+    mov x8, #64         // SYS_write su ARM64 è 64!
+    mov x0, #2          // Canale 2 = stderr
+    adr x1, hello_msg   // Puntatore alla stringa
+    mov x2, #13         // Lunghezza esatta di "Hello ARM64!\n"
+    svc #0              // Invocazione kernel
+    mov x8, #93         // SYS_exit su ARM64 è 93
+    mov x0, #0          // Exit code 0
+    svc #0
+hello_msg:
+    .ascii "Hello ARM64!\n"
+.endif /////////////////////////////////////////////////////////////////////////
   // This would be the main() in a C-language sourcemain_start
   // Save original argv and calculate envp from the initial stack layout
   // Stack: [argc] [argv[0]] ... [argv[N]] [NULL] [envp...]
@@ -443,10 +454,10 @@ dashdash:   .ascii "--\0"                                      //   3 |  3 |   3
                                                                // 110 (tot.) 110
 
 // ==============================================================================
-// PADDING: Aligned exactly to 1024 bytes (dd skip=1)
+// PADDING: Aligned exactly to 1024 bytes (dd skip=2)
 // ==============================================================================
 file_end:                               // Physical end of the binary file!
-.org 1024                               // Padding to 1024 bytes for skip=2
+.fill (1024 - (. - elf_header)), 1, 0   // Padding to 1024 bytes for skip=2
 
 // ==============================================================================
 // BSS SECTION (RAM only)
