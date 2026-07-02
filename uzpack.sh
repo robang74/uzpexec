@@ -11,7 +11,12 @@
 
 # ------------------------------------------------------------------------------
 if [ ${BASHPID:-0} -eq 0 ] && [ -t 0 -o -c /dev/tty ]; then exec < /dev/tty; fi
-# RAF, TODO: for testing the console ## read -p "proceed with '$-' ? " xp  #<&3
+# if [ ${_SETFD_:-0} -eq 0 ]; then
+#     if [ -t 0 ]; then true; else
+#         export _SETFD_=1; . /proc/self/fd/0 -- "$@";
+#     fi
+# fi
+# RAF, TODO: for testing the console ## read -p "proceed with '$-' ? " xp  # <&3
 # ------------------------------------------------------------------------------
 
 usage() {
