@@ -48,7 +48,7 @@ In a standalone mode, it can convert itself in `uzpack` and it becomes self-host
 
 #### Short notes
 
-- Since v0.92 the support is extend from `dash`-only to *potentially* every shell.
+- Since v0.92 the support is extended from dash-only to *potentially* every shell.
 
 - RAM-only, without writing on the remote/local systems storage because `memfd_create()`.
 
