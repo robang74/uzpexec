@@ -397,8 +397,14 @@ zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0 ;  21 | 42 |  21
 do_script:  db "/bin/sh", 0, 0, 0,0,0, 0,0,0,0   ; for shell    :  16 |  - |  21
 eof_tests:  db "U238", 0                         ; for tests    :   5 |  - |   -
 commd_arg:  db "-c", 0                           ; for shell    :   3 |  - |   3
-commd_src:  db ". /proc/self/fd/9", 0            ; for shell    :  18 |  - |  18
-; This introduces the need of having the /proc mounted, granted after Linux/init
+; This introduces the need of having the /proc mounted, granted after the /init
+; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
+%ifdef _USE_DEVFS
+commd_src:  db ". /dev"
+%else
+commd_src:  db ". /proc/self"
+%endif
+            db "/fd/9", 0                        ; for shell    :  18 |  - |  18
 force_arg:  db "-f", 0                           ; for zcat     :   3 |  3 |   3
 ;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  45
                                                                 ; 100 (tot.) 100
