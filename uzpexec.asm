@@ -201,6 +201,30 @@ parent:
   ; mov ebx, edi
   ; int 0x80
 
+  ; ----------------------------------------------------------------------------
+  ; HARDENING: F_ADD_SEALS TO MEMFD
+  ;
+  ; Apply F_ADD_SEALS (F_SEAL_WRITE, etc.) to the memfd exclusively
+  ; within the ELF execution path before invoking execveat().
+  ;
+  ; - ELF hardening: prevents any runtime exploits from tampering with
+  ;   or rewriting the binary payload resident in RAM via /proc/self/fd/.
+  ;
+  ; - Script compatibility: this security measure is omitted for the
+  ;   shell interpreter branch because /bin/sh and its sub-utilities
+  ;   often require standard read/write descriptors or create temporary
+  ;   files, meaning write-restricted seals could break compatibility.
+  ; ----------------------------------------------------------------------------
+; 2p. Sealing the memfd/ELF in RO mode, for security and integrity
+  push 92
+  pop eax                      ; SYS_fcntl
+; mov ebx, [memfd]             ; EBX = memfd, already
+  mov ecx, 1033                ; ECX = F_ADD_SEALS (0x0409)
+  ; F_SEAL_WRITE | F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL = 15 (0x0f)
+  push 15
+  pop edx                      ; EDX = 0x0f, write only fd
+  int 0x80                     ; ELF hardening provided
+
 .rewind_memfd:
   ; 3p. Rewind memfd at the starting point to check for the shebang script
   push 19                      ; SYS_lseek
@@ -271,30 +295,9 @@ parent:
 
   ; ----------------------------------------------------------------------------
   ; ELF BINARY MODE (Security: harden ELF execution via read-only memfd seals)
-  ;
-  ; Apply F_ADD_SEALS (F_SEAL_WRITE, etc.) to the memfd exclusively
-  ; within the ELF execution path before invoking execveat().
-  ;
-  ; - ELF hardening: prevents any runtime exploits from tampering with
-  ;   or rewriting the binary payload resident in RAM via /proc/self/fd/.
-  ;
-  ; - Script compatibility: this security measure is omitted for the
-  ;   shell interpreter branch because /bin/sh and its sub-utilities
-  ;   often require standard read/write descriptors or create temporary
-  ;   files, meaning write-restricted seals could break compatibility.
   ; ----------------------------------------------------------------------------
 .execute_elf:
-; 1e. Sealing the memfd/ELF in RO mode, for security and integrity
-  push 92
-  pop eax                      ; SYS_fcntl
-; mov ebx, [memfd]             ; EBX = memfd, already
-  mov ecx, 1033                ; ECX = F_ADD_SEALS (0x0409)
-  ; F_SEAL_WRITE | F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL = 15 (0x0f)
-  push 15
-  pop edx                      ; EDX = 0x0f, write only fd
-  int 0x80                     ; ELF hardening provided
-
-  ; 2e. Execute the ELF binary using a Linux specific syscall
+  ; Execute the ELF binary using a Linux specific syscall
   mov eax, 358                 ; SYS_execveat
 ; mov ebx, [memfd]             ; EBX = memfd, already
   push 0                       ; "" on the stack
@@ -395,7 +398,7 @@ do_script:  db "/bin/sh", 0, 0, 0,0,0, 0,0,0,0   ; for shell    :  16 |  - |  21
 eof_tests:  db "U238", 0                         ; for tests    :   5 |  - |   -
 commd_arg:  db "-c", 0                           ; for shell    :   3 |  - |   3
 commd_src:  db ". /proc/self/fd/9", 0            ; for shell    :  18 |  - |  18
-; This introduces the constraint of having the /proc mounted, almost granted
+; This introduces the need of having the /proc mounted, granted after Linux/init
 force_arg:  db "-f", 0                           ; for zcat     :   3 |  3 |   3
 ;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  45
                                                                 ; 100 (tot.) 100
