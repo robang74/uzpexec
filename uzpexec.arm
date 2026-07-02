@@ -126,11 +126,11 @@ main_start:
   b .fork_now
 
 .stdin:
-#ifdef _NO_STDIN
+.ifdef _NO_STDIN
   b exit_error
-#else
+.else
   mov x22, #0                           // X22 = 0 (STDIN)
-#endif
+.endif
 
 .fork_now:
   // 4a. Riposiziona il puntatore del file a 512 se stavamo leggendo da file
@@ -211,8 +211,10 @@ parent:
   // Per fedeltà assoluta sovrascriviamo la struttura logica
   adr x0, do_script
   str x0, [x19, #0]                     // argv[0] = "/bin/sh"
+  adr x1, commd_arg
+  str x1, [x19, #8]                     // argv[1] = "-c"
   adr x1, commd_src
-  str x1, [x19, #8]                     // argv[1] = "-c" o sorgente adattata
+  str x1, [x19, #16]                    // argv[2] = ". /proc/self/fd/9"
 
   mov x8, #221                          // SYS_execve su ARM64
   adr x0, do_script
@@ -251,20 +253,23 @@ child:
   mov x1, #1                            // STDOUT
   mov x2, #0
   svc #0
+  cmp x0, #0
+  b.lt exit_error
 
-  // 3c. Esecuzione di zcat
-  // Logica speculare per rintracciare i percorsi e invocare zcat
-  adr x0, zcat_path
-
-  // Costruzione forzata dell'array argv per zcat su stack temporaneo
+  // 3c. Execute zcat passing "-f" when reading from the STDIN (**)
   sub sp, sp, #32
+  adr x0, zcat_path
   str x0, [sp, #0]                      // argv[0] = zcat_path
 
   ldrh w1, [x24]
-  mov w2, #0x8b1f                       // Controllo Magic GZIP (0x1F, 0x8B)
+  mov w2, #0x8b1f                       // match Little-Endian per GZIP (0x1F, 0x8B)
   cmp w1, w2
-  b.eq .ok_force
-  cbz x22, .no_force                    // Se leggiamo da STDIN rilassiamo, altrimenti errore/salto
+  b.eq .ok_force                        // be strict on gzip input (no -f option)
+.ifdef _NO_FORCE
+  b exit_error                          // the -f option could be completely excluded
+.else
+  cbnz x22, .no_force                   // zcat reading from file can't be relaxed (-f)
+.endif
 .ok_force:
   adr x1, force_arg
   str x1, [sp, #8]                      // argv[1] = "-f"
@@ -295,25 +300,41 @@ exit_error:
   svc #0
 
 // ==============================================================================
-// COMPACT DATA SECTION (Allineata ai tipi a 64-bit dove necessario)
+// COMPACT DATA SECTION (appended to code)
 // ==============================================================================
-.align 3
-copy_vers:    .ascii "(c) github/robang74 v0.02 "
-filename:     .ascii "uzprm64\0"
-provider:     .ascii "12345678\n\0"
-zcat_path:    .ascii "/bin/zcat\0"
-              .fill 16, 1, 0            // Padding per modifiche via sed
-do_script:    .ascii "/bin/sh\0"
+// filename can be changed by sed up to 7 chars + ending \0
+// zcat -f is cat when input isn't gzip, options up to -6c\0
+// /bin/zcat can be changed by sed up to 41 chars + ending \0
+// - for example: /usr/local/bin/xzcat is 20 chars + ending \0
+// in do_script mode the 2 paths shrink to 20 chars + ending \0
+// eof_strng helps to find the EOF, and where \0 padding starts
+//                                                                  LN | FD |  SH
+copy_vers:  .ascii "(c) github/robang74 v0.92 "                 //  26 | 26 |  26
+filename :  .ascii      "uzprm64\0"                             //   8 |  8 |   8
+provider :  .ascii      "12345678\n\0"                          //  10 | 10 |  10
+zcat_path:  .ascii         "/bin/zcat\0"                        //  11 | 42 |  21
+            .fill 10, 1, 0                                      //  10 |  - |  -
+do_script:  .ascii "/bin/sh\0"                                  //  16 |  - |  21
               .fill 8, 1, 0
-commd_arg:    .ascii "-c\0"
-commd_src:    .ascii ". /proc/self/fd/9\0"
-force_arg:    .ascii "-f\0"
-empty_string: .ascii "\0"
+eof_tests:  .ascii "U238\0"                                     //   5 |  - |   -
+commd_arg:  .ascii "-c\0"                                       //   3 |  - |   3
+// This introduces the need of having the /proc mounted, granted after the /init
+// The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
+.ifdef _USE_DEVFS
+commd_src:  .ascii ". /dev"
+.else
+commd_src:  .ascii ". /proc/self"
+.endif
+            .ascii "/fd/9\0"                                     //  18 |  - |  18
+force_arg:  .ascii "-f\0"                                        //   3 |  3 |   3
+//              |<-- 8 chars -->|<- +8c ->|                      //  ---------  45
+                                                                 // 110 (tot.) 110
 
-.align 3
-file_end:
-// PADDING: Riempimento esatto a 1024 byte (due blocchi dd)
-.fill (1024 - (. - elf_header) - 24), 1, 0
+// ==============================================================================
+// PADDING: Aligned exactly to 1024 bytes (dd skip=1)
+// ==============================================================================
+file_end:                       // Physical end of the binary file!
+.fill (1024 - (. - elf_header) -24), 1, 0  // Padding to 1024 bytes for skip=1
 
 // ==============================================================================
 // BSS SECTION (RAM-only)
