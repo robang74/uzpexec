@@ -363,10 +363,18 @@ exit_error:
 ; jnz exit_now
 
   ; Print copyright notice, version and internal name
-  push zcat_path - copy_vers    ; bytes to write --> stack
+%ifdef _DO_EXTRA
+  push zcat_path - copy_vers -1 ; bytes to write --> stack
+%else
+  push  provider - copy_vers    ; bytes to write --> stack
+%endif
   pop edx                       ; bytes to write <-- stack
   mov ecx, copy_vers
-  mov byte [ecx + edx - 1], 10  ; line feed
+%ifdef _DO_EXTRA
+  mov byte [ecx + edx -8], 32   ; space
+%else
+  mov byte [ecx + edx -1], 10   ; line feed
+%endif
   push  4                       ; SYS_write
   pop eax
   push  2                       ; stderr
@@ -392,8 +400,9 @@ exit_error:
 ;                                                                  LN | FD |  SH
 copy_vers:  db "(c) github/robang74 v0.92 "                     ;  26 | 26 |  26
 filename :  db      "uzpexec", 0                                ;   8 |  8 |   8
+provider :  db      "123456", 0x0a, 0                           ;   8 |  8 |   8
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0 ;  21 | 42 |  21
-; following fields are conditionally overwritable, do unions    :  ---------  55
+; following fields are conditionally overwritable, do unions    :  ---------  63
 do_script:  db "/bin/sh", 0, 0, 0,0,0, 0,0,0,0   ; for shell    :  16 |  - |  21
 eof_tests:  db "U238", 0                         ; for tests    :   5 |  - |   -
 commd_arg:  db "-c", 0                           ; for shell    :   3 |  - |   3
@@ -407,7 +416,7 @@ commd_src:  db ". /proc/self"
             db "/fd/9", 0                        ; for shell    :  18 |  - |  18
 force_arg:  db "-f", 0                           ; for zcat     :   3 |  3 |   3
 ;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  45
-                                                                ; 100 (tot.) 100
+                                                                ; 108 (tot.) 108
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
 ; ==============================================================================

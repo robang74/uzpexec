@@ -68,6 +68,7 @@ endef
 
 JE_STDIN ?= "_DO_STDIN"
 JE_FORCE ?= "_DO_FORCE"
+JE_EXTRA ?= "_NO_EXTRA"
 
 all: $(BINS)
 
@@ -84,7 +85,7 @@ gzcmd.gz.sh: gzcmd.sh
 uzpexec: uzpexec.asm
 	@echo ====== compile $^ ======
 	@echo
-	nasm -d$(JE_STDIN) -d$(JE_FORCE) -O2 -f bin $^ -o $@
+	nasm -d$(JE_STDIN) -d$(JE_FORCE) -d$(JE_EXTRA) -O2 -f bin $^ -o $@
 	@chmod +x $@
 	ln -sf uzpack.1 uzpexec.1
 	file $@ | sed -e 's/V), s/V),\n\ts/'
@@ -139,11 +140,11 @@ clean: blkln
 utils: hello zeroenv sigsegv
 
 nostdin:
-	@echo ====== compile nostdin ======
+	@echo ====== compile nostdin + provider ======
 	@echo
 	rm -f uzpexec
 	@echo
-	( make JE_STDIN=_NO_STDIN uzpexec )| grep -ve "^==="
+	( make JE_STDIN=_NO_STDIN JE_EXTRA=_DO_EXTRA uzpexec )| grep -ve "^==="
 	@echo
 
 teststdin: nostdin
