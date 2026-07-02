@@ -12,7 +12,7 @@ The [uzpexec](uzpexec.asm) (micro gzip pipe exec, written in Assembler, 512 byte
 - Development happens in [devel](https://github.com/robang74/uzpexec/tree/devel) branch, testing on [devsrc](https://github.com/robang74/uzpexec/releases/tag/devsrc) tag.
 
 > [!NOTE]
->
+> 
 > Only the stub, which executes the compressed binary or script, runs as ELF32 and it makes perfect sense since its role is to deal with few system calls and runs everywhere (x86 all arches, because the Assembler is a machine specific language). Obviously the ELF32 nature of the launcher doesn't affect in any manner what is executed which runs by its own kind. Cfr. [Examples](#example-1).
 
 ### Index
@@ -26,25 +26,37 @@ The [uzpexec](uzpexec.asm) (micro gzip pipe exec, written in Assembler, 512 byte
 The `uzpexec` is an utility for executing an ELF binary directly from stdin pipe:
 
 - it self-extracts and executes
-- it adds up just 512-bytes overhead
+- it adds a **just 512-bytes** stub
 - trivial to inflate by `dd skip=1`
-- it runs gzip compressed binaries
 - it runs binary via `ssh` or `wget`
-- it runs in RAM only, no disk write
-- it runs plain and compressed scripts
-- compress any script, run as ELF32
+- it runs in **RAM only**, no disk write
+- it converts **ELF and shell scripts**, both
+- it works with `dash`, `bash`, and busybox `ash`
+- reserved `provider` BSS field for customisation
 
-without writing it on the remote/local systems storage (by `memfd_create`).
+#### Requirements
 
-Obviously RAM-only can be a benefit or a limit, `gzcmd.sh` writes on disk.
+- `/bin/sh`, `/bin/zcat` (gunzip), `/proc` mounted, Linux kernel 3.19 or later
+
+#### Short notes
+
+- Since v0.92 the support is extend from `dash`-only to *potentially* every shell.
+
+- RAM-only, without writing on the remote/local systems storage because `memfd_create()`.
+
+- Obviously, RAM-only is a benefit otherwise [gzcmd.sh](#gzcmdsh) writes on disk&thinsp;/&thinsp;tmpfs.
+
+#### For providers
+
+- Customisations are [allowed](#quick-customisation) strictly within the [licensing](#licensing-terms) terms and 6 chars are dedicated for the provider identifier&thinsp;/&thinsp;nickname.
+
+- Providers who will disclose their changes with the author will (on their request) be listed here with their chosen identifier&thinsp;/&thinsp;nickname.
 
 ---
 
 ### Current release
 
-Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.91** on the `master` branch, fixes available:
-
-- 2352b48 - `2026-07-02` - uzpack.sh: supports stub update pre-v0.8x versions
+- Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.92** on the `master` branch.
 
 ### Notes
 
@@ -60,13 +72,13 @@ Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.91** on
 
 #### 2. awareness of power
 
-- Since the project is less than 2 weeks old, I strongly suggest to consult the documentation, the man page, the design choices in the Assembler [source](uzpexec.asm) code comments, the coverage of [tests.sh](tests.sh) in the [Makefile](Makefile).
+- Since the project didn't reach yet the v1.0, I strongly suggest to consult the documentation, the man page, the design choices in the Assembler [source](uzpexec.asm) code comments, the coverage of [tests.sh](tests.sh) in the [Makefile](Makefile).
 
 - Last but not least the [licensing](#licensing-terms) terms, which allows everyone to change the code (also at running time) but not to remove the authorship note, not even from the binary executable form. A powerful tool requires awareness about how to use it.
 
 #### 3. files easy to find
 
-- Suggested file extension: **`.uzp`**  
+- Suggested file extension: **`.uzp`**
 
 ---
 
@@ -88,39 +100,6 @@ sh ./uzpack.sh uzpack.sh uzpack
 ```
 
 Moreover, the shell script `uzpack.sh` is able to convert itself into an executable converter.
-
-#### Script to ELF32
-
-> [!WARNING]
->
-> Shell scripts requiring user inputs need to use `</dev/tty` on each specific input request or run exclusively on `/bin/dash` (tested) because `bash` resets the `STDIN` in doing `exec </dev/tty` and this stops the script. Until an universal approach would be found, scripts conversion may requires some levels of customisation of the script and/or the payload.
-
-A shell script may have a shebang (`#!`), while `uzpexec` expects the shebang as a minimum requirement and a kind of template / wrapper for the script to convert in order to deal with the input from the users. Moreover, at the writing time only `dash` works smoothly.
-
-```sh
-#!/bin/sh
-# ------------------------------------------------------------------------------
-if [ ${BASHPID:-0} -eq 0 ] && [ -t 0 -o -c /dev/tty ]; then exec < /dev/tty; fi
-# RAF, TODO: for testing the console ## read -p "proceed with '$-' ? " xp  #<&3
-# ------------------------------------------------------------------------------
-
-            # ############################################### #
-            # ####### put your shell script code here ####### #
-            # ############################################### #
-
-# ------------------------------------------------------------------------------
-exit $ret
-```
-
-Since `/bin/dash` is far faster than `/bin/bash` is usually the default shell on most
-Linux desktop installations and almost always available. For this reason the `uzpexec`
-calls `/bin/dash` explicitly. Clearly this creates another issue known as bashisms.
-
-However, [gzcmd.sh](#gzcmdsh) is designed to create self-extracting executable scripts.
-Therefore, when the script is complex, implements bashisms unsupported by `/bin/dash` or
-performs peculiar activity with the console, the [gzcmd.sh](gzcmd.sh) remains a solid way to go.
-
----
 
 ### How to compile
 
@@ -183,18 +162,26 @@ The alternatives that are natively compatible with `-f -` are fully supported.
 ; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
 ; in do_script mode the 2 paths shrink to 20 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
-;                                                                   LN | FD | SH
-copy_vers:  db "(c) github/robang74 v0.91 "                       ; 26 | 26 | 26
-filename :  db      "uzpexec", 0                                  ;  8 |  8 |  8
-zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ; 21 | 42 | 21
-; following fields are conditionally overwritable, do unions      : --------- 55
-do_script:  db      "/bin/dash", 0, 0, 0,0,0     ; for shell      ; 14 |  - | 18
-eof_tests:  db "U238",                           ; for tests      :  4 |  - |  -
-stdin_arg:  db "-s", 0                           ; for shell      :  3 |  - |  3
-dual_dash:  db "--", 0                           ; for shell      :  3 |  - |  3
-force_arg:  db "-f", 0                           ; for zcat       :  3 |  3 |  3
-;              |<-- 8 chars -->|<- +8c ->|                        : --------- 27
-                                                                  ; 82 (tot.) 82
+;                                                                  LN | FD |  SH
+copy_vers:  db "(c) github/robang74 v0.92 "                     ;  26 | 26 |  26
+filename :  db      "uzpexec", 0                                ;   8 |  8 |   8
+provider :  db      "123456", 0x0a, 0                           ;   8 |  8 |   8
+zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0 ;  21 | 42 |  21
+; following fields are conditionally overwritable, do unions    :  ---------  63
+do_script:  db "/bin/sh", 0, 0, 0,0,0, 0,0,0,0   ; for shell    :  16 |  - |  21
+eof_tests:  db "U238", 0                         ; for tests    :   5 |  - |   -
+commd_arg:  db "-c", 0                           ; for shell    :   3 |  - |   3
+; This introduces the need of having the /proc mounted, granted after the /init
+; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
+%ifdef _USE_DEVFS
+commd_src:  db ". /dev"
+%else
+commd_src:  db ". /proc/self"
+%endif
+            db "/fd/9", 0                        ; for shell    :  18 |  - |  18
+force_arg:  db "-f", 0                           ; for zcat     :   3 |  3 |   3
+;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  45
+                                                                ; 108 (tot.) 108
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
 ; ==============================================================================
@@ -235,7 +222,7 @@ esac
 
 ### Trivial facts
 
-- Security is a matter of perception, mainly. Currently, more a bureaucratics market rather than a serious R&D field. Hence, it is *destabilising* seeing an independent developer combining and surfacing 10-20yo techniques that relates to: TeenyELF (2005, darkweb), `memfd_create()` (2014, Linux) in glibc (2018).
+- Security is a matter of perception, mainly. Currently, more a bureaucratics market rather than a serious R&D field. Hence, it is *destabilising* seeing an independent developer combining and surfacing 10-20yo techniques that relates to: TeenyELF (2005, darkweb), `memfd_create()` and `execveat()` (2014 and 2015, Linux) in glibc (2018).
 
 - A 64 bit ELF would be much bigger, 2x potentially, and adding no value because this ELF32 doesn't process anything, not even the read() / write() hot loops (since the zero pipes implementation) but just a few system calls.
 
@@ -280,11 +267,11 @@ Separating executable code (X) from writing memory (W) costs too many bytes of c
   ; WRX is the least of your troubles, but uzpexec as obscenely-powerful tool.
 ```
 
-Instead, sealing the anonymous file descriptor in RO before execve() strongly supports security and integrity of the ELF code set to run by `uzpexec`.
+Sealing in RO the anonymous file descriptor before execve() strongly supports security and integrity of the code/script set to run by `uzpexec`.
 
 ```txt
   ; ----------------------------------------------------------------------------
-  ; ELF BINARY MODE (Security: harden ELF execution via read-only memfd seals)
+  ; HARDENING: F_ADD_SEALS TO MEMFD
   ;
   ; Apply F_ADD_SEALS (F_SEAL_WRITE, etc.) to the memfd exclusively
   ; within the ELF execution path before invoking execveat().
@@ -299,7 +286,7 @@ Instead, sealing the anonymous file descriptor in RO before execve() strongly su
   ; ----------------------------------------------------------------------------
 ```
 
-A couple more of constraints strengthen the hardening policy:
+A couple more of constraints strengthen the overall security policy:
 
 ```txt
   ; ----------------------------------------------------------------------------
@@ -313,6 +300,43 @@ A couple more of constraints strengthen the hardening policy:
   ; - MFD_CLOEXEC and F_SEAL_WRITE are already set.
   ; ----------------------------------------------------------------------------
 ```
+
+---
+
+#### Script to ELF32
+
+**This section is obsolete with v0.92 and later**
+
+- every shell is supported without script change
+
+> [!WARNING]
+>
+> Shell scripts requiring user inputs need to use `</dev/tty` on each specific input request or run exclusively on `/bin/dash` (tested) because `bash` resets the `STDIN` in doing `exec </dev/tty` and this stops the script. Until an universal approach would be found, scripts conversion may requires some levels of customisation of the script and/or the payload.
+
+A shell script may have a shebang (`#!`), while `uzpexec` expects the shebang as a minimum requirement and a kind of template / wrapper for the script to convert in order to deal with the input from the users. Moreover, at the writing time only `dash` works smoothly.
+
+```sh
+#!/bin/sh
+# ------------------------------------------------------------------------------
+if [ ${BASHPID:-0} -eq 0 ] && [ -t 0 -o -c /dev/tty ]; then exec < /dev/tty; fi
+# RAF, TODO: for testing the console ## read -p "proceed with '$-' ? " xp  #<&3
+# ------------------------------------------------------------------------------
+
+            # ############################################### #
+            # ####### put your shell script code here ####### #
+            # ############################################### #
+
+# ------------------------------------------------------------------------------
+exit $ret
+```
+
+Since `/bin/dash` is far faster than `/bin/bash` is usually the default shell on most
+Linux desktop installations and almost always available. For this reason the `uzpexec`
+calls `/bin/dash` explicitly. Clearly this creates another issue known as bashisms.
+
+However, [gzcmd.sh](#gzcmdsh) is designed to create self-extracting executable scripts.
+Therefore, when the script is complex, implements bashisms unsupported by `/bin/dash` or
+performs peculiar activity with the console, the [gzcmd.sh](gzcmd.sh) remains a solid way to go.
 
 ---
 
