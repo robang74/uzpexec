@@ -27,8 +27,7 @@
 
 .text
 .global _start
-
-.equ BASE_ADDR, 0x00400000              // Definizione pura della base di caricamento
+.equ BASE_ADDR, 0x00400000              // Loading base definition
 
 // =============================================================================
 // ELF64 HEADER (Micro-Loader a 64-bit, Teeny ELF)
@@ -46,17 +45,21 @@ elf_header:
   .short 64                             // e_ehsize (Size di questo header ELF64)
   .short 56                             // e_phentsize (Size di un Program Header entry)
   .short 1                              // e_phnum (Un solo segmento)
+  // ---------------------------------------------------------------------------
+  // Many Linux kernel ELF parsers completely ignore these 6
+  // bytes when section offset e_shoff = 0, as in this case.
   .short 0, 0, 0                        // Section info (zeroed)
 
 phdr:
   .word 1                               // p_type (PT_LOAD)
-  .word 7                               // p_flags (R+W+X) - Preservato AS-IS
   .quad 0                               // p_offset
   .quad BASE_ADDR                       // p_vaddr
   .quad BASE_ADDR                       // p_paddr
   .quad file_end - elf_header           // p_filesz
   .quad file_end - elf_header + 516     // p_memsz
 
+  // ---------------------------------------------------------------------------
+  .word 7                               // p_flags (R+W+X) - Preservato AS-IS
   .quad 0x1000                          // p_align (Allineamento standard)
 
   // Security-by-Design VS Security-by-Subtraction
@@ -115,16 +118,15 @@ main_start:
   svc #0
 
   // Checking argv[0] to open input (itself or stdin)
-  ldr x1, [x19]                         // X1 = argv[0]
-                                        // CVE-2021-4034, pre-5.18, can't cover LK bugs
+  ldr x1, [x19]                         // CVE-2021-4034, pre-5.18, can't cover LK bugs
                                         // Let SIGSEGV do the work and/or syscalls fail
 
   // ===========================================================================
 
   // 1. Try to open itself file by argv[0] (CVE-2021-4034, ends here)
+  // X1 contains argv[0]
   mov x8, #56                           // SYS_openat
   movn x0, #99                          // AT_FDCWD
-  // X1 contains argv[0]
   movz x2, #8, lsl #16                  // O_RDONLY | O_CLOEXEC
   svc #0
   mov x22, x0                           // Move fd in X22 to save it for later

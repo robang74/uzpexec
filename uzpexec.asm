@@ -348,10 +348,11 @@ child:
 %else
   jnz .no_force                ; zcat reading from STDIN can be relaxed (-f)
 %endif
+
 .ok_force:
   push force_arg               ; "-f"
-.no_force:
 
+.no_force:
   push ebx                     ; zcat_path --> argv[0]
   mov ecx, esp                 ; argv[1...]
   xor edx, edx                 ; envp null
