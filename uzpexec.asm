@@ -386,18 +386,19 @@ exit_error:
 ; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
 ; in do_script mode the 2 paths shrink to 20 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
-;                                                                   LN | FD | SH
-copy_vers:  db "(c) github/robang74 v0.92 "                       ; 26 | 26 | 26
-filename :  db      "uzpexec", 0                                  ;  8 |  8 |  8
-zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0   ; 21 | 42 | 21
-; following fields are conditionally overwritable, do unions      : --------- 55
-do_script:  db      "/bin/sh", 0, 0, 0,0,0, 0,0  ; for shell      ; 14 |  - | 18
-commd_src:  db ". /proc/self/fd/9", 0
-eof_tests:  db "U238",                           ; for tests      :  4 |  - |  -
-commd_arg:  db "-c", 0                           ; for shell      :  3 |  - |  3
-force_arg:  db "-f", 0                           ; for zcat       :  3 |  3 |  3
-;              |<-- 8 chars -->|<- +8c ->|                        : --------- 27
-                                                                  ; 82 (tot.) 82
+;                                                                  LN | FD |  SH
+copy_vers:  db "(c) github/robang74 v0.92 "                     ;  26 | 26 |  26
+filename :  db      "uzpexec", 0                                ;   8 |  8 |   8
+zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0 ;  21 | 42 |  21
+; following fields are conditionally overwritable, do unions    :  ---------  55
+do_script:  db "/bin/sh", 0, 0, 0,0,0, 0,0,0,0   ; for shell    :  16 |  - |  21
+eof_tests:  db "U238", 0                         ; for tests    :   5 |  - |   -
+commd_arg:  db "-c", 0                           ; for shell    :   3 |  - |   3
+commd_src:  db ". /proc/self/fd/9", 0            ; for shell    :  18 |  - |  18
+; This introduces the constraint of having the /proc mounted, almost granted
+force_arg:  db "-f", 0                           ; for zcat     :   3 |  3 |   3
+;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  45
+                                                                ; 100 (tot.) 100
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
 ; ==============================================================================
