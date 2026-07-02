@@ -48,7 +48,7 @@ The `uzpexec` is an utility for executing an ELF binary directly from stdin pipe
 
 #### For providers
 
-- Customisations are [allowed](#quick-customisation) strictly within the [licensing](#licensing-terms) terms and 6 chars are dedicated for the provider identifier&thinsp;/&thinsp;nickname.
+- Customisations are [allowed](#quick-customisation) strictly within the [licensing](#licensing-terms) terms and 8 chars are dedicated for the provider identifier&thinsp;/&thinsp;nickname.
 
 - Providers who will disclose their changes with the author will (on their request) be listed here with their chosen identifier&thinsp;/&thinsp;nickname.
 
@@ -165,9 +165,9 @@ The alternatives that are natively compatible with `-f -` are fully supported.
 ;                                                                  LN | FD |  SH
 copy_vers:  db "(c) github/robang74 v0.92 "                     ;  26 | 26 |  26
 filename :  db      "uzpexec", 0                                ;   8 |  8 |   8
-provider :  db      "123456", 0x0a, 0                           ;   8 |  8 |   8
+provider :  db      "12345678", 0x0a, 0                         ;  10 | 10 |  10
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0 ;  21 | 42 |  21
-; following fields are conditionally overwritable, do unions    :  ---------  63
+; following fields are conditionally overwritable, do unions    :  ---------  65
 do_script:  db "/bin/sh", 0, 0, 0,0,0, 0,0,0,0   ; for shell    :  16 |  - |  21
 eof_tests:  db "U238", 0                         ; for tests    :   5 |  - |   -
 commd_arg:  db "-c", 0                           ; for shell    :   3 |  - |   3
@@ -181,7 +181,7 @@ commd_src:  db ". /proc/self"
             db "/fd/9", 0                        ; for shell    :  18 |  - |  18
 force_arg:  db "-f", 0                           ; for zcat     :   3 |  3 |   3
 ;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  45
-                                                                ; 108 (tot.) 108
+                                                                ; 110 (tot.) 110
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
 ; ==============================================================================

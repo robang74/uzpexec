@@ -145,7 +145,7 @@ main_start:
 
   ; 3. Try to read from the file the 1st block + 4 bytes to check the carryload
   mov edx, 516                 ; read size (512+4), 32-bit aligned
-.skip_loop:
+.read_loop:
   push 3                       ; SYS_read
   pop eax
   mov ebx, edi                 ; input fd
@@ -154,7 +154,7 @@ main_start:
   js .stdin                    ; if read fails, read STDIN
   jz .stdin                    ; if premature EOF, read STDIN
   sub edx, eax
-  jnz .skip_loop
+  jnz .read_loop
   jmp .fork_now                ; EDI = fd at +516 bytes (**)
 
 .stdin:
@@ -169,7 +169,7 @@ main_start:
   push 19                      ; SYS_lseek
   pop eax
   mov ecx, 512                 ; offset = 512
-  xor edx, edx                 ; SEEK_SET = 0
+; xor edx, edx                 ; SEEK_SET = 0, already
   int 0x80
   ; 4b. Fork the process
   push 2                       ; SYS_fork
@@ -371,9 +371,9 @@ exit_error:
   pop edx                       ; bytes to write <-- stack
   mov ecx, copy_vers
 %ifdef _DO_EXTRA
-  mov byte [ecx + edx -8], 32   ; space
+  mov byte [ecx + edx -10], 32  ; space
 %else
-  mov byte [ecx + edx -1], 10   ; line feed
+  mov byte [ecx + edx - 1], 10  ; line feed
 %endif
   push  4                       ; SYS_write
   pop eax
@@ -400,9 +400,9 @@ exit_error:
 ;                                                                  LN | FD |  SH
 copy_vers:  db "(c) github/robang74 v0.92 "                     ;  26 | 26 |  26
 filename :  db      "uzpexec", 0                                ;   8 |  8 |   8
-provider :  db      "123456", 0x0a, 0                           ;   8 |  8 |   8
+provider :  db      "12345678", 0x0a, 0                         ;  10 | 10 |  10
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0 ;  21 | 42 |  21
-; following fields are conditionally overwritable, do unions    :  ---------  63
+; following fields are conditionally overwritable, do unions    :  ---------  65
 do_script:  db "/bin/sh", 0, 0, 0,0,0, 0,0,0,0   ; for shell    :  16 |  - |  21
 eof_tests:  db "U238", 0                         ; for tests    :   5 |  - |   -
 commd_arg:  db "-c", 0                           ; for shell    :   3 |  - |   3
@@ -416,7 +416,7 @@ commd_src:  db ". /proc/self"
             db "/fd/9", 0                        ; for shell    :  18 |  - |  18
 force_arg:  db "-f", 0                           ; for zcat     :   3 |  3 |   3
 ;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  45
-                                                                ; 108 (tot.) 108
+                                                                ; 110 (tot.) 110
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
 ; ==============================================================================
