@@ -10,12 +10,12 @@
 ################################################################################
 
 # ------------------------------------------------------------------------------
-if [ ${BASHPID:-0} -eq 0 ] && [ -t 0 -o -c /dev/tty ]; then exec < /dev/tty; fi
-# if [ ${_SETFD_:-0} -eq 0 ]; then
-#     if [ -t 0 ]; then true; else
-#         export _SETFD_=1; . /proc/self/fd/0 -- "$@";
-#     fi
-# fi
+#if [ ${BASHPID:-0} -eq 0 ] && [ -t 0 -o -c /dev/tty ]; then exec </dev/tty; fi
+ if [ ${_SETFD_:-0} -eq 0 -a -r /proc/self/fd/9 ];
+   then export _SETFD_=1; . /proc/self/fd/9;
+ elif [ ${BASHPID:-0} -eq 0 ] && [ -t 0 -o -c /dev/tty ];
+   then exec </dev/tty;
+ fi
 # RAF, TODO: for testing the console ## read -p "proceed with '$-' ? " xp  # <&3
 # ------------------------------------------------------------------------------
 
