@@ -323,7 +323,7 @@ child:
 
   // 2c. 2nd dup2: connect output to STDOUT (1) of the child which is MEMFD
   mov x8, #24                           // SYS_dup3
-  mov x0, x23                           // memfd
+  mov x0, x23                           // zcat writes in memfd
   mov x1, #1                            // STDOUT
   mov x2, #0
   svc #0
@@ -331,10 +331,15 @@ child:
   b.lt exit_error
 
   // 3c. Execute zcat passing "-f" when reading from the STDIN (**)
-  sub sp, sp, #32
-  adr x0, zcat_path
-  str x0, [sp, #0]                      // argv[0] = zcat_path
+  mov x8, #221                          // SYS_execve
 
+  // In x86: pop ecx (buf), pop ebx (filename), add ebx, zcat_path-filename
+  // Here: x24 = buf (was set before fork), calculate zcat_path dynamically
+  adr x0, filename
+  add x0, x0, #(zcat_path - filename)   // zcat_path = filename + strlen(filename)
+
+  str xzr, [sp, #-8]!                   // end of envp/argv (push 0)
+         
   ldrh w1, [x24]
   mov w2, #0x8b1f                       // match Little-Endian per GZIP (0x1F, 0x8B)
   cmp w1, w2
@@ -343,22 +348,16 @@ child:
 .ifdef _NO_FORCE
   b exit_error                          // the -f option could be completely excluded
 .else
-  b .no_force                           // zcat reading from file can't be relaxed (-f)
+  b .no_force                           // zcat reading from STDIN can be relaxed (-f)
 .endif
 
 .ok_force:
-  adr x1, force_arg
-  str x1, [sp, #8]                      // argv[1] = "-f"
-  str xzr, [sp, #16]                    // NULL terminator
-  b .do_exec_child
+  adr x1, force_arg                     // "-f"
+  str x1, [sp, #-8]!                    // push "-f"
 
 .no_force:
-  str xzr, [sp, #8]                     // NULL terminator
-
-.do_exec_child:
-  mov x8, #221                          // SYS_execve
-  // X0 contains zcat_path
-  mov x1, sp                            // argv
+  str x0, [sp, #-8]!                    // push zcat_path --> argv[0]
+  mov x1, sp                            // argv[1...]
   mov x2, #0                            // envp null
   svc #0
 
