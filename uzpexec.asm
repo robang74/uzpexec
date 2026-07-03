@@ -169,19 +169,30 @@ main_start:
   pop eax
   mov ebx, edi                 ; input fd
   int 0x80
+  sub edx, eax
+  jz .rewind
   cmp eax, 512
+  je .stdin                    ; only stub  --> read STDIN
   ; Small jumps save 4 bytes, hence parent.here instead of exit_error but ...
   ; ... this jump lands with an EAX negative, set a EDX to a value that can be
   ; choosen by an attacker and .do_int(-N) which fails and then jmp exit_error.
   ; In conclusion, the jump is a deterministic and safe way to save 4 bytes of
   ; binary code and reach the exit(). The problem here is considering -EINTR
   ; an unrecoverable error because we stop reading and we do an useless loop.
-  js parent.here               ; read fails --> error (bugfix)
-  je .stdin                    ; only stub  --> read STDIN
+  jmp parent.here              ; read fails --> error (bugfix)
+
 ;_sub edx, eax
 ;_jnz .read_loop
-  xor edx, edx                 ; EDX = 0 as sub would have done
- 
+; xor edx, edx                 ; EDX = 0 as sub would have done
+
+ .stdin:
+%ifdef _NO_STDIN
+  jmp parent.here              ; single point of detour to exit_error
+%else                          ; to check about %-branch size balance (/!\)
+  xor edi, edi                 ; EDI = 0 (STDIN)
+%endif
+  jmp .fork
+
 .rewind:                       ; EDI = fd at +516 bytes (**)
   ; 4a. File pointer set
   push 19                      ; SYS_lseek
@@ -189,14 +200,6 @@ main_start:
   mov ecx, 512                 ; offset = 512
 ; xor edx, edx                 ; SEEK_SET = 0, already
   int 0x80
-  jmp .fork
-
-.stdin:
-%ifdef _NO_STDIN
-  jmp parent.here              ; single point of detour to exit_error
-%else                          ; to check about %-branch size balance (/!\)
-  xor edi, edi                 ; EDI = 0 (STDIN)
-%endif
 
 .fork:
   ; 4b. Fork the process
