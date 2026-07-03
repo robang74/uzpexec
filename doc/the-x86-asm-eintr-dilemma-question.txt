@@ -1,13 +1,13 @@
 # THE SYS_READ -EINTR DILEMMA IN ASSEMBLER FOR X86
 
 This text is the current summary (state of arts) of the dilemma. The future of
-the Voyager mission and thus of the whole humanity depends on this answer and
+the Voyager mission and thus the whole of humanity depends on this answer and
 the correctness of these assumptions. Being wrong here isn't an option.
 
-This code is x86 32-bit Assembler and it is reading what usually it is exposed
+This code is x86 32-bit Assembler and it is reading what usually is exposed
 by /proc/self/exe. In particular this code is running and part of a 512 bytes
 stub, so the SYS_read issued here is going to read the running code + 4 bytes
-behyond the stub if a "carryload" exists (or just the stub).
+beyond the stub if a "carryload" exists (or just the stub).
 
   ; 3. Try to read from the file the 1st block + 4 bytes to check the carryload
   mov edx, 516                 ; read size (512+4), 32-bit aligned
@@ -63,24 +63,24 @@ chance, that can happen in practice even with a very low frequency (1E-6 or 1E-9
 or ...) for which the EAX can return zero (0) without having reached the end of
 file (EOF) or a negative value -EINTR (-4) indicating that zero bytes are read
 but the SYS_read can be tried again (not fatal error)? Or the values 516, 512
-and fatal negative are the only ones that can be returned by the 32-bit x86 ASM
+and fatal negatives are the only ones that can be returned by the 32-bit x86 ASM
 SYS_call() on every Linux Kernel version 3.19 or later? (by Kernel design, or
-by a bug that have been find in the past).
+by a bug that has been found in the past).
 
 Very important, the libc aren't invoked here, just the SYS call of the kernel,
-hence the corner cases from libc (any kind, not just GNU libc) doesn't apply
+hence the corner cases from libc (any kind, not just GNU libc) don't apply
 here. In case of positive answer (exist other values apart 516, 512, fatals
 negative) indicates the source code of the kernel that generates it (or the
 bug/patch that fixed it).
 
-The chance of getting a differnt value from 516, 512 and fatal error, is totally
+The chance of getting a different value from 516, 512 and fatal error, is totally
 zero or nearly-zero? Please answer, not in abstract theory, but because the
 Linux Kernel 3.19, or later, internals or bugs (still open or closed).
 
 For your own help, these are two answers I got and the overall conclusion based
-on them. However, conclusions can change if the answers already received can be
-in practice confuted (proof of concept) or the Linux Kernel internals show that
-facts (The Source) are telling us another story than he one here below reported.
+on them. However, conclusions can change if the answers already received can be,
+in practice, confuting (proof of concept) or the Linux Kernel internals show that
+facts (The Source) are telling us another story than the one here below reported.
 
 ---
 
