@@ -48,7 +48,10 @@ elf_header:
   ; ----------------------------------------------------------------------------
   ; Many Linux kernel ELF parsers completely ignore these 6
   ; bytes when section offset e_shoff = 0, as in this case.
-  ;dw 0, 0, 0                   ; Section info (zeroed out)
+; dw 0, 0, 0                   ; Section info (zeroed out)
+  ; ASSUMPTIONS CHECK
+  ; Using memfd_create() and execvat() requires a Linux kernel >= 3.19 and under
+  ; this constraint no any ELF loader will complain about these six-0's missing.
 
 phdr:
   dd 1                         ; p_type (PT_LOAD - Segment to load)
@@ -91,7 +94,7 @@ main_start:
 
   ; ----------------------------------------------------------------------------
   ; HARDENING: NO_NEW_PRIVS & ANTI-CORE-DUMP
-  ; 
+  ;
   ; Using umask() is omitted because memfd ignores filesystem permissions.
   ; Additional hardening:
   ; - prctl(NO_NEW_PRIVS) prevents SUID escalation,
@@ -169,21 +172,16 @@ main_start:
   pop eax
   mov ebx, edi                 ; input fd
   int 0x80
-  sub edx, eax
-  jz .rewind
-  cmp eax, 512
-  je .stdin                    ; only stub  --> read STDIN
+  test eax, eax
   ; Small jumps save 4 bytes, hence parent.here instead of exit_error but ...
   ; ... this jump lands with an EAX negative, set a EDX to a value that can be
   ; choosen by an attacker and .do_int(-N) which fails and then jmp exit_error.
   ; In conclusion, the jump is a deterministic and safe way to save 4 bytes of
   ; binary code and reach the exit(). The problem here is considering -EINTR
   ; an unrecoverable error because we stop reading and we do an useless loop.
-  jmp parent.here              ; read fails --> error (bugfix)
-
-;_sub edx, eax
-;_jnz .read_loop
-; xor edx, edx                 ; EDX = 0 as sub would have done
+  js parent.here               ; read fails --> error (bugfix)
+  sub edx, eax
+  jz .rewind                   ; read ok, there is a carryload
 
  .stdin:
 %ifdef _NO_STDIN
@@ -215,7 +213,7 @@ main_start:
 parent:
   ; 1p. The parent waits for the child completes zcat writing in memfd
   xor ecx, ecx
-; xor edx, edx                 ; = 0, already
+  xor edx, edx                 ; = 0, already
   xor ebx, ebx
   dec ebx                      ; -1
   push 7                       ; SYS_waitpid
@@ -266,6 +264,7 @@ parent:
   xor edx, edx                 ; SEEK_SET = 0
   int 0x80
 
+  ; The memfd is cached in RAM and also here the read() is atomic: 4B or -ERRNO
   ; 4p. Read the first uncompressed 4 bytes (just two for the shebang)
   push 3                       ; SYS_read
   pop eax
