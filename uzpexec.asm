@@ -173,6 +173,7 @@ main_start:
   jmp exit_error               ; single point of detour
 %else
   xor edi, edi                 ; EDI = 0 (STDIN)
+  xor edx, edx                 ; moved here for %-branch size balance
 %endif
 
 .fork:
@@ -189,7 +190,7 @@ main_start:
 parent:
   ; 1p. The parent waits for the child completes zcat writing in memfd
   xor ecx, ecx
-  xor edx, edx                 ; = 0, already
+; xor edx, edx                 ; = 0, already
   xor ebx, ebx
   dec ebx                      ; -1
   push 7                       ; SYS_waitpid
