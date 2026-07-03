@@ -48,10 +48,14 @@ elf_header:
   ; ----------------------------------------------------------------------------
   ; Many Linux kernel ELF parsers completely ignore these 6
   ; bytes when section offset e_shoff = 0, as in this case.
-; dw 0, 0, 0                   ; Section info (zeroed out)
+  ;
+  dw 0, 0, 0                   ; Section info (zeroed out, reclamable)
+  ;
   ; ASSUMPTIONS CHECK
+  ;
   ; Using memfd_create() and execvat() requires a Linux kernel >= 3.19 and under
   ; this constraint no any ELF loader will complain about these six-0's missing.
+  ; ----------------------------------------------------------------------------
 
 phdr:
   dd 1                         ; p_type (PT_LOAD - Segment to load)
@@ -327,9 +331,9 @@ parent:
   ; ["/bin/sh", "-c", ". /dev/fd/9", "--", original_args...]
 
   ; In-place stack manipulation using ESP (argv is at [esp]):
-  mov dword [esp+4], ebx ; overwrite original argv[] with "--"
-  mov dword [esp+0], commd_src ; overwrite original argv[] with "-c"
-  lea ecx,  [esp-8]            ; original arguments argv[1] ... [n]
+  mov dword [esp+4], ebx       ; overwrite original argv[-1] with "--"
+  mov dword [esp+0], commd_src ; overwrite original argv[ 0] with "-c"
+  lea ecx,  [esp-8]            ; original arguments argv[ 1] ... [n]
   push commd_arg               ; pushing "-c"
   push dword ebx
 
