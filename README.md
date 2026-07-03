@@ -64,7 +64,12 @@ In a standalone mode, it can convert itself in `uzpack` and it becomes self-host
 
 ### Current release
 
-- Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.92** on the `master` branch.
+Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.92** on the `master` branch.
+
+- `929d8ad - 2026-07-03 - uzpexec.asm: STDIN's do/not %-branch size balance, bugfix v0.92`
+- `d24d228 - 2026-07-03 - uzpexec.asm: unchecked errors in fork() blocks, bugfixing v0.92`
+
+Above commits are in under test in `devel` branch and aims to fix a branches balance bug and a corner case in which application can hang forever instead of exiting with error.
 
 ### Notes
 
