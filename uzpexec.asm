@@ -154,7 +154,13 @@ main_start:
   mov ebx, edi                 ; input fd
   int 0x80
   test eax, eax
-  js exit_error                ; read fails --> error (bugfix)
+  ; Small jumps save 4 bytes, hence parent.here instead of exit_error but ...
+  ; ... this jump lands with an EAX negative, set a EDX to a value that can be
+  ; choosen by an attacker and .do_int(-N) which fails and then jmp exit_error.
+  ; In conclusion, the jump is a deterministic and safe way to save 4 bytes of
+  ; binary code and reach the exit(). The problem here is considering -EINTR
+  ; an unrecoverable error because we stop reading and we do an useless loop.
+  js parent.here               ; read fails --> error (bugfix)
   jz .stdin                    ; if premature EOF, read STDIN
   sub edx, eax
   jnz .read_loop
@@ -252,8 +258,8 @@ parent:
   ; 5p. Check about ELF magic chars sequence (\x7FELF)
   ;     A 32-bit comparison is shorter, safer and faster
   ;     compared with checking for the shebang (optional)
-  cmp dword [ecx], 0x464c457f  ; Match Little-Endian
-  jz .execute_elf              ; If ELF, do execve()
+  cmp dword [ecx], 0x464c457f  ; match Little-Endian
+  jz .execute_elf              ; if ELF, do execve()
 
   ; ----------------------------------------------------------------------------
   ; SCRIPT MODE
@@ -294,6 +300,8 @@ parent:
   push commd_arg               ; pushing "-c"
   push dword ebx
 
+  ; Small jumps save 4 bytes, here we are risking a buffer overflow read()
+.here:
   ; basic operations for calling the execve()
   mov edx, ebp                 ; envp (intact from main_start)
   jmp .do_int
