@@ -148,7 +148,13 @@ main_start:
 
   ; 3. Try to read from the file the 1st block + 4 bytes to check the carryload
   mov edx, 516                 ; read size (512+4), 32-bit aligned
-.read_loop:
+;_ This loop is useless (unless proven differently) becuase it is not reading
+;_ a generic FD which can be associated to anything includng a pipe, but it is
+;_ reading itself as running executable (aka /proc/self/exe) which is already
+;_ cached by the Linux kernel which will do an atomic copy_to_user() which will
+;_ returns in EBX the number of chars read, 512 (stub only, read STDIN) or 516
+;_ carryload available to pass by fork() to zcat. Failure is always fatal, here.
+;_.read_loop:
   push 3                       ; SYS_read
   pop eax
   mov ebx, edi                 ; input fd
@@ -162,9 +168,10 @@ main_start:
   ; an unrecoverable error because we stop reading and we do an useless loop.
   js parent.here               ; read fails --> error (bugfix)
   jz .stdin                    ; if premature EOF, read STDIN
-  sub edx, eax
-  jnz .read_loop
-
+;_sub edx, eax
+;_jnz .read_loop
+  xor edx, edx                 ; EDX = 0 as sub would have done
+ 
 .rewind:                       ; EDI = fd at +516 bytes (**)
   ; 4a. File pointer set
   push 19                      ; SYS_lseek
@@ -176,10 +183,9 @@ main_start:
 
 .stdin:
 %ifdef _NO_STDIN
-  jmp exit_error               ; single point of detour
-%else
+  jmp parent.here              ; single point of detour to exit_error
+%else                          ; to check about %-branch size balance (/!\)
   xor edi, edi                 ; EDI = 0 (STDIN)
-  xor edx, edx                 ; moved here for %-branch size balance
 %endif
 
 .fork:
