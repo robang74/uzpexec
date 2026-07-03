@@ -151,34 +151,49 @@ main_start:
 
   ; 3. Try to read from the file the 1st block + 4 bytes to check the carryload
   mov edx, 516                 ; read size (512+4), 32-bit aligned
-;_ This loop is useless (unless proven differently) becuase it is not reading
-;_ a generic FD which can be associated to anything includng a pipe, but it is
-;_ reading itself as running executable (aka /proc/self/exe) which is already
-;_ cached by the Linux kernel which will do an atomic copy_to_user() which will
-;_ returns in EBX the number of chars read, 512 (stub only, read STDIN) or 516
-;_ carryload available to pass by fork() to zcat. Failure is always fatal, here.
-;_ ASSUMPTIONS CHECK
-;_ Voyager mission cannot fail because uzpexec took a bold assumption (lol).
-;_ The stub is 512B and the standard kernel page is 4KB, everywhere the mempage
-;_ size is bigger than 516B the read() is expected to be atomic but what about
-;_ resides between two pages? BASE_ADDR is fine but kernel random address load
-;_ can play a subtle role here, depending the minimum alignment of randomisation.
-;_ 1. seeing an EINTR is possible, an interrupts arrives before read() -> EAX=0.
-;_ 2. as long as the memory page is >= 1KB, the first 516B are cached in memory.
-;_ 3. address randomisation doesn't play a role here, memory is flat for read().
-;_ Check results { 1:N, 2:Y, 3:Y } ==> EAX can be 512, 516 or a fatal -ERRNO.
-;_.read_loop:
+; ------------------------------------------------------------------------------
+; WHY -EINTR ISN'T AN ISSUE HERE (and it wasn't correctly addressed anyway)
+;
+; .read_loop:
+;
+; This loop is useless (unless proven differently) because it is not reading
+; a generic FD which can be associated to anything including a pipe, but it is
+; reading itself as running executable (aka /proc/self/exe) which is already
+; cached by the Linux kernel which will do an atomic copy_to_user() which will
+; returns in EBX the number of chars read, 512 (stub only, read STDIN) or 516
+; carryload available to pass by fork() to zcat. Failure is always fatal, here.
+;
+; Voyager mission cannot fail because uzpexec took a bold assumption (lol).
+;
+; ASSUMPTIONS CHECK
+;
+; The stub is 512B and the standard kernel page is 4KB, everywhere the mempage
+; size is bigger than 516B the read() is expected to be atomic but what about
+; resides between two pages? BASE_ADDR is fine but kernel random address load
+; can play a subtle role here, depending on the alignment of randomisation.
+;
+;  1. seeing an EINTR is possible, an interrupt arrives before read() -> EAX=0.
+;  2. as long as the memory page is >= 1KB, the first 516B are cached in memory.
+;  3. address randomisation doesn't play a role here, memory is flat for read().
+;
+; Checking results { 1:N,2:Y,3:Y }: EAX can be 516, 512 or a fatal -ERRNO, only.
+; ------------------------------------------------------------------------------
   push 3                       ; SYS_read
   pop eax
   mov ebx, edi                 ; input fd
   int 0x80
+; ------------------------------------------------------------------------------
+; THE BENEFIT OF A SHORT JUMP (and its implications)
+;
+; A short jump, parent.here instead of exit_error, saves 4 bytes and this jump
+; lands with an EAX < 0, then sets an EDX to a value that an attacker can choose
+; and .do_int: int_0x80(-N, EDX,...) which always fails and jumps to exit_error.
+;
+; In conclusion, this short jump is a deterministic and safe way to save 4 bytes
+; of binary code and reach the exit(). The problem here is considering -EINTR an
+; unrecoverable error because we stop reading and we do an useless loop (solved).
+; ------------------------------------------------------------------------------
   test eax, eax
-  ; Small jumps save 4 bytes, hence parent.here instead of exit_error but ...
-  ; ... this jump lands with an EAX negative, set a EDX to a value that can be
-  ; choosen by an attacker and .do_int(-N) which fails and then jmp exit_error.
-  ; In conclusion, the jump is a deterministic and safe way to save 4 bytes of
-  ; binary code and reach the exit(). The problem here is considering -EINTR
-  ; an unrecoverable error because we stop reading and we do an useless loop.
   js parent.here               ; read fails --> error (bugfix)
   sub edx, eax
   jz .rewind                   ; read ok, there is a carryload
@@ -318,7 +333,6 @@ parent:
   push commd_arg               ; pushing "-c"
   push dword ebx
 
-  ; Small jumps save 4 bytes, here we are risking a buffer overflow read()
 .here:
   ; basic operations for calling the execve()
   mov edx, ebp                 ; envp (intact from main_start)
