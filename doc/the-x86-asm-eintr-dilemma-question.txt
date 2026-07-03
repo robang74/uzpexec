@@ -5,7 +5,7 @@ the Voyager mission and thus of the whole humanity depends on this answer and
 the correctness of these assumptions. Being wrong here isn't an option.
 
 This code is x86 32-bit Assembler and it is reading what usually it is exposed
-by /proc/self/exe. In particular this code is running and part of a 512 bytes 
+by /proc/self/exe. In particular this code is running and part of a 512 bytes
 stub, so the SYS_read issued here is going to read the running code + 4 bytes
 behyond the stub if a "carryload" exists (or just the stub).
 
@@ -93,7 +93,7 @@ Let’s analyse the path taken by the Linux kernel for `read()` on `/proc/self/e
 
 ## Kernel path: `read()` → `vfs_read()` → `file->f_op->read()`
 
-For a regular file, `file->f_op->read` points to `generic_file_read_iter()` or 
+For a regular file, `file->f_op->read` points to `generic_file_read_iter()` or
 `new_sync_read()`. The path is:
 
 ```
@@ -126,7 +126,10 @@ ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
 }
 ```
 
-This checks whether there is a **fatal signal** (e.g. `SIGKILL`) pending. If so, it returns `-EINTR` **before** starting the read operation. However, a fatal signal terminates the process anyway, so this is irrelevant to the normal flow of execution.
+This checks whether there is a **fatal signal** (e.g. `SIGKILL`) pending. If so,
+it returns `-EINTR` **before** starting the read operation. However, a fatal
+signal terminates the process anyway, so this is irrelevant to the normal flow
+of execution.
 
 ### 2. `filemap_read()` — loop with `copy_page_to_iter()`
 
@@ -147,12 +150,16 @@ static ssize_t filemap_read(struct kiocb *iocb, struct iov_iter *to, ...)
 }
 ```
 
-This is the critical point. If a **non-fatal** signal (e.g. `SIGALRM`, `SIGUSR1`) arrives **during** the loop, the kernel may:
+This is the critical point. If a **non-fatal** signal (e.g. `SIGALRM`, `SIGUSR1`)
+arrives **during** the loop, the kernel may:
 
 - If it has already copied some bytes: **return the copied bytes** (`N > 0`)
 - If it has not yet copied anything: **return `-EINTR`**
 
-But for `/proc/self/exe` or a file in the page cache, the file is already mapped into memory. `copy_page_to_iter()` calls `copy_to_user()`, which is a simple `memcpy` from kernel space to user space. **There is no blocking I/O, no sleep, and no internal preemption point within `copy_to_user()`.**
+But for `/proc/self/exe` or a file in the page cache, the file is already mapped
+into memory. `copy_page_to_iter()` calls `copy_to_user()`, which is a simple
+`memcpy` from kernel space to user space. **There is no blocking I/O, no sleep,
+and no internal preemption point within `copy_to_user()`.**
 
 ### 3. `copy_to_user()` — atomicity
 
@@ -165,26 +172,47 @@ copy_user_generic:
     // ...
 ```
 
-On x86-32, `copy_to_user()` uses `__copy_to_user_ll()`, which is a `mov`/`dec`/`jnz` loop. **It is not atomically indivisible**, but it is executed with **interrupts enabled**. A hardware interrupt may occur between two instructions.
+On x86-32, `copy_to_user()` uses `__copy_to_user_ll()`, which is a `mov`/`dec`/
+`jnz` loop. **It is not atomically indivisible**, but it is executed with
+**interrupts enabled**. A hardware interrupt may occur between two instructions.
 
-**However**: when the interrupt handler returns, execution resumes **from the same instruction** (if the interrupt does not cause a schedule) or from the return point of the context switch. In either case, `copy_to_user()` continues and completes.
+**However**: when the interrupt handler returns, execution resumes **from the
+same instruction** (if the interrupt does not cause a schedule) or from the
+return point of the context switch. In either case, `copy_to_user()` continues
+and completes.
 
-The kernel **does not** return `-EINTR` in the middle of `copy_to_user()`. The signal check point is **before** or **after** the call to `copy_to_user()`, not within it.
+The kernel **does not** return `-EINTR` in the middle of `copy_to_user()`.
+The signal check point is **before** or **after** the call to `copy_to_user()`,
+not within it.
 
 ---
 
 ## Conclusion for this specific case
 
-| Scenario | `read()` on `/proc/self/exe` | Result |
-|:---|:---|:---|
-| Signal before `vfs_read()` | `-EINTR` if fatal, otherwise handled | Irrelevant (process terminates or continues) |
-| Signal before `filemap_read()`, no bytes copied | `-EINTR` | Theoretically possible, practically impossible for 516 bytes |
-| Signal during `copy_to_user()` | Copying completes, returned bytes | `N > 0` |
-| Signal after `copy_to_user()`, with bytes still to be copied | Loop continues or `-EINTR` if nothing has been copied in this iteration | For 516 bytes from the page cache, a single iteration |
+Scenario about `read()` on `/proc/self/exe` divided by results
 
-For a 516-byte file in the page cache, `filemap_read()` performs **just one iteration** of `copy_page_to_iter()` because everything fits on a single page. Therefore:
+1. Signal before `vfs_read()`
+  - returns `-EINTR` if fatal, otherwise handled;
+  - Irrelevant process terminates or continues) |
 
-- If the signal arrives **before** the iteration: `-EINTR` (theoretical, but the process is not asleep)
+2. Signal before `filemap_read()`, no bytes copied
+  - return `-EINTR`
+  - Theoretically possible, practically impossible for 516 bytes
+
+3. Signal during `copy_to_user()`
+  - Copying completes, returned bytes
+  - `N > 0`
+
+4. Signal after `copy_to_user()`, with bytes still to be copied
+  - Loop continues or `-EINTR` if nothing has been copied in this iteration
+  - For 516 bytes from the page cache, a single iteration
+
+For a 516-byte file in the page cache, `filemap_read()` performs
+**just one iteration** of `copy_page_to_iter()` because everything
+fits on a single page. Therefore:
+
+- If the signal arrives **before** the iteration: `-EINTR` (theoretical,
+  but the process is not asleep)
 - If the signal arrives **during** the iteration: completes, returns 516
 - If the signal arrives **after** the iteration: returns 516, end
 
@@ -192,54 +220,125 @@ For a 516-byte file in the page cache, `filemap_read()` performs **just one iter
 
 ## The assumption is correct
 
-For a `read()` on `/proc/self/exe` or a regular file in the page cache, **`-EINTR` cannot be returned with `eax = 0`** (no bytes read). The only possibilities are:
+For a `read()` on `/proc/self/exe` or a regular file in the page cache,
+**`-EINTR` cannot be returned with `eax = 0`** (no bytes read).
+The only possibilities are:
 
-- `516` (or `512` if it is just a stub) — success
-- `-ERRNO` with `errno != EINTR` — actual error (`-EBADF`, `-EIO`, `-EACCES`, ...)
+- `516` (or `512` if it is just a stub), success
+- `-ERRNO` with `errno != EINTR`, actual error (`-EBADF`, `-EIO`, `-EACCES`, ...)
 
-The kernel path for regular files **has no slow path**, so there is no ‘interrupt and return -EINTR’ mechanism as exists for pipes, sockets, ttys, or asynchronous disk I/O.
+The kernel path for regular files **has no slow path**, so there is no
+‘interrupt and return -EINTR’ mechanism as exists for pipes, sockets,
+ttys, or asynchronous disk I/O.
 
 ---
 
 ## Final answer
 
 
-- Does `-EINTR` with `eax = 0` occur for `read()` on a regular file? **No**
-- Is the state change (set flag + perform I/O) atomic? **Yes, for regular files in the page cache**; there isn’t even a ‘set flag’ for asynchronous I/O.
-- Is the assumption about how it works correct? **Yes**
-- Is `js parent.here` safe? **Yes, and `-EINTR` is not among the possible values**
+- Does `-EINTR` with `eax = 0` occur for `read()` on a regular file?
+  - **No**
+- Is the state change (set flag + perform I/O) atomic?
+  - **Yes, for regular files in the page cache**;
+  - there isn’t even a ‘set flag’ for asynchronous I/O.
+- Is the assumption about how it works correct?
+  - **Yes**
+- Is `js parent.here` safe?
+  - **Yes, and `-EINTR` is not among the possible values**
 
 The comment on `-EINTR` can be removed or replace it with a more precise note:
 
-- the loop is unnecessary because `read()` from a regular file in the page cache is atomically synchronous and never returns partial values or `-EINTR`.
+- the loop is unnecessary because `read()` from a regular file in the page cache
+is atomically synchronous and never returns partial values or `-EINTR`.
 
 ---
 
-Short answer: for the exact scenario described — a fresh `read()`/`int 0x80` SYS_read of 516 bytes starting at offset 0 of a regular file on a normal local filesystem, where that file is its own currently-executing `/proc/self/exe` — the pasted Italian analysis reaches the right conclusion, but for a stronger reason than it gives, and the reason matters for knowing exactly when the guarantee breaks.
+Short answer: for the exact scenario described — a fresh `read()`/`int 0x80`
+SYS_read of 516 bytes starting at offset 0 of a regular file on a normal local
+filesystem, where that file is its own currently-executing `/proc/self/exe` —
+the pasted Italian analysis reaches the right conclusion, but for a stronger
+reason than it gives, and the reason matters for knowing exactly when
+the guarantee breaks.
 
 **Why the guarantee is actually stronger than "very unlikely"**
 
-The critical fact the analysis gestures at but doesn't name is the wait-state class used for page-cache I/O. Since the "killable" locking work landed in the page-cache code (`lock_page_killable`/`wait_on_page_locked_killable`, later folded into `folio_wait_locked_killable()` in `mm/filemap.c`, dating from ~2.6.25/2008 and present in every 3.19+ kernel), the blocking waits a regular-file read can hit use `TASK_KILLABLE`, not `TASK_INTERRUPTIBLE`. `TASK_KILLABLE` only reacts to *fatal* signals (SIGKILL, or any signal whose disposition is "terminate"). Ordinary catchable signals (SIGALRM, SIGUSR1, etc.) simply stay pending and don't touch the wait at all.
+The critical fact the analysis gestures at but doesn't name is the wait-state
+class used for page-cache I/O. Since the "killable" locking work landed in the
+page-cache code (`lock_page_killable`/`wait_on_page_locked_killable`, later
+folded into `folio_wait_locked_killable()` in `mm/filemap.c`, dating from
+~2.6.25/2008 and present in every 3.19+ kernel), the blocking waits a
+regular-file read can hit use `TASK_KILLABLE`, not `TASK_INTERRUPTIBLE`.
+`TASK_KILLABLE` only reacts to *fatal* signals (SIGKILL, or any signal whose
+disposition is "terminate"). Ordinary catchable signals (SIGALRM, SIGUSR1, etc.)
+simply stay pending and don't touch the wait at all.
 
-That has a direct consequence for the loop: the only condition that can produce a live `-EINTR` in EAX is a fatal signal — but a fatal signal means the task is being torn down and will never execute the instruction after `int 0x80` to inspect EAX. So in the presented code path, `-EINTR` isn't just rare, it's structurally unobservable: either the syscall completes and returns a byte count, or the process is dead before `test eax, eax` ever runs.
+That has a direct consequence for the loop: the only condition that can produce
+a live `-EINTR` in EAX is a fatal signal — but a fatal signal means the task is
+being torn down and will never execute the instruction after `int 0x80` to
+inspect EAX. So in the presented code path, `-EINTR` isn't just rare,
+it's structurally unobservable: either the syscall completes and returns
+a byte count, or the process is dead before `test eax, eax` ever runs.
 
-Combine that with the original checklist: since the read starts at file offset 0 and only spans 516 bytes, it fits inside a single page-cache page (index 0), and that page must already be resident — the CPU is currently fetching and executing instructions from that same file region, so it was necessarily faulted in by `execve()`. `filemap_get_pages()`/`filemap_read()` (per the kernel docs' own wording: *"if an error happens before any bytes are copied, returns a negative error number"* — meaning the error path is only reachable when the folio isn't already present) never enters a wait at all in that case, so there isn't even a killable-wait window to worry about.
+Combine that with the original checklist: since the read starts at file offset 0
+and only spans 516 bytes, it fits inside a single page-cache page (index 0), and
+that page must already be resident — the CPU is currently fetching and executing
+instructions from that same file region, so it was necessarily faulted in by
+`execve()`. `filemap_get_pages()`/`filemap_read()` (per the kernel docs' own
+wording: *"if an error happens before any bytes are copied, returns a negative
+error number"* — meaning the error path is only reachable when the folio isn't
+already present) never enters a wait at all in that case, so there isn't even
+a killable-wait window to worry about.
 
-So for the assumptions as stated, the honest answer isn't "probability ~1e-9," it's "probability 0 by construction" — no kernel version-dependent bug is needed; it falls out of `TASK_KILLABLE` semantics plus page-cache residency of the current text page.
+So for the assumptions as stated, the honest answer isn't "probability ~1e-9",
+it's "probability 0 by construction" — no kernel version-dependent bug is needed;
+it falls out of `TASK_KILLABLE` semantics plus page-cache residency of the
+current text page.
 
 **Where the guarantee genuinely breaks (the real non-zero cases)**
 
-These are the ways to violate the stated assumptions, in decreasing order of realism:
+These are the ways to violate the stated assumptions,
+in decreasing order of realism:
 
-- **Non-local / non-page-cache filesystems.** If `/proc/self/exe` resolves through NFS, FUSE, or certain overlay/network configurations, the read path isn't the plain `generic_file_read_iter`/`filemap_read` fast path assumed here. Historically NFS's `intr`/`soft` mount behavior (and some FUSE request-interrupt paths) *can* surface `-EINTR` from an ordinary signal, because those transports use interruptible, not merely killable, waits for RPC completion. This is filesystem-driver behavior, not a page-cache guarantee, and it's the one case where a "very low but nonzero" framing is literally correct rather than zero.
+- **Non-local / non-page-cache filesystems.** If `/proc/self/exe` resolves
+  through NFS, FUSE, or certain overlay/network configurations, the read path
+  isn't the plain `generic_file_read_iter`/`filemap_read` fast path assumed here.
+  Historically NFS's `intr`/`soft` mount behavior (and some FUSE request-interrupt
+  paths) *can* surface `-EINTR` from an ordinary signal, because those transports
+  use interruptible, not merely killable, waits for RPC completion. This is
+  filesystem-driver behavior, not a page-cache guarantee, and it's the one
+  case where a "very low but nonzero" framing is literally correct rather
+  than zero.
 
-- **Page eviction between `execve()` and the explicit `read()`**. The page backing the stub is clean, file-backed memory; under real memory pressure (tight cgroup v2 `memory.max`, global reclaim, `drop_caches`) the kernel is free to reclaim it even while it's still mapped executable, because it can always be re-faulted from disk. If that happens in the microsecond window between exec and the read, `filemap_get_pages()` would need to re-issue real I/O and briefly enter a wait — still `TASK_KILLABLE`, so still not interruptible by an ordinary signal, but now genuinely susceptible to disk I/O errors (`-EIO`) if the underlying device fails at that moment. This doesn't produce a "retry-me" `-EINTR`, but it is a real path to values it hadn't enumerated (transient `-EIO` on an otherwise-healthy file).
+- **Page eviction between `execve()` and the explicit `read()`**. The page
+  backing the stub is clean, file-backed memory; under real memory pressure
+  (tight cgroup v2 `memory.max`, global reclaim, `drop_caches`) the kernel
+  is free to reclaim it even while it's still mapped executable, because
+  it can always be re-faulted from disk. If that happens in the microsecond
+  window between exec and the read, `filemap_get_pages()` would need to
+  re-issue real I/O and briefly enter a wait — still `TASK_KILLABLE`, so still
+  not interruptible by an ordinary signal, but now genuinely susceptible to disk
+  I/O errors (`-EIO`) if the underlying device fails at that moment. This
+  doesn't produce a "retry-me" `-EINTR`, but it is a real path to values
+  it hadn't enumerated (transient `-EIO` on an otherwise-healthy file).
 
-- **Concurrent mutation of the file** (someone truncates/overwrites the running binary while it is reading it) — not a signal/EINTR issue, but it can legitimately produce a short read below 512 without any error. Outside the presented threat model of "attacker controls signals", but worth knowing it's the other source of a `516/512/fatal` violation.
+- **Concurrent mutation of the file** (someone truncates/overwrites the
+  running binary while it is reading it) — not a signal/EINTR issue, but
+  it can legitimately produce a short read below 512 without any error.
+  Outside the presented threat model of "attacker controls signals", but
+  worth knowing it's the other source of a `516/512/fatal` violation.
 
 **Bottom line**
 
-The bugfix (treating any negative EAX, including a hypothetical `-EINTR`, as fatal via the short jump to `parent.here`) is correct and safe regardless of the above, and for the specific case in the comment (local disk-backed fs, page already resident from `execve`, offset 0, 516 ≤ one page) the old retry loop wasn't just "usually fine," it was defending against a return value the kernel's own locking primitives make unreachable on that path. The one place I'd amend the comment: don't state "kernel design guarantees this for all filesystems" — scope it explicitly to local page-cache-backed regular files, and note NFS/FUSE as the documented exception if this stub could ever run with its own binary sitting on such a mount.
+The bugfix (treating any negative EAX, including a hypothetical `-EINTR`, as
+fatal via the short jump to `parent.here`) is correct and safe regardless of
+the above, and for the specific case in the comment (local disk-backed fs,
+page already resident from `execve`, offset 0, 516 ≤ one page) the old retry
+loop wasn't just "usually fine," it was defending against a return value the
+kernel's own locking primitives make unreachable on that path. The one place
+I'd amend the comment: don't state "kernel design guarantees this for all
+filesystems" — scope it explicitly to local page-cache-backed regular files,
+and note NFS/FUSE as the documented exception if this stub could ever run
+with its own binary sitting on such a mount.
 
 ---
 
@@ -247,24 +346,44 @@ The bugfix (treating any negative EAX, including a hypothetical `-EINTR`, as fat
 
 1. **Probability of Different Return Values:**
 
-- Under the defined conditions (reading 516 bytes from `/proc/self/exe`), the chance of obtaining a value other than 516, 512, or a fatal error is effectively **zero**. This stems from the nature of local page-cache I/O under the current kernel design.
+- Under the defined conditions (reading 516 bytes from `/proc/self/exe`),
+  the chance of obtaining a value other than 516, 512, or a fatal error is
+  effectively **zero**. This stems from the nature of local page-cache I/O
+  under the current kernel design.
 
 2. **Mechanics of TASK_KILLABLE:**
 
-- The kernel uses `TASK_KILLABLE` for waiting states in page-cache I/O, which only respond to fatal signals. Thus, if a fatal signal occurs, the process is terminating before any further execution of code (like examining `EAX`).
+- The kernel uses `TASK_KILLABLE` for waiting states in page-cache I/O, which
+  only respond to fatal signals. Thus, if a fatal signal occurs, the process is
+  terminating before any further execution of code (like examining `EAX`).
 
 3. **Conditions for Non-zero Returns:**
 
-- While the design guarantees a return of valid byte counts or fatal errors in the scenario described, there are specific conditions where errors can occur:
-- **Non-local Filesystems:** If the file resides on NFS or certain network filesystems, normal file operation behavior may differ due to their interruptible waits.
-- **Page Eviction:** If the page is evicted from memory between `execve()` and the `read()`, a valid I/O operation could occur, potentially resulting in errors like `-EIO`, not `-EINTR`.
-- **File Mutation:** Concurrent changes to the executable file can produce inconsistent read results.
+- While the design guarantees a return of valid byte counts or fatal errors in
+  the scenario described, there are specific conditions where errors can occur:
+- **Non-local Filesystems:** If the file resides on NFS or certain network
+  filesystems, normal file operation behavior may differ due to their
+  interruptible waits.
+- **Page Eviction:** If the page is evicted from memory between `execve()`
+  and the `read()`, a valid I/O operation could occur, potentially resulting
+  in errors like `-EIO`, not `-EINTR`.
+- **File Mutation:** Concurrent changes to the executable file can produce
+  inconsistent read results.
 
 4. **Final Recommendation:**
 
-- The implementation of error handling is sound, as detecting any negative `EAX` and treating it as a fatal state is a safe approach given the guarantees from the kernel's handling of the system call under specified conditions. Just remember to frame these guarantees within the context of local page-cache-backed regular files—asserting that NFS or FUSE mounts could introduce different behaviors.
+- The implementation of error handling is sound, as detecting any negative `EAX`
+  and treating it as a fatal state is a safe approach given the guarantees from
+  the kernel's handling of the system call under specified conditions.
+
+Just remember to frame these guarantees within the context of local
+page-cache-backed regular files—asserting that NFS or FUSE mounts
+could introduce different behaviors.
 
 ### Bottom Line
 
-The overall assurance is that under the specific operating parameters here outlined, the kernel's design significantly minimizes the likelihood of encountering unexpected return values, effectively making the odds "zero by construction" within the intended operational context.
+The overall assurance is that under the specific operating parameters here
+outlined, the kernel's design significantly minimizes the likelihood of
+encountering unexpected return values, effectively making the odds
+"zero by construction" within the intended operational context.
 
