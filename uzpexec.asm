@@ -154,18 +154,22 @@ main_start:
 ;_ cached by the Linux kernel which will do an atomic copy_to_user() which will
 ;_ returns in EBX the number of chars read, 512 (stub only, read STDIN) or 516
 ;_ carryload available to pass by fork() to zcat. Failure is always fatal, here.
-;_ ASSUMPTION CHECK
+;_ ASSUMPTIONS CHECK
 ;_ Voyager mission cannot fail because uzpexec took a bold assumption (lol).
 ;_ The stub is 512B and the standard kernel page is 4KB, everywhere the mempage
 ;_ size is bigger than 516B the read() is expected to be atomic but what about
 ;_ resides between two pages? BASE_ADDR is fine but kernel random address load
 ;_ can play a subtle role here, depending the minimum alignment of randomisation.
+;_ 1. seeing an EINTR is possible, an interrupts arrives before read() -> EAX=0.
+;_ 2. as long as the memory page is >= 1KB, the first 516B are cached in memory.
+;_ 3. address randomisation doesn't play a role here, memory is flat for read().
+;_ Check results { 1:N, 2:Y, 3:Y } ==> EAX can be 512, 516 or a fatal -ERRNO.
 ;_.read_loop:
   push 3                       ; SYS_read
   pop eax
   mov ebx, edi                 ; input fd
   int 0x80
-  test eax, eax
+  cmp eax, 512
   ; Small jumps save 4 bytes, hence parent.here instead of exit_error but ...
   ; ... this jump lands with an EAX negative, set a EDX to a value that can be
   ; choosen by an attacker and .do_int(-N) which fails and then jmp exit_error.
@@ -173,7 +177,7 @@ main_start:
   ; binary code and reach the exit(). The problem here is considering -EINTR
   ; an unrecoverable error because we stop reading and we do an useless loop.
   js parent.here               ; read fails --> error (bugfix)
-  jz .stdin                    ; if premature EOF, read STDIN
+  je .stdin                    ; only stub  --> read STDIN
 ;_sub edx, eax
 ;_jnz .read_loop
   xor edx, edx                 ; EDX = 0 as sub would have done
