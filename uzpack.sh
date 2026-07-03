@@ -28,6 +28,7 @@ upd=0
 ret=0
 rpl=0
 emb=0
+old=0
 
 nme="uzpexec"
 cpy='(c) github/''robang74 v[^ ]* '$nme
@@ -98,6 +99,7 @@ fi
 if prt_versn |  grep -qe " v0\.8[0-9] "; then
     do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i "$dst"; }
     no_script() { sed -e 's,/\(bin/sh\),\x00\1,' -i "$dst"; }
+    old=1
 else
     do_script() { true; }
     no_script() { true; }
@@ -195,9 +197,11 @@ while [ $ext -eq 0 ]; do
     dst="${2:-$(basename $src).uzp}"
 
     # Safety check about the destination filename to avoid argv[0] underflow
-    bdst=$(basename "$dst")
-    if ! printf "%s" "$bdst" | grep -qe ".\{5\}$"; then
-        echo "WARNING: destination filename '$bdst' too short, min 7" >&2
+    if [ $old -eq 1 ]; then
+        bdst=$(basename "$dst")
+        if ! printf "%s" "$bdst" | grep -qe ".\{5\}$"; then
+            echo "WARNING: destination filename '$bdst' too short, min 7" >&2
+        fi
     fi
 
     # Safely copy the uzpexec binary stub to the destination path
