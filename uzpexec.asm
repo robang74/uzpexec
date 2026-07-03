@@ -154,6 +154,12 @@ main_start:
 ;_ cached by the Linux kernel which will do an atomic copy_to_user() which will
 ;_ returns in EBX the number of chars read, 512 (stub only, read STDIN) or 516
 ;_ carryload available to pass by fork() to zcat. Failure is always fatal, here.
+;_ ASSUMPTION CHECK
+;_ Voyager mission cannot fail because uzpexec took a bold assumption (lol).
+;_ The stub is 512B and the standard kernel page is 4KB, everywhere the mempage
+;_ size is bigger than 516B the read() is expected to be atomic but what about
+;_ resides between two pages? BASE_ADDR is fine but kernel random address load
+;_ can play a subtle role here, depending the minimum alignment of randomisation.
 ;_.read_loop:
   push 3                       ; SYS_read
   pop eax
