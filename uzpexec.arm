@@ -171,7 +171,7 @@ hello_msg:
   mov x2, #516                          // read size (512+4), 64-bit aligned
 .read_loop:
   mov x8, #63                           // SYS_read
-  mov x0, x22                           // input fd
+  mov x22, x0                           // input fd
   mov x1, x24                           // Buffer
   svc #0
   cmp x0, #0
