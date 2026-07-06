@@ -143,7 +143,7 @@ main_start:
   mov eax, 356                 ; SYS_memfd_create
   mov ebx, filename            ; Linux requires a name here
   push ebx                     ; in stack { filename, 0 }
-  push 1                       ; MFD_CLOEXEC
+  push 3                       ; MFD_CLOEXEC | MFD_ALLOW_SEALING
   pop ecx
   int 0x80
 
