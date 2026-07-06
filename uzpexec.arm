@@ -36,6 +36,8 @@
 //        echo $? && du -b uzprm64
 //    cp -f uzprm64 hzarm64 && cat hiarm64 >> hzarm64 &&
 //        strace qemu-aarch64-static ./hzarm64; echo $?
+// Alternative:
+//    use '-d strace' for a quick and simple system call tracing
 // =============================================================================
 
 .text
@@ -114,10 +116,12 @@ hello_msg:
   // Stack: [argc] [argv[0]] ... [argv[N]] [NULL] [envp...]
   mov x21, x0                           // argc (was X0)
   mov x19, sp                           // X19 = argv
+  mov x20, x2                           // X20 = envp (directly from kernel)
 
-  lsl x0, x21, #3                       // argc * 8 (64-bit pointers)
-  add x0, x0, #8
-  add x20, x19, x0                      // X20 = envp (callee-saved!)
+  // Or calculate envp from argv (for x86 compatibility)
+  // lsl x0, x21, #3                       // argc * 8 (64-bit pointers)
+  // add x0, x0, #8
+  // add x20, x19, x0                      // X20 = envp = argv + argc*8 + 8
 
   // ----------------------------------------------------------------------------
   // HARDENING: NO_NEW_PRIVS & ANTI-CORE-DUMP
