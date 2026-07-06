@@ -115,9 +115,8 @@ hello_msg:
   // Save original argv and calculate envp from the initial stack layout
   // Stack: [argc] [argv[0]] ... [argv[N]] [NULL] [envp...]
   mov x21, x0                           // argc (was X0)
-  mov x19, sp                           // X19 = argv
+  mov x19, x1                           // X19 = argv (directly from kernel)
   mov x20, x2                           // X20 = envp (directly from kernel)
-
   // Or calculate envp from argv (for x86 compatibility)
   // lsl x0, x21, #3                       // argc * 8 (64-bit pointers)
   // add x0, x0, #8
@@ -155,12 +154,46 @@ hello_msg:
   // ===========================================================================
 
   // 1. Try to open itself file by argv[0] (CVE-2021-4034, ends here)
-  // X1 contains argv[0]
   mov x8, #56                           // SYS_openat
   movn x0, #99                          // AT_FDCWD
+  ldr x1, [x19]                         // argv[0]
   movz x2, #8, lsl #16                  // O_RDONLY | O_CLOEXEC
   svc #0
-  mov x22, x0                           // Move fd in X22 to save it for later
+
+  // If openat failed, try argv[1] (QEMU user-mode fallback)
+  cmp x0, #0
+  b.ge .open_done                       // fd >= 0, success
+  movn x0, #99                          // AT_FDCWD
+  ldr x1, [x19, #8]                     // x1 = argv[1]
+  movz x2, #8, lsl #16                  // O_RDONLY | O_CLOEXEC
+  svc #0
+
+  // If openat failed, try argv[2] (QEMU user-mode fallback)
+  cmp x0, #0
+  b.ge .open_done                       // fd >= 0, success
+  movn x0, #99                          // AT_FDCWD
+  ldr x1, [x19, #16]                    // x1 = argv[1]
+  movz x2, #8, lsl #16                  // O_RDONLY | O_CLOEXEC
+  svc #0
+
+  // If openat failed, try argv[3] (QEMU user-mode fallback)
+  cmp x0, #0
+  b.ge .open_done                       // fd >= 0, success
+  movn x0, #99                          // AT_FDCWD
+  ldr x1, [x19, #24]                    // x1 = argv[1]
+  movz x2, #8, lsl #16                  // O_RDONLY | O_CLOEXEC
+  svc #0
+
+  // If openat failed, try argv[4] (QEMU user-mode fallback)
+  cmp x0, #0
+  b.ge .open_done                       // fd >= 0, success
+  movn x0, #99                          // AT_FDCWD
+  ldr x1, [x19, #32]                    // x1 = argv[1]
+  movz x2, #8, lsl #16                  // O_RDONLY | O_CLOEXEC
+  svc #0
+
+.open_done:
+  mov x22, x0                           // Move FD in X22 to save it for later
 
   // 2. Try to open the memfd, as first operation
   mov x8, #279                          // SYS_memfd_create
@@ -176,7 +209,7 @@ hello_msg:
   mov x2, #1028                        // read size (1024+4), 64-bit aligned
 .read_loop:
   mov x8, #63                           // SYS_read
-  mov x22, x0                           // input fd
+  mov x0, x22                           // input FD
   mov x1, x24                           // Buffer
   svc #0
   cmp x0, #0
