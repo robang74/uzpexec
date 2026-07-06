@@ -246,7 +246,7 @@ parent:
   //   files, meaning write-restricted seals could break compatibility.
   // ----------------------------------------------------------------------------
   // 2p. Sealing the memfd/ELF in RO mode, for security and integrity
-  mov x8, #92                           // SYS_fcntl
+  mov x8, #25                           // SYS_fcntl
   mov x0, x23                           // memfd
   mov x1, #1033                         // F_ADD_SEALS (0x0409)
   // F_SEAL_WRITE | F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL = 15 (0x0f)
