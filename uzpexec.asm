@@ -182,7 +182,7 @@ main_start:
 ;
 ; Checking results { 1:N,2:Y,3:Y }: EAX can be 516, 512 or a fatal -ERRNO, only.
 ;
-: https://github.com/robang74/uzpexec/blob/devel/
+; https://github.com/robang74/uzpexec/blob/devel/
 ;                                    /doc/the-x86-asm-eintr-dilemma-question.txt
 ; ------------------------------------------------------------------------------
   push 3                       ; SYS_read
