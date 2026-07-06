@@ -27,14 +27,15 @@
 // ==============================================================================
 // Compiling:
 //    aarch64-linux-gnu-as -o uzprm64.o uzpexec.arm &&
-//    aarch64-linux-gnu-objcopy -O binary uzprm64.o uzprm64
+//        aarch64-linux-gnu-objcopy -O binary uzprm64.o uzprm64
 // Testing qemu:
 //    aarch64-linux-gnu-gcc -static -s -x c hello.c -o hiarm64 &&
-//    qemu-aarch64-static ./hiarm64; echo $?
+//        qemu-aarch64-static ./hiarm64; echo $?
 // Testing uzpexec:
-//    chmod +x uzprm64 && strace qemu-aarch64-static ./uzprm64 <&-
-//    cp -f uzprm64 hzarm64 && cat hiarm64 >> hzarm64
-//    strace qemu-aarch64-static ./hzarm64; echo $?
+//    chmod +x uzprm64 && strace qemu-aarch64-static ./uzprm64
+//        echo $? && du -b uzprm64
+//    cp -f uzprm64 hzarm64 && cat hiarm64 >> hzarm64 &&
+//        strace qemu-aarch64-static ./hzarm64; echo $?
 // =============================================================================
 
 .text
