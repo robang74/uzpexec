@@ -438,7 +438,7 @@ exit_error:
 // in do_script mode the 2 paths shrink to 20 chars + ending \0
 // eof_strng helps to find the EOF, and where \0 padding starts
 //                                                                 LN | FD |  SH
-copy_vers:  .ascii "(c) github/robang74 v0.18 "                //  26 | 26 |  26
+copy_vers:  .ascii "(c) github/robang74 v0.22 "                //  26 | 26 |  26
 filename :  .ascii      "uzprm64\0"                            //   8 |  8 |   8
 provider :  .ascii      "12345678\n\0"                         //  10 | 10 |  10
 zcat_path:  .ascii         "/bin/zcat\0"                       //  11 | 42 |  21

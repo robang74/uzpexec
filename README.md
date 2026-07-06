@@ -17,7 +17,7 @@ The [uzpexec](uzpexec.asm) (micro gzip pipe exec, written in Assembler, 512 byte
 
 > [!WARNING]
 > 
-> Since the release **v0.93** packages contain [uzpexec.arm](uzpexec.arm) source file for ARM64. That source compiles but it is still experimental and reasonably affected by bugs because for a full validation it is a required a complete aarm64 system, and in fact, it doesn't work properly by a simple Assembler instruction translation at running time.
+> Since the release **v0.93** packages contain [uzpexec.arm](uzpexec.arm) source file for **ARM64** versioned as v0.22. That source compiles but it is still experimental and reasonably affected by bugs because for a full validation it is a required a complete aarm64 system, and in fact, it doesn't work properly by a simple Assembler instruction translation at running time.
 
 ### Index
 
@@ -68,13 +68,7 @@ In a standalone mode, it can convert itself in `uzpack` and it becomes self-host
 
 ### Current release
 
-Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.92** on the `master` branch.
-
-- `4ef6928 - 2026-07-03 - uzpack.sh: file name lenght limitation belogs to the v0.8x only`
-- `929d8ad - 2026-07-03 - uzpexec.asm: STDIN's do/not %-branch size balance, bugfix v0.92`
-- `d24d228 - 2026-07-03 - uzpexec.asm: unchecked errors in fork() blocks, bugfixing v0.92`
-
-The first two commits above are the start of a set which is under test in `devel` branch and aims to fix a branches-balance bug and a corner case in which application can hang forever instead of exiting with error.
+- Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.93** on the `master` branch.
 
 ### Notes
 
