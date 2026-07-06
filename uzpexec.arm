@@ -34,8 +34,9 @@
 // Testing uzpexec:
 //    chmod +x uzprm64 && strace qemu-aarch64-static ./uzprm64
 //        echo $? && du -b uzprm64
-//    cp -f uzprm64 hzarm64 && cat hiarm64 >> hzarm64 &&
-//        strace qemu-aarch64-static ./hzarm64; echo $?
+//    cc -s -static hello.c -o hix86s && file hix86s &&
+//        cp -f uzprm64 hix86z && gzip -9c hix86s >> hix86z &&
+//            qemu-aarch64-static -d strace ./hix86z; echo $?
 // Alternative:
 //    use '-d strace' for a quick and simple system call tracing
 // =============================================================================
@@ -342,7 +343,7 @@ parent:
   // Execute the ELF binary using a Linux specific syscall
   mov x8, #281                          // SYS_execveat
   mov x0, x23                           // memfd
-  adr x1, filename
+  adr x1, empty_string                  // a "" necessarly
   mov x2, x19                           // argv (original)
   mov x3, x20                           // envp (original)
   mov x4, #0x1000                       // AT_EMPTY_PATH
