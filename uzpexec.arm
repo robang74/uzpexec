@@ -164,7 +164,7 @@ hello_msg:
   // 2. Try to open the memfd, as first operation
   mov x8, #279                          // SYS_memfd_create
   adr x0, filename                      // Linux requires a name here
-  mov x1, #1                            // MFD_CLOEXEC
+  mov x1, #3                            // MFD_CLOEXEC | MFD_ALLOW_SEALING
   svc #0
   mov x23, x0                           // X23 = [memfd]
 
@@ -342,7 +342,7 @@ parent:
   // Execute the ELF binary using a Linux specific syscall
   mov x8, #281                          // SYS_execveat
   mov x0, x23                           // memfd
-  adr x1, empty_string                  // ""
+  adr x1, filename
   mov x2, x19                           // argv (original)
   mov x3, x20                           // envp (original)
   mov x4, #0x1000                       // AT_EMPTY_PATH
