@@ -340,6 +340,7 @@ parent:
   // ELF BINARY MODE (Security: harden ELF execution via read-only memfd seals)
   // ----------------------------------------------------------------------------
 .execute_elf:
+.ifdef _REAL_AARM64
   // Execute the ELF binary using a Linux specific syscall
   mov x8, #281                          // SYS_execveat
   mov x0, x23                           // memfd
@@ -347,6 +348,16 @@ parent:
   mov x2, x19                           // argv (original)
   mov x3, x20                           // envp (original)
   mov x4, #0x1000                       // AT_EMPTY_PATH
+.else
+  // Calls the standard execve, passing it the newly modified path
+  mov x8, #221                          // SYS_execve
+  // Converts the FD in the corresponding character (e.g. 5 -> “5”)
+  adr x0, commd_src+2                   // "/proc/self/fd/9"
+  add w1, w23, #'0'                     // '0' + 5 = '5'
+  strb w1, [x0, #14]                    // &x0[14] = '5'
+  mov x1, x19                           // argv (original)
+  mov x2, x20                           // envp (original)
+.endif
   svc #0
   b exit_error                          // never returns unless syscall fails
 
