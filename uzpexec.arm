@@ -26,13 +26,15 @@
 //    sed -e "s,^;,//," -e "s,// ,; ," -i uzpexec.arm
 // ==============================================================================
 // Compiling:
-//    aarch64-linux-gnu-as             -o uzprm64.o uzpexec.arm &&
+//    aarch64-linux-gnu-as -o uzprm64.o uzpexec.arm &&
 //    aarch64-linux-gnu-objcopy -O binary uzprm64.o uzprm64
 // Testing qemu:
-//    echo 'int main(){return 0;}' | aarch64-linux-gnu-gcc -static -x c - \
-//        -o test_arm64 qemu-aarch64-static ./test_arm64; echo $?
+//    aarch64-linux-gnu-gcc -static -s -x c hello.c -o hiarm64 &&
+//    qemu-aarch64-static ./hiarm64; echo $?
 // Testing uzpexec:
-//    chmod +x uzprm64 && strace qemu-aarch64-static ./uzprm64
+//    chmod +x uzprm64 && strace qemu-aarch64-static ./uzprm64 <&-
+//    cp -f uzprm64 hzarm64 && cat hiarm64 >> hzarm64
+//    strace qemu-aarch64-static ./hzarm64; echo $?
 // =============================================================================
 
 .text
