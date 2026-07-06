@@ -75,7 +75,13 @@ In a standalone mode, it can convert itself in `uzpack` and it becomes self-host
 
 ### Current release
 
-- Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.93** on the `master` branch.
+Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.93** on the `master` branch.
+
+The following commits should be considered corretions to apply waiting for the next realese.
+
+- `5fb8d4c - 2026-07-06 - uzpexec.asm: security bug, F_ADD_SEALS not allowed, fix`
+
+After the application, rebuild the two ELF32 binaries with `make uzpexec uzpack`.
 
 ### Notes
 
