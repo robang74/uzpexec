@@ -71,7 +71,7 @@ phdr:
   .quad BASE_ADDR                       // p_vaddr
   .quad BASE_ADDR                       // p_paddr
   .quad 1024                            // p_filesz (file size)
-  .quad 1024 + 516                      // p_memsz  (file size + buf size)
+  .quad 1024 + 1026                     // p_memsz  (file size + buf size)
   .quad 0x1000                          // p_align
 
   // p_flags (PF_R + PF_W + PF_X)
@@ -80,7 +80,7 @@ phdr:
 
   // Because uzpexec contains no input parsing logic that could be corrupted and
   // its fixed 512-byte read loop cannot be overflowed, the writeable-executable
-  // segment offers no exploitable attack vector.
+  // segment offers no exploitable attack vector. They are 1024 in aarm64 binary.
 
   // Since the loader immediately forfeits control through atomic fork() / exec()
   // or execveat() transitions that never return, an attacker cannot redirect
@@ -168,7 +168,7 @@ hello_msg:
   adr x24, buf                          // X24 = buf
 
   // 3. Try to read from the file the 1st block + 4 bytes to check the carryload
-  mov x2, #516                          // read size (512+4), 64-bit aligned
+  mov x2, #1026                        // read size (1024+4), 64-bit aligned
 .read_loop:
   mov x8, #63                           // SYS_read
   mov x22, x0                           // input fd
@@ -191,7 +191,7 @@ hello_msg:
   // 4a. File pointer set
   mov x8, #62                           // SYS_lseek
   mov x0, x22                           // input fd
-  mov x1, #512                          // offset = 512
+  mov x1, #1024                         // offset = 1024
   mov x2, #0                            // SEEK_SET = 0
   svc #0
 
@@ -374,7 +374,7 @@ child:
   add x0, x0, #(zcat_path - filename)   // zcat_path = filename + strlen(filename)
 
   str xzr, [sp, #-8]!                   // end of envp/argv (push 0)
-         
+
   ldrh w1, [x24]
   mov w2, #0x8b1f                       // match Little-Endian per GZIP (0x1F, 0x8B)
   cmp w1, w2
@@ -465,5 +465,5 @@ file_end:                               // Physical end of the binary file!
 // BSS SECTION (RAM only)
 // ==============================================================================
 buf:                                    // Label at offset 1024, RAM only
-.equ bss_end, . + 516                   // Reserve 512 + 4 bytes for the buffer
+.equ bss_end, . + 1026                  // Reserve 1024 + 4 bytes for the buffer
 
