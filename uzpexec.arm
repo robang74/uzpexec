@@ -114,13 +114,13 @@ hello_msg:
   // This would be the main() in a C-language sourcemain_start
   // Save original argv and calculate envp from the initial stack layout
   // Stack: [argc] [argv[0]] ... [argv[N]] [NULL] [envp...]
-  mov x21, x0                           // argc (was X0)
-  mov x19, x1                           // X19 = argv (directly from kernel)
-  mov x20, x2                           // X20 = envp (directly from kernel)
-  // Or calculate envp from argv (for x86 compatibility)
-  // lsl x0, x21, #3                       // argc * 8 (64-bit pointers)
-  // add x0, x0, #8
-  // add x20, x19, x0                      // X20 = envp = argv + argc*8 + 8
+  ldr x21, [sp]                         // x21 = argc     (from the stack start)
+  add x19, sp, #8                       // x19 = &argv[0] (pointer to argv array)
+  
+  // To get envp (if you need it):
+  // envp starts right after the NULL terminating argv.
+  add x20, x19, x21, lsl #3             // x20 = x19 + (argc * 8)
+  add x20, x20, #8                      // x20 = envp (skips the NULL terminator)
 
   // ----------------------------------------------------------------------------
   // HARDENING: NO_NEW_PRIVS & ANTI-CORE-DUMP
@@ -159,40 +159,6 @@ hello_msg:
   ldr x1, [x19]                         // argv[0]
   movz x2, #8, lsl #16                  // O_RDONLY | O_CLOEXEC
   svc #0
-
-  // If openat failed, try argv[1] (QEMU user-mode fallback)
-  cmp x0, #0
-  b.ge .open_done                       // fd >= 0, success
-  movn x0, #99                          // AT_FDCWD
-  ldr x1, [x19, #8]                     // x1 = argv[1]
-  movz x2, #8, lsl #16                  // O_RDONLY | O_CLOEXEC
-  svc #0
-
-  // If openat failed, try argv[2] (QEMU user-mode fallback)
-  cmp x0, #0
-  b.ge .open_done                       // fd >= 0, success
-  movn x0, #99                          // AT_FDCWD
-  ldr x1, [x19, #16]                    // x1 = argv[1]
-  movz x2, #8, lsl #16                  // O_RDONLY | O_CLOEXEC
-  svc #0
-
-  // If openat failed, try argv[3] (QEMU user-mode fallback)
-  cmp x0, #0
-  b.ge .open_done                       // fd >= 0, success
-  movn x0, #99                          // AT_FDCWD
-  ldr x1, [x19, #24]                    // x1 = argv[1]
-  movz x2, #8, lsl #16                  // O_RDONLY | O_CLOEXEC
-  svc #0
-
-  // If openat failed, try argv[4] (QEMU user-mode fallback)
-  cmp x0, #0
-  b.ge .open_done                       // fd >= 0, success
-  movn x0, #99                          // AT_FDCWD
-  ldr x1, [x19, #32]                    // x1 = argv[1]
-  movz x2, #8, lsl #16                  // O_RDONLY | O_CLOEXEC
-  svc #0
-
-.open_done:
   mov x22, x0                           // Move FD in X22 to save it for later
 
   // 2. Try to open the memfd, as first operation
