@@ -71,7 +71,7 @@ phdr:
   .quad BASE_ADDR                       // p_vaddr
   .quad BASE_ADDR                       // p_paddr
   .quad file_end - elf_header           // p_filesz (file size)
-  .quad file_end - elf_header + 1026    // p_memsz  (file size + buf size)
+  .quad file_end - elf_header + 1024    // p_memsz  (file size + buf size)
   .quad 0x1000                          // p_align
 
   // p_flags (PF_R + PF_W + PF_X)
@@ -168,7 +168,7 @@ hello_msg:
   adr x24, buf                          // X24 = buf
 
   // 3. Try to read from the file the 1st block + 4 bytes to check the carryload
-  mov x2, #1026                        // read size (1024+4), 64-bit aligned
+  mov x2, #1028                        // read size (1024+4), 64-bit aligned
 .read_loop:
   mov x8, #63                           // SYS_read
   mov x22, x0                           // input fd
@@ -465,5 +465,5 @@ file_end:                               // Physical end of the binary file!
 // BSS SECTION (RAM only)
 // ==============================================================================
 buf:                                    // Label at offset 1024, RAM only
-.equ bss_end, . + 1026                  // Reserve 1024 + 4 bytes for the buffer
+.equ bss_end, . + 1028                  // Reserve 1024 + 4 bytes for the buffer
 
