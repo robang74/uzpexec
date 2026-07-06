@@ -28,7 +28,7 @@ MAINTAINER = Roberto A. Foglietta <roberto.foglietta@gmail.com>
 BINS       = uzpexec uzpack gzcmd.gz.sh
 MANPAGES   = uzpack.1 uzpexec.1
 DOCFILES   = README.md uzpack.md
-DEVFILES   = uzpack.sh uzpexec.asm hello.c zeroenv.c
+DEVFILES   = uzpack.sh uzpexec.asm uzpexec.arm hello.c zeroenv.c
 DEVFILES  += tests.sh sigsegv.c gzcmd.sh Makefile $(DOCFILES)
 RPMFILES   = $(BINS) $(MANPAGES) $(DEVFILES) uzpexec.spec.tmpl
 

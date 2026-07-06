@@ -15,6 +15,10 @@ The [uzpexec](uzpexec.asm) (micro gzip pipe exec, written in Assembler, 512 byte
 > 
 > Only the stub, which executes the compressed binary or script, runs as ELF32 and it makes perfect sense since its role is to deal with few system calls and runs everywhere (x86 all arches, because the Assembler is a machine specific language). Obviously the ELF32 nature of the launcher doesn't affect in any manner what is executed which runs by its own kind. Cfr. [Examples](#example-1).
 
+> [!WARNING]
+> 
+> Since the release **v0.93** packages contain [uzpexec.arm](uzpexec.arm) source file for ARM64. That source compiles but it is still experimental and reasonably affected by bugs because for a full validation it is a required a complete aarm64 system, and in fact, it doesn't work properly by a simple Assembler instruction translation at running time.
+
 ### Index
 
 - [Presentation](#presentation) - [Release](#current-release) - [Usage](#usage) - [Compile](#how-to-compile) - [Examples](#example-1) - [Customisation](#quick-customisation) - [Trivials](#trivial-facts) - [TeenyELF](#wx-memory) - [Licensing](#licensing-terms) - [gzcmd.sh](#gzcmdsh)
