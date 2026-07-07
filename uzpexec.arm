@@ -39,15 +39,6 @@
 //            qemu-aarch64-static -d strace $PWD/hix86z; echo $?
 // Alternative:
 //    use '-d strace' for a quick and simple system call tracing
-//
-// WARNING:
-//    Using qemu-aarm64-static 10.2.3, the execvat() fails to translate when
-//    the binary is started without its absolute path or a relative path.
-//    The simplest workaround is prepending $PWD/ instead of ./ or using the
-//    command 'which' or 'command -v' to expand the full path before call it.
-//    Always passing the host absolute path to the aarm64 translator, and the
-//    userland translation works also when uzprm64 is -d_REAL_AARM64 compiled.
-//
 // =============================================================================
 
 .text
@@ -349,26 +340,27 @@ parent:
   // ELF BINARY MODE (Security: harden ELF execution via read-only memfd seals)
   // ----------------------------------------------------------------------------
 .execute_elf:
-.ifdef _REAL_AARM64
-  // Execute the ELF binary using a Linux specific syscall
+  // Execute the ELF binary using a Linux specific syscall (real hardware)
   mov x8, #281                          // SYS_execveat
   mov x0, x23                           // memfd
   adr x1, empty_string                  // a "" necessarly
   mov x2, x19                           // argv (original)
   mov x3, x20                           // envp (original)
   mov x4, #0x1000                       // AT_EMPTY_PATH
-.else
-  // Calls the standard execve, passing it the newly modified path
+  svc #0                                // never returns unless syscall fails
+.ifndef _REAL_AARM64
+.fallback_execve:
+  // Calls the standard execve, passing it the newly modified path (qemu)
   mov x8, #221                          // SYS_execve
   // Converts the FD in the corresponding character (e.g. 5 -> “5”)
-  adr x0, commd_src+2                   // "/proc/self/fd/9"
+  adr x0, commd_src + 2                 // "/proc/self/fd/9"
   add w1, w23, #'0'                     // '0' + 5 = '5'
   strb w1, [x0, #14]                    // &x0[14] = '5'
   mov x1, x19                           // argv (original)
   mov x2, x20                           // envp (original)
+  svc #0                                // never returns unless syscall fails
 .endif
-  svc #0
-  b exit_error                          // never returns unless syscall fails
+  b exit_error
 
 // ============================================================================
 // CHILD PROCESS ( c::stack { [memfd], buf, filename, 0 } )
