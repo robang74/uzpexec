@@ -157,9 +157,7 @@ teststdin: nostdin
 
 tests: blkln teststdin distclean utils $(BINS)
 	@echo ====== testing hello ======
-	@echo
 	./hello
-	@echo
 
 	@echo ====== testing zeroenv ======
 	@echo
@@ -178,7 +176,6 @@ tests: blkln teststdin distclean utils $(BINS)
 	@echo
 	./gzcmd.gz.sh hello
 	./hello.gz.sh
-	@echo
 
 	@echo ====== standalone uzpack.sh, p.1 ======
 	@echo

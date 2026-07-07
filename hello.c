@@ -4,8 +4,9 @@
 
 int main(int argc, char *argv[]) {
     char *home, *world;
+    int nsec = 0;
 
-    printf("Hello %s%sWorld!\n",
+    printf("\nHello %s%sWorld!\n",
            argv[1] ? argv[1] : "", argv[1] ? " " : "");
 
     home  = getenv("HOME");
@@ -15,8 +16,12 @@ int main(int argc, char *argv[]) {
     printf("  WORLD: '%s'\n", world   ?: "(none)");
 
     printf("  ARGV0: '%s'\n", argv[0] ?: "(none)");
-#if 0
-    sleep (1000);
-#endif
+
+    nsec = atoi(argv[argc-1]);
+    if(nsec > 0)  {
+        printf("Sleeping %ds ...\n", nsec);
+        sleep (nsec);
+    }
+//  printf("argc: %d, %d, %s\n", argc, nsec, argv[argc-1]);
     return 0;
 }

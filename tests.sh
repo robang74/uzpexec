@@ -48,7 +48,7 @@ echo "Strings output:"
   echo
 
   export WORLD='Hi shiny!'
-  DD skip=1 if=hello.gz.sh | ./$bin wonderful
+  DD skip=1 if=hello.gz.sh | ./$bin wonderful | grep .
   retprt
 
   gzip -c $LS | ./$bin -1 ./$bin
