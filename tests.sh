@@ -7,7 +7,7 @@
 bin=uzpexec
 LS=$(command -v ls)
 S='Hello ($0) World!'
-eof_str="U238.-c.../proc/self/fd/9.-f"
+eof_str="U238.-c.../proc/self/fd/..-f"
 eof_len=$(echo "$eof_str" | wc -c)
 DD() { dd status=none "$@"; }
 retprt() { printf "\tret:${1:-$?}\n\n"; }

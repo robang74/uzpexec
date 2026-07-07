@@ -143,7 +143,8 @@ main_start:
   mov eax, 356                 ; SYS_memfd_create
   mov ebx, filename            ; Linux requires a name here
   push ebx                     ; in stack { filename, 0 }
-  push 3                       ; MFD_CLOEXEC | MFD_ALLOW_SEALING
+; push 3                       ; MFD_ALLOW_SEALING | MFD_CLOEXEC
+  push 2                       ; MFD_ALLOW_SEALING
   pop ecx
   int 0x80
 
@@ -312,14 +313,17 @@ parent:
   xor edx, edx                 ; SEEK_SET = 0
   int 0x80
 
-  ; 2s. Connect the memfd to the shell STDIN (fd 0)
-  push 63                      ; SYS_dup2
-  pop eax
-; mov ebx, [memfd]             ; already set
-; xor ecx, ecx                 ; 0 = stdin
-  push 9
-  pop ecx                      ; file descriptor
-  int 0x80
+  ; 2s. Duplicate the memfd on the FD n.9, arbitrary high id-number
+  ;     instead, keep FD=5 from the parent and run on it is simpler
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+; push 63                      ; SYS_dup2
+; pop eax
+;;mov ebx, [memfd]             ; already set
+;;xor ecx, ecx                 ; 0 = stdin
+; push 9
+; pop ecx                      ; file descriptor
+; int 0x80
+; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
   ; 3s. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
   push 11                      ; SYS_execve
@@ -467,7 +471,7 @@ commd_src:  db ". /dev"
 %else
 commd_src:  db ". /proc/self"
 %endif
-            db "/fd/9", 0                        ; for shell    :  18 |  - |  18
+            db "/fd/5", 0                        ; for shell    :  18 |  - |  18
 force_arg:  db "-f", 0                           ; for zcat     :   3 |  3 |   3
 ;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  45
                                                                 ; 110 (tot.) 110
