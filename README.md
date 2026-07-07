@@ -66,9 +66,9 @@ In a standalone mode, it can convert itself in `uzpack` and it becomes self-host
 
 #### Trustability
 
+- defender notes: already in README.md
 - signed sha256sum releases: by GitHub
 - reproducible builds: by design / ASM
-- defender notes: already in README.md
 - custom distribution: provider field
 
 ---
