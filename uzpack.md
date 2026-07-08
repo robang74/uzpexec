@@ -92,5 +92,5 @@ COPYRIGHT
        The ELF32 binary payload is licensed under MIT+1 clause terms.
        The script is licensed under the GNU General Public License version 2 (GPLv2).
 
-v0.93                            2026-07-06                            UZPACK(1)
+v0.94                            2026-07-08                            UZPACK(1)
 ```
