@@ -137,7 +137,7 @@ main_start:
 
   ; 2. Try to open the memfd, as first operation
   mov eax, 356                 ; SYS_memfd_create
-  mov ebx, filename            ; Linux requires a name here
+  sub ebx, commd_exe-filename  ; Linux requires a name here
   push ebx                     ; in stack { filename, 0 }
   push 3                       ; MFD_ALLOW_SEALING | MFD_CLOEXEC
   pop ecx
@@ -462,6 +462,7 @@ copy_vers:  db "(c) github/robang74 v0.94 "                     ;  26 | 26 |  26
 filename :  db      "uzpexec", 0                                ;   8 |  8 |   8
 provider :  db      "12345678", 0x0a, 0                         ;  10 | 10 |  10
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0 ;  21 | 42 |  21
+commd_exe:  db "/proc/self/exe", 0
 ; following fields are conditionally overwritable, do unions    :  ---------  65
 do_script:  db "/bin/sh", 0, 0, 0,0,0, 0,0,0,0   ; for shell    :  16 |  - |  21
 eof_tests:  db "U238", 0                         ; for tests    :   5 |  - |   -
@@ -473,7 +474,6 @@ commd_src:  db "/dev"
 commd_src:  db "/proc/self"
 %endif
             db "/fd/9", 0                        ; for shell    :  16 |  - |  16
-commd_exe:  db "/proc/self/exe", 0
 force_arg:  db "-f", 0                           ; for zcat     :   3 |  3 |   3
 ;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  40
                                                                 ;  95 (tot.)  95
