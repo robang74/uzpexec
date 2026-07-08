@@ -336,9 +336,10 @@ parent:
 
   ; In-place stack manipulation using ESP (argv is at [esp]):
   ; ["/bin/sh", "/proc/self/fd/9", original_args ...]
-  mov ebx, do_script
+  mov ebx, commd_src
+  mov dword [esp+4], ebx       ; replace argv[1] with "/proc/self/fd/9"
+  sub ebx, commd_src-do_script
   mov dword [esp+0], ebx       ; replace argv[0] with "/bin/sh"
-  mov dword [esp+4], commd_src ; replace argv[1] with "/proc/self/fd/9"
   lea ecx,  [esp+0]            ; original argv
   push dword ebx               ; do_script
 
@@ -468,12 +469,7 @@ do_script:  db "/bin/sh", 0, 0, 0,0,0, 0,0,0,0   ; for shell    :  16 |  - |  21
 eof_tests:  db "U238", 0                         ; for tests    :   5 |  - |   -
 ; This introduces the need of having the /proc mounted, granted after the /init
 ; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
-%ifdef _USE_DEVFS
-commd_src:  db "/dev"
-%else
-commd_src:  db "/proc/self"
-%endif
-            db "/fd/9", 0                        ; for shell    :  16 |  - |  16
+commd_src:  db "/proc/self/fd/9", 0              ; for shell    :  16 |  - |  16
 force_arg:  db "-f", 0                           ; for zcat     :   3 |  3 |   3
 ;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  40
                                                                 ;  95 (tot.)  95
