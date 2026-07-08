@@ -129,6 +129,7 @@ main_start:
 
   ; 1. Try to open itself file by /proc/self/exe
   mov ebx, commd_exe
+  push ebx                     ; in stack { commd_exe, 0 }
   mov ecx, 0x00080000          ; O_RDONLY | O_CLOEXEC
   push 5                       ; SYS_open
   pop eax
@@ -138,7 +139,7 @@ main_start:
   ; 2. Try to open the memfd, as first operation
   mov eax, 356                 ; SYS_memfd_create
   sub ebx, commd_exe-filename  ; Linux requires a name here
-  push ebx                     ; in stack { filename, 0 }
+  push ebx                     ; in stack { filename, commd_exe, 0 }
   push 3                       ; MFD_ALLOW_SEALING | MFD_CLOEXEC
   pop ecx
   int 0x80
@@ -147,7 +148,7 @@ main_start:
   mov ecx, buf
   push ecx                     ; in stack { buf, filename, 0 }
 ; mov [memfd], eax             ; Save the memfd in RAM
-  push eax                     ; in stack { [memfd], buf, filename, 0 }
+  push eax                     ; in stack { [memfd], buf, filename, commd_exe, 0 }
 
   ; 3. Try to read from the file the 1st block + 4 bytes to check the carryload
   mov edx, 516                 ; read size (512+4), 32-bit aligned
@@ -226,7 +227,7 @@ main_start:
   jz child                     ; the child jump to its routine
 
   ; ============================================================================
-  ; PARENT PROCESS ( p::stack { [memfd], buf, filename, 0 } )
+  ; PARENT PROCESS ( p::stack { [memfd], buf, filename, commd_exe, 0 } )
   ; ============================================================================
 parent:
   ; 1p. The parent waits for the child completes zcat writing in memfd
@@ -277,7 +278,7 @@ parent:
   push 19                      ; SYS_lseek
   pop eax
 ; mov ebx, [memfd]             ;
-  pop ebx                      ; [memfd] <-- p::stack { buf, filename, 0 }
+  pop ebx                      ; [memfd] <-- p::stack { buf, filename, commd_exe, 0 }
   xor ecx, ecx                 ; offset = 0
   xor edx, edx                 ; SEEK_SET = 0
   int 0x80
@@ -286,7 +287,7 @@ parent:
   ; 4p. Read the first uncompressed 4 bytes (just two for the shebang)
   push 3                       ; SYS_read
   pop eax
-  pop ecx                      ; buf <-- p::stack { filename, 0 }
+  pop ecx                      ; buf <-- p::stack { filename, commd_exe, 0 }
   push 4                       ;
   pop edx                      ; count = 4
   int 0x80
@@ -336,13 +337,15 @@ parent:
 
   ; In-place stack manipulation using ESP (argv is at [esp]):
   ; ["/bin/sh", "/proc/self/fd/9", original_args ...]
-  mov ebx, commd_exe
+  pop ebx                        ; filename <-- p::stack { commd_exe, 0 }
+  pop ebx                        ; commd_exe <-- p::stack { 0 }
+; mov ebx, commd_exe
   mov dword [ebx+11], 0x392f6466 ; writes "fd/9" at the end of commd_exe
-  mov dword [esp+4], ebx         ; replace argv[1] with "/proc/self/fd/9"
+  mov dword [esp], ebx           ; replace argv[1] with "/proc/self/fd/9"
   add ebx, do_script-commd_exe
-  mov dword [esp], ebx           ; replace argv[0] with "/bin/sh"
-  lea ecx,  [esp]                ; original argv
-  push dword ebx                 ; do_script
+  mov dword [esp-4], ebx         ; replace argv[0] with "/bin/sh"
+  lea ecx,  [esp-4]              ; original argv
+; push dword ebx                 ; do_script
 
 .here:
   ; basic operations for calling the execve()
@@ -383,7 +386,7 @@ child:
   ; 2c. 2nd dup2: connect output to STDOUT (1) of the child which is MEMFD
   mov al, 63                   ; SYS_dup2
 ; mov ebx, [memfd]             ; zcat writes in memfd
-  pop ebx                      ; [memfd] <-- c::stack { buf, filename, 0 }
+  pop ebx                      ; [memfd] <-- c::stack { buf, filename, commd_exe, 0 }
   inc ecx                      ; 1 = stdout
   int 0x80
   test eax, eax
@@ -394,8 +397,8 @@ child:
   pop eax
 
 ; mov ebx, zcat_path           ;
-  pop ecx                      ; buf <-- c::stack { filename, 0 }
-  pop ebx                      ; filename <-- c::stack { 0 }
+  pop ecx                      ; buf <-- c::stack { filename, commd_exe, 0 }
+  pop ebx                      ; filename <-- c::stack { commd_exe, 0 }
 ; push zcat_path               ;
   add ebx, zcat_path-filename  ; zcat_path = filename + strlen(filename)
 
@@ -464,12 +467,12 @@ copy_vers:  db "(c) github/robang74 v0.94 "                     ;  26 | 26 |  26
 filename :  db      "uzpexec", 0                                ;   8 |  8 |   8
 provider :  db      "12345678", 0x0a, 0                         ;  10 | 10 |  10
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0 ;  21 | 42 |  21
-commd_exe:  db "/proc/self/exe", 0,0
 ; following fields are conditionally overwritable, do unions    :  ---------  65
 do_script:  db "/bin/sh", 0, 0, 0,0,0, 0,0,0,0   ; for shell    :  16 |  - |  21
 eof_tests:  db "U238", 0                         ; for tests    :   5 |  - |   -
 ; This introduces the need of having the /proc mounted, granted after the /init
 ; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
+commd_exe:  db "/proc/self/exe", 0,0                            ;  16 | 16 |  16
 force_arg:  db "-f", 0                           ; for zcat     :   3 |  3 |   3
 ;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  40
                                                                 ;  95 (tot.)  95
