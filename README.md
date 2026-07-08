@@ -75,7 +75,12 @@ In a standalone mode, it can convert itself in `uzpack` and it becomes self-host
 
 ### Current release
 
-- Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.94** on the `master` branch.
+Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.94** on the `master` branch.
+
+- In non-interactive enviroments like Makefile, call it with the full path
+- Converting scripts works only for shell scripting not others interpreters
+
+The above shortcomings will be resolved in the next version, currently in testing on `devel`.
 
 ### Notes
 
