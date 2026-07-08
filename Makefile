@@ -155,7 +155,7 @@ teststdin: nostdin
 	@rm -f uzpexec
 	@echo
 
-tests: blkln teststdin distclean utils $(BINS)
+_tests: blkln teststdin distclean utils $(BINS)
 	@echo ====== testing hello ======
 	./hello
 
@@ -196,6 +196,11 @@ tests: blkln teststdin distclean utils $(BINS)
 	@echo ====== executing tests.sh ======
 	@echo
 	sh tests.sh --tests-only
+
+tests:
+	@make distclean >/dev/null 2>&1
+	@make _tests
+	@make distclean >/dev/null 2>&1
 
 version: distclean
 	@echo ====== VERSION: $(VERSION) ======
