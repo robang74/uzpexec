@@ -96,6 +96,8 @@ main_start:
   pop eax                      ; argc (was [esp])
   mov esi, esp                 ; ESI = argv
   lea ebp, [esi+eax*4+4]       ; EBP = envp (callee-saved or SIGSEGV on [esi])
+                               ; CVE-2021-4034, pre-5.18, can't cover LK bugs
+  mov ebx, [esi]               ; Let SIGSEGV do the work and/or syscalls fail
 
   ; ----------------------------------------------------------------------------
   ; HARDENING: NO_NEW_PRIVS & ANTI-CORE-DUMP
@@ -111,6 +113,7 @@ main_start:
   ; prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)
   push 172                      ; SYS_prctl
   pop eax
+  ; Sterilize the priviledge escalation from CVE-2021-4034, pre-5.18
   push 38                       ; EBX = PR_SET_NO_NEW_PRIVS
   pop ebx
   push 1                        ; ECX = 1 (enable)
@@ -361,9 +364,6 @@ parent:
 ; mov ebx, [memfd]             ; EBX = memfd, already
   push 0                       ; "" on the stack
   mov ecx, esp                 ; ECX points to ""
-  ; Sanitizing the argv[0] to prevent CVE-2021-4034, pre-5.18
-  push 0                       ; Stack: [ 0 ] [ 0 ]
-  push ecx                     ; Stack: [ &"" ] [ 0 ] [ 0 ]
   ; Passing to the execution the original argv[] and envp[]
   mov edx, esi                 ; EDX = argv (original)
   mov esi, ebp                 ; ESI = envp (original)
