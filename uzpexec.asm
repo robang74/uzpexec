@@ -50,7 +50,7 @@ elf_header:
   ; Many Linux kernel ELF parsers completely ignore these 6
   ; bytes when section offset e_shoff = 0, as in this case.
   ;
-  dw 0, 0, 0                   ; Section info (zeroed out, reclamable)
+; dw 0, 0, 0                   ; Section info (zeroed out, reclamable)
   ;
   ; ASSUMPTIONS CHECK
   ;
@@ -95,7 +95,9 @@ main_start:
   ; Stack: [argc] [argv[0]] ... [argv[N]] [NULL] [envp...]
   pop eax                      ; argc (was [esp])
   mov esi, esp                 ; ESI = argv
-  lea ebp, [esi+eax*4+4]       ; EBP = envp (callee-saved!)
+                               ; CVE-2021-4034, pre-5.18, can't cover LK bugs
+                               ; Let SIGSEGV do the work and/or syscalls fail
+  lea ebp, [esi+eax*4+4]       ; EBP = envp (callee-saved or SIGSEGV on [esi])
 
   ; ----------------------------------------------------------------------------
   ; HARDENING: NO_NEW_PRIVS & ANTI-CORE-DUMP
@@ -125,15 +127,10 @@ main_start:
   mov ecx, edx                  ; ECX = 0 (RAM !coredump)
   int 0x80                      ; prctl() in best-effort
 
-  ; Checking argv[0] to open input (itself or stdin)
-  mov ebx, [esi]               ; CVE-2021-4034, pre-5.18, can't cover LK bugs
-                               ; Let SIGSEGV do the work and/or syscalls fail
-
   ; ============================================================================
 
-  ; 1. Try to open itself file by argv[0] (CVE-2021-4034, ends here)
-; mov ebx, [esi]               ; EBX = argv[0]
-; xor ecx, ecx                 ; O_RDONLY
+  ; 1. Try to open itself file by /proc/self/exe
+  mov ebx, commd_exe
   mov ecx, 0x00080000          ; O_RDONLY | O_CLOEXEC
   push 5                       ; SYS_open
   pop eax
@@ -474,6 +471,7 @@ commd_src:  db "/dev"
 commd_src:  db "/proc/self"
 %endif
             db "/fd/9", 0                        ; for shell    :  16 |  - |  16
+commd_exe:  db "/proc/self/exe", 0
 force_arg:  db "-f", 0                           ; for zcat     :   3 |  3 |   3
 ;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  40
                                                                 ;  95 (tot.)  95
