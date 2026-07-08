@@ -207,6 +207,53 @@ version: distclean
 	@echo
 
 # -----------------------------------------------------------------------------
+
+armcross := aarch64-linux-gnu
+armloadr := $(shell which qemu-aarch64-static)
+
+hix86gz: uzprm64 hello
+	rm -f $@
+#	cc -s -static hello.c -o hix86s
+	cp -f uzprm64 $@ && gzip -9c hello >> $@
+	chmod +x $@
+	@echo
+
+hiarm64: hello.c
+	@echo
+	rm -f $@
+	$(armcross)-gcc -static -s -x c $^ -o $@
+	chmod +x $@
+	@echo
+
+uzprm64: uzpexec.arm
+	rm -f $@
+	$(armcross)-as -o $@.o $^
+	$(armcross)-objcopy -O binary $@.o $@
+	chmod +x $@
+	@echo
+
+_testa: hiarm64 hix86gz
+	@echo ====== testing for ARM64 ======
+	@echo
+	@echo "RAF,TODO: argv[0] requires full path"
+	@echo
+	$(armloadr) \
+    ./hiarm64 $${WORD:-nice}; printf "\tret: $$?\n"
+	@echo
+	$(armloadr) \
+    ./hix86gz $${WORD:-nice}; printf "\tret: $$?\n"
+	@echo
+
+testa:
+	@echo
+	@echo ====== compiling for ARM64 ======
+	@echo
+	rm -f uzprm64 hello hiarm64 hix86gz
+	@echo
+	@make _testa
+	@echo
+
+# -----------------------------------------------------------------------------
 # Installation (DESTDIR-aware)
 # -----------------------------------------------------------------------------
 install: all
