@@ -209,7 +209,8 @@ version: distclean
 # -----------------------------------------------------------------------------
 
 armcross := aarch64-linux-gnu
-armloadr := $(shell which qemu-aarch64-static)
+armuqemu := qemu-aarch64-static
+armloadr := $(shell which $(armuqemu))
 
 hix86gz: uzprm64 hello
 	rm -f $@
@@ -235,7 +236,10 @@ uzprm64: uzpexec.arm
 _testa: hiarm64 hix86gz
 	@echo ====== testing for ARM64 ======
 	@echo
-	@echo "RAF,TODO: argv[0] requires full path"
+	@echo "RAF,TODO: argv[0] requires full path in Makefile"
+	@echo "This happens in Makefile, not in a login console"
+	strace $(armuqemu) \
+    ./hix86gz $${WORD:-nice} 2>&1 | grep -E "execv|open\(" | sed -e "s/, \[/,\n\t[/"
 	@echo
 	$(armloadr) \
     ./hiarm64 $${WORD:-nice}; printf "\tret: $$?\n"
