@@ -168,8 +168,8 @@ _tests: blkln teststdin distclean utils $(BINS)
 
 	@echo ====== testing sigsegv ======
 	@echo
-	echo "Y2lhbwo=" | ./sigsegv /bin/base64 -d | \
-	    sed -e "s,^,  CIAO: &,"
+	echo "Y2lhbwo=" | { ./sigsegv /bin/base64 -d ||\
+	  printf "\tERR: $$?\n" >&2; } | sed -e "s,^,  CIAO: &,"
 	@echo
 
 	@echo ====== testing gzcmd.gz.sh ======
@@ -242,9 +242,12 @@ _testa: hiarm64 hix86gz
 	@echo ====== testing for ARM64 ======
 	@echo
 	@echo "RAF,TODO: argv[0] requires full path in Makefile"
-	@echo "This happens in Makefile, not in a login console"
+	@echo "It might fail in Makefile, not in a login console"
+	@echo
 	strace $(armuqemu) \
-    ./hix86gz $${WORD:-nice} 2>&1 | grep -E "execv|open\(" | sed -e "s/, \[/,\n\t[/"
+    ./hix86gz $${WORD:-nice} 2>&1 |\
+        grep -E "execv|open\(|Hello" |\
+            sed -e "s/, \[/,\n\t[/"
 	@echo
 	$(armloadr) \
     ./hiarm64 $${WORD:-nice}; printf "\tret: $$?\n"
