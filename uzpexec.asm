@@ -50,7 +50,7 @@ elf_header:
   ; Many Linux kernel ELF parsers completely ignore these 6
   ; bytes when section offset e_shoff = 0, as in this case.
   ;
-; dw 0, 0, 0                   ; Section info (zeroed out, reclamable)
+  dw 0, 0, 0                   ; Section info (zeroed out, reclamable)
   ;
   ; ASSUMPTIONS CHECK
   ;
@@ -336,12 +336,13 @@ parent:
 
   ; In-place stack manipulation using ESP (argv is at [esp]):
   ; ["/bin/sh", "/proc/self/fd/9", original_args ...]
-  mov ebx, commd_src
-  mov dword [esp+4], ebx       ; replace argv[1] with "/proc/self/fd/9"
-  sub ebx, commd_src-do_script
-  mov dword [esp+0], ebx       ; replace argv[0] with "/bin/sh"
-  lea ecx,  [esp+0]            ; original argv
-  push dword ebx               ; do_script
+  mov ebx, commd_exe
+  mov dword [ebx+11], 0x392f6466 ; writes "fd/9" at the end of commd_exe
+  mov dword [esp+4], ebx         ; replace argv[1] with "/proc/self/fd/9"
+  add ebx, do_script-commd_exe
+  mov dword [esp], ebx           ; replace argv[0] with "/bin/sh"
+  lea ecx,  [esp]                ; original argv
+  push dword ebx                 ; do_script
 
 .here:
   ; basic operations for calling the execve()
@@ -463,13 +464,12 @@ copy_vers:  db "(c) github/robang74 v0.94 "                     ;  26 | 26 |  26
 filename :  db      "uzpexec", 0                                ;   8 |  8 |   8
 provider :  db      "12345678", 0x0a, 0                         ;  10 | 10 |  10
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0 ;  21 | 42 |  21
-commd_exe:  db "/proc/self/exe", 0
+commd_exe:  db "/proc/self/exe", 0,0
 ; following fields are conditionally overwritable, do unions    :  ---------  65
 do_script:  db "/bin/sh", 0, 0, 0,0,0, 0,0,0,0   ; for shell    :  16 |  - |  21
 eof_tests:  db "U238", 0                         ; for tests    :   5 |  - |   -
 ; This introduces the need of having the /proc mounted, granted after the /init
 ; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
-commd_src:  db "/proc/self/fd/9", 0              ; for shell    :  16 |  - |  16
 force_arg:  db "-f", 0                           ; for zcat     :   3 |  3 |   3
 ;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  40
                                                                 ;  95 (tot.)  95
