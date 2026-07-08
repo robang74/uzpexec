@@ -22,6 +22,7 @@ int main(int argc, char *argv[]) {
         printf("Sleeping %ds ...\n", nsec);
         sleep (nsec);
     }
-//  printf("argc: %d, %d, %s\n", argc, nsec, argv[argc-1]);
+
+    printf("\n");
     return 0;
 }
