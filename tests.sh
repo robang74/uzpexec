@@ -7,7 +7,7 @@
 bin=uzpexec
 LS=$(command -v ls)
 S='Hello ($0) World!'
-eof_str="U238.-c.../proc/self/fd/..-f"
+eof_str="U238./proc/self/fd/..-f"
 eof_len=$(echo "$eof_str" | wc -c)
 DD() { dd status=none "$@"; }
 retprt() { printf "\tret:${1:-$?}\n\n"; }
@@ -131,7 +131,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/390a7f29213fb45adc38ccc5d0de1e91dc0ae772/$bin OK/" |
+sed "s/4bdd008502dec4de1ca920dda494a504066ee843/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################

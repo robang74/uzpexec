@@ -343,12 +343,11 @@ parent:
   ; ["/bin/sh", "-c", ". /dev/fd/9", "--", original_args...]
 
   ; Build new argv in-place: overwrite first 4 slots, shift original args
-  mov ebx, do_script           ; script interpreter on argv[0]
-  mov dword [esp+4], ebx       ; overwrite original argv[-1] with "--"
-  mov dword [esp+0], commd_src ; overwrite original argv[ 0] with "-c"
-  lea ecx,  [esp-8]            ; original arguments argv[ 1] ... [n]
-  push commd_arg               ; pushing "-c"
-  push dword ebx
+  mov ebx, do_script
+  mov dword [esp  ], ebx       ; replace argv[0] with "/bin/sh"
+  mov dword [esp+4], commd_src ; replace argv[1] with "/proc/self/fd"
+  lea ecx,  [esp  ]            ; original argv
+  push dword ebx               ; do_script
 
 .here:
   ; basic operations for calling the execve()
@@ -469,18 +468,17 @@ zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0 ;  21 | 42 |  21
 ; following fields are conditionally overwritable, do unions    :  ---------  65
 do_script:  db "/bin/sh", 0, 0, 0,0,0, 0,0,0,0   ; for shell    :  16 |  - |  21
 eof_tests:  db "U238", 0                         ; for tests    :   5 |  - |   -
-commd_arg:  db "-c", 0                           ; for shell    :   3 |  - |   3
 ; This introduces the need of having the /proc mounted, granted after the /init
 ; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
 %ifdef _USE_DEVFS
-commd_src:  db ". /dev"
+commd_src:  db "/dev"
 %else
-commd_src:  db ". /proc/self"
+commd_src:  db "/proc/self"
 %endif
-            db "/fd/9", 0                        ; for shell    :  18 |  - |  18
+            db "/fd/9", 0                        ; for shell    :  16 |  - |  16
 force_arg:  db "-f", 0                           ; for zcat     :   3 |  3 |   3
-;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  45
-                                                                ; 110 (tot.) 110
+;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  40
+                                                                ;  95 (tot.)  95
 
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
