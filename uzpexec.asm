@@ -95,8 +95,6 @@ main_start:
   ; Stack: [argc] [argv[0]] ... [argv[N]] [NULL] [envp...]
   pop eax                      ; argc (was [esp])
   mov esi, esp                 ; ESI = argv
-                               ; CVE-2021-4034, pre-5.18, can't cover LK bugs
-                               ; Let SIGSEGV do the work and/or syscalls fail
   lea ebp, [esi+eax*4+4]       ; EBP = envp (callee-saved or SIGSEGV on [esi])
 
   ; ----------------------------------------------------------------------------
@@ -358,6 +356,10 @@ parent:
 ; mov ebx, [memfd]             ; EBX = memfd, already
   push 0                       ; "" on the stack
   mov ecx, esp                 ; ECX points to ""
+  ; Sanitizing the argv[0] to prevent CVE-2021-4034, pre-5.18
+  push 0                       ; Stack: [ 0 ] [ 0 ]
+  push ecx                     ; Stack: [ &"" ] [ 0 ] [ 0 ]
+  ; Passing to the execution the original argv[] and envp[]
   mov edx, esi                 ; EDX = argv (original)
   mov esi, ebp                 ; ESI = envp (original)
   mov edi, 0x1000              ; EDI = AT_EMPTY_PATH
