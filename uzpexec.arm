@@ -314,17 +314,11 @@ parent:
   // Therefore the branch "no_args" would never traversed and can be removed
 
   // In-place stack manipulation using ESP (argv is at [esp]):
-  // ["/bin/sh", "-c", ". /dev/fd/9", "--", original_args...]
-
-  // Build new argv in-place: overwrite first 4 slots, shift original args
+  // ["/bin/sh", "-c", ". /proc/self/fd/9", "--", original_args...]
   adr x0, do_script
   str x0, [x19, #0]                     // argv[0] = "/bin/sh"
-  adr x0, commd_arg
-  str x0, [x19, #8]                     // argv[1] = "-c"
   adr x0, commd_src
-  str x0, [x19, #16]                    // argv[2] = ". /proc/self/fd/9"
-  adr x0, dashdash
-  str x0, [x19, #24]                    // argv[3] = "--"
+  str x0, [x19, #16]                    // argv[2] = "/proc/self/fd/9"
 
   // Copy original argv[1]..argv[argc] (incl. NULL) to argv[4..]
   add x1, x19, #32                      // dest = &argv[4]
@@ -462,22 +456,21 @@ filename :  .ascii      "uzprm64\0"                            //   8 |  8 |   8
 provider :  .ascii      "12345678\n\0"                         //  10 | 10 |  10
 zcat_path:  .ascii         "/bin/zcat\0"                       //  11 | 42 |  21
             .fill 10, 1, 0                                     //  10 |  - |  -
+//following fields are conditionally overwritable, do unions   //  ---------  65
 do_script:  .ascii "/bin/sh\0"                                 //  16 |  - |  21
             .fill 8, 1, 0
 eof_tests:  .ascii "U238\0"                                    //   5 |  - |   -
-commd_arg:  .ascii "-c\0"                                      //   3 |  - |   3
 // This introduces the need of having the /proc mounted, granted after the /init
 // The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
 .ifdef _USE_DEVFS
-commd_src:  .ascii ". /dev"
+commd_src:  .ascii "/dev"
 .else
-commd_src:  .ascii ". /proc/self"
+commd_src:  .ascii "/proc/self"
 .endif
-            .ascii "/fd/9\0"                                   //  18 |  - |  18
+            .ascii "/fd/9\0"                                   //  16 |  - |  16
 force_arg:  .ascii "-f\0"                                      //   3 |  3 |   3
-dashdash:   .ascii "--\0"                                      //   3 |  3 |   3
-//              |<-- 8 chars -->|<- +8c ->|                    //  ---------  45
-                                                               // 110 (tot.) 110
+//              |<-- 8 chars -->|<- +8c ->|                    //  ---------  40
+                                                               //  95 (tot.)  95
 
 // ==============================================================================
 // PADDING: Aligned exactly to 1024 bytes (dd skip=2)

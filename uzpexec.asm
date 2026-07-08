@@ -340,13 +340,11 @@ parent:
   ; Therefore the branch "no_args" would never traversed and can be removed
 
   ; In-place stack manipulation using ESP (argv is at [esp]):
-  ; ["/bin/sh", "-c", ". /dev/fd/9", "--", original_args...]
-
-  ; Build new argv in-place: overwrite first 4 slots, shift original args
+  ; ["/bin/sh", "/proc/self/fd/9", original_args ...]
   mov ebx, do_script
-  mov dword [esp  ], ebx       ; replace argv[0] with "/bin/sh"
-  mov dword [esp+4], commd_src ; replace argv[1] with "/proc/self/fd"
-  lea ecx,  [esp  ]            ; original argv
+  mov dword [esp+0], ebx       ; replace argv[0] with "/bin/sh"
+  mov dword [esp+4], commd_src ; replace argv[1] with "/proc/self/fd/9"
+  lea ecx,  [esp+0]            ; original argv
   push dword ebx               ; do_script
 
 .here:
