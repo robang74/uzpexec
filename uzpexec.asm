@@ -201,6 +201,7 @@ main_start:
 ; of binary code and reach the exit(). The problem here is considering -EINTR an
 ; unrecoverable error because we stop reading and we do an useless loop (solved).
 ; ------------------------------------------------------------------------------
+  xor ecx, ecx                 ; reset here instead of two places
   test eax, eax
   js parent.here               ; read fails --> error (bugfix)
   sub edx, eax
@@ -218,8 +219,8 @@ main_start:
   ; 4a. File pointer set
   push 19                      ; SYS_lseek
   pop eax
-  xor ecx, ecx                 ; offset = 512
-  mov  ch, 2
+; xor ecx, ecx                 ; = 0, reset above
+  mov  ch, 2                   ; offset = 512
 ; xor edx, edx                 ; SEEK_SET = 0, already
   int 0x80
 
@@ -236,19 +237,19 @@ main_start:
   ; ============================================================================
 parent:
   ; 1p. The parent waits for the child completes zcat writing in memfd
-  xor ecx, ecx
+  push 7                       ; SYS_waitpid
+  pop eax
+; xor ecx, ecx                 ; = 0, reset above
   xor edx, edx                 ; = 0, already? no when from stdin
   xor ebx, ebx
   dec ebx                      ; -1
-  push 7                       ; SYS_waitpid
-  pop eax
   int 0x80
 
   ; 2p. Closing the real file once read in full, also for safety,
   ;     but fd is RD_ONLY so we can save bytes here, avoiding it.
   ;     Expecially because with O_CLOEXEC, it lasts just a little
   ; test edi, edi
-  ; jz .rewind_memfd
+  ; jz .memfd_rwd
   ; push 6                     ; SYS_close
   ; pop eax
   ; mov ebx, edi
@@ -269,14 +270,13 @@ parent:
   ;   files, meaning write-restricted seals could break compatibility.
   ; ----------------------------------------------------------------------------
 ; 2p. Sealing the memfd/ELF in RO mode, for security and integrity
-  mov al, 92                   ; SYS_fcntl
+  mov al, 92                   ; SYS_fcntl (fix +5b)
 ; mov ebx, [memfd]             ; EBX = memfd, already
   mov ecx, 1033                ; ECX = F_ADD_SEALS (0x0409)
   ; F_SEAL_WRITE | F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL = 15 (0x0f)
   mov dl, 15                   ; EDX = 0x0f, write only fd
-  int 0x80                     ; ELF hardening provided
+  int 0x80                     ; ELF hardening provided in best effort
 
-.rewind_memfd:
   ; 3p. Rewind memfd at the starting point to check for the shebang script
   push 19                      ; SYS_lseek
   pop eax
@@ -320,10 +320,10 @@ parent:
   ; which is used by scripts while FD=9 is the single-char highest.
   ; ----------------------------------------------------------------------------
 .fallback:
-  push 63
-  pop eax                      ; SYS_dup2
+  mov al, 63                   ; SYS_dup2
 ; mov ebx, [memfd]             ; already set
-  mov cl, 9                    ; file descriptor
+  push 9                       ; file descriptor
+  pop ecx
   int 0x80
 
   ; 3s. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
@@ -364,9 +364,11 @@ parent:
   mov edx, esi                 ; EDX = argv (original)
   mov esi, ebp                 ; ESI = envp (original)
   mov di, 0x1000               ; EDI = AT_EMPTY_PATH
-  int 0x80                     ; this system call never returns
+%ifndef _USE_EXECVE
+  int 0x80                      ; never returns unless it fails
+%endif
 
-  pop ecx
+  pop eax
   jmp .fallback
 .backfall:
   lea ecx, [esp]
