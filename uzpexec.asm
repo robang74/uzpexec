@@ -155,7 +155,8 @@ main_start:
 ; mov [memfd], eax             ; save the memfd in RAM
 
   ; 3. Try to read from the file the 1st block + 4 bytes to check the carryload
-  mov edx, 516                 ; read size (512+4), 32-bit aligned
+  mov dh, 2                    ; read size (512+4), 32-bit aligned
+  mov dl, 4
 ; ------------------------------------------------------------------------------
 ; WHY -EINTR ISN'T AN ISSUE HERE (and it wasn't correctly addressed anyway)
 ;
@@ -283,7 +284,7 @@ parent:
   xor edx, edx                 ; SEEK_SET = 0
   int 0x80
 
-  ; The memfd content is cached in RAM and also here the read() is atomic: 4B or -ERRNO
+  ; The memfd content is cached in RAM, thus read() is atomic: 4B or -ERRNO
   ; 4p. Read the first uncompressed 4 bytes (just two for the shebang)
   mov al, 3                    ; SYS_read
   pop ecx                      ; buf <-- p::stack { filename, commd_exe, 0 }
