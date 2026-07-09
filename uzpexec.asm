@@ -143,7 +143,7 @@ main_start:
   mov eax, 356                 ; SYS_memfd_create
   sub ebx, commd_exe-filename  ; Linux requires a name here
   push ebx                     ; in stack { filename, commd_exe, 0 }
-  push 3                       ; MFD_ALLOW_SEALING | MFD_CLOEXEC
+  push 2                       ; MFD_ALLOW_SEALING (NO MFD_CLOEXEC !!!)
   pop ecx
   int 0x80
 
@@ -323,14 +323,15 @@ parent:
   ; The memfd is sealed read-only, but FD=5 pollutes the range 3-6
   ; which is used by scripts while FD=9 is the single-char highest.
   ; ----------------------------------------------------------------------------
-  push 63                      ; SYS_dup2
-  pop eax
-; mov ebx, [memfd]             ; already set
-; xor ecx, ecx                 ; 0 = stdin
-  push 9
-  pop ecx                      ; file descriptor
-  int 0x80
+; push 63                      ; SYS_dup2
+; pop eax
+;;mov ebx, [memfd]             ; already set
+;;xor ecx, ecx                 ; 0 = stdin
+; push 9
+; pop ecx                      ; file descriptor
+; int 0x80
 
+.fallback:
   ; 3s. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
   push 11                      ; SYS_execve
   pop eax
@@ -343,8 +344,11 @@ parent:
   pop ebx                        ; filename <-- p::stack { commd_exe, 0 }
   pop ebx                        ; commd_exe <-- p::stack { 0 }
 ; mov ebx, commd_exe
-  mov dword [ebx+11], 0x392f6466 ; writes "fd/9" at the end of commd_exe
+  mov dword [ebx+11], 0x352f6466 ; writes "fd/9" at the end of commd_exe
   mov dword [esp], ebx           ; replace argv[1] with "/proc/self/fd/9"
+  mov edx, ebp                   ; envp (intact from main_start)
+  test ecx, ecx
+  jnz .backfall
   add ebx, do_script-commd_exe
   push dword ebx
   lea ecx, [esp]
@@ -352,7 +356,6 @@ parent:
 
 .here:
   ; basic operations for calling the execve()
-  mov edx, ebp                 ; envp (intact from main_start)
   jmp .do_int
 
   ; ----------------------------------------------------------------------------
@@ -368,6 +371,13 @@ parent:
   mov edx, esi                 ; EDX = argv (original)
   mov esi, ebp                 ; ESI = envp (original)
   mov edi, 0x1000              ; EDI = AT_EMPTY_PATH
+  int 0x80                     ; this system call never returns
+
+  pop eax
+  jmp .fallback
+.backfall:
+  lea ecx, [esp]
+
 .do_int:
   int 0x80                     ; this system call never returns
   jmp exit_error               ; unless it fails
