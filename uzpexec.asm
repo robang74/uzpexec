@@ -50,7 +50,7 @@ elf_header:
   ; Many Linux kernel ELF parsers completely ignore these 6
   ; bytes when section offset e_shoff = 0, as in this case.
   ;
-; dw 0, 0, 0                   ; Section info (zeroed out, reclamable)
+  dw 0, 0, 0                   ; Section info (zeroed out, reclamable)
   ;
   ; ASSUMPTIONS CHECK
   ;
@@ -318,14 +318,14 @@ parent:
   ; which is used by scripts while FD=9 is the single-char highest.
   ; ----------------------------------------------------------------------------
 .fallback:
-  mov al, 63                   ; SYS_dup2
+  push 63
+  pop eax                      ; SYS_dup2
 ; mov ebx, [memfd]             ; already set
-  xor ecx, ecx                 ; 0 = stdin
   mov cl, 9                    ; file descriptor
   int 0x80
 
   ; 3s. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
-  mov eax, 11                   ; SYS_execve
+  mov eax, 11                    ; SYS_execve
 
   ; Safeguard: if argc is 0 <-- No, the issue was argv=NULL, SIGSEGV solves
   ; Therefore the branch "no_args" would never traversed and can be removed
@@ -338,8 +338,8 @@ parent:
   mov dword [ebx+11], 0x392f6466 ; writes "fd/9" at the end of commd_exe
   mov dword [esp], ebx           ; replace argv[1] with "/proc/self/fd/9"
   mov edx, ebp                   ; envp (intact from main_start)
-  cmp edi, 0x1000
-  je .backfall
+  shr di, 8
+  jnz .backfall
   add ebx, do_script-commd_exe
   push dword ebx
   lea ecx, [esp]
@@ -361,10 +361,10 @@ parent:
   ; Passing to the execution the original argv[] and envp[]
   mov edx, esi                 ; EDX = argv (original)
   mov esi, ebp                 ; ESI = envp (original)
-  mov edi, 0x1000              ; EDI = AT_EMPTY_PATH
+  mov di, 0x1000               ; EDI = AT_EMPTY_PATH
   int 0x80                     ; this system call never returns
 
-  pop eax
+  pop ecx
   jmp .fallback
 .backfall:
   lea ecx, [esp]
