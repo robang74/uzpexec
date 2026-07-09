@@ -345,10 +345,10 @@ parent:
 ; mov ebx, commd_exe
   mov dword [ebx+11], 0x392f6466 ; writes "fd/9" at the end of commd_exe
   mov dword [esp], ebx           ; replace argv[1] with "/proc/self/fd/9"
-  add ebx, do_script-commd_exe
-  mov dword [esp-4], ebx         ; replace argv[0] with "/bin/sh"
-  lea ecx,  [esp-4]              ; original argv
-; push dword ebx                 ; do_script
+  mov ebx, do_script
+  push dword ebx
+  lea ecx, [esp]
+  push dword ebx
 
 .here:
   ; basic operations for calling the execve()
