@@ -131,12 +131,13 @@ main_start:
   ; ============================================================================
 
   ; 1. Try to open itself file by /proc/self/exe
+  push 5                       ; SYS_open
+  pop eax
   mov ebx, commd_exe
   push ebx                     ; in stack { commd_exe, 0 }
   mov ecx, 0x00080000          ; O_RDONLY | O_CLOEXEC
-  push 5                       ; SYS_open
-  pop eax
   int 0x80
+
   mov edi, eax                 ; Move fd in EDI to save it for later
 
   ; 2. Try to open the memfd, as first operation
@@ -150,8 +151,8 @@ main_start:
   ; Organising the stack in the proper order (inverse order of popping)
   mov ecx, buf
   push ecx                     ; in stack { buf, filename, 0 }
-; mov [memfd], eax             ; Save the memfd in RAM
   push eax                     ; in stack { [memfd], buf, filename, commd_exe, 0 }
+; mov [memfd], eax             ; save the memfd in RAM
 
   ; 3. Try to read from the file the 1st block + 4 bytes to check the carryload
   mov edx, 516                 ; read size (512+4), 32-bit aligned
@@ -184,9 +185,8 @@ main_start:
 ;
 ; https://github.com/robang74/uzpexec/blob/devel/
 ;                                    /doc/the-x86-asm-eintr-dilemma-question.txt
-; ------------------------------------------------------------------------------
-  push 3                       ; SYS_read
-  pop eax
+; ------------------------------------------------------------------------------   
+  mov al, 3                    ; SYS_read
   mov ebx, edi                 ; input fd
   int 0x80
 ; ------------------------------------------------------------------------------
@@ -267,20 +267,17 @@ parent:
   ;   files, meaning write-restricted seals could break compatibility.
   ; ----------------------------------------------------------------------------
 ; 2p. Sealing the memfd/ELF in RO mode, for security and integrity
-  push 92
-  pop eax                      ; SYS_fcntl
+  mov al, 92                   ; SYS_fcntl
 ; mov ebx, [memfd]             ; EBX = memfd, already
   mov ecx, 1033                ; ECX = F_ADD_SEALS (0x0409)
   ; F_SEAL_WRITE | F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL = 15 (0x0f)
-  push 15
-  pop edx                      ; EDX = 0x0f, write only fd
+  mov dl, 15                   ; EDX = 0x0f, write only fd
   int 0x80                     ; ELF hardening provided
 
 .rewind_memfd:
   ; 3p. Rewind memfd at the starting point to check for the shebang script
   push 19                      ; SYS_lseek
   pop eax
-; mov ebx, [memfd]             ;
   pop ebx                      ; [memfd] <-- p::stack { buf, filename, commd_exe, 0 }
   xor ecx, ecx                 ; offset = 0
   xor edx, edx                 ; SEEK_SET = 0
@@ -288,11 +285,9 @@ parent:
 
   ; The memfd content is cached in RAM and also here the read() is atomic: 4B or -ERRNO
   ; 4p. Read the first uncompressed 4 bytes (just two for the shebang)
-  push 3                       ; SYS_read
-  pop eax
+  mov al, 3                    ; SYS_read
   pop ecx                      ; buf <-- p::stack { filename, commd_exe, 0 }
-  push 4                       ;
-  pop edx                      ; count = 4
+  mov dl, 4                    ; count = 4
   int 0x80
 
   ; 5p. Check about ELF magic chars sequence (\x7FELF)
@@ -305,8 +300,7 @@ parent:
   ; SCRIPT MODE
   ; ----------------------------------------------------------------------------
   ; 1s. Rewind memfd at the starting point to pass it to the shell
-  push 19                      ; SYS_lseek
-  pop eax
+  mov al, 19                   ; SYS_lseek
 ; mov ebx, [memfd]             ; already set
   xor ecx, ecx                 ; offset = 0
   xor edx, edx                 ; SEEK_SET = 0
@@ -324,16 +318,14 @@ parent:
   ; which is used by scripts while FD=9 is the single-char highest.
   ; ----------------------------------------------------------------------------
   mov al, 63                   ; SYS_dup2
-;;mov ebx, [memfd]             ; already set
-;;xor ecx, ecx                 ; 0 = stdin
-; push 9
-; pop ecx                      ; file descriptor
-  mov cl, 9
+; mov ebx, [memfd]             ; already set
+; xor ecx, ecx                 ; 0 = stdin
+  mov cl, 9                    ; file descriptor
   int 0x80
 
 .fallback:
   ; 3s. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
-  mov al,11                    ; SYS_execve
+  mov al, 11                   ; SYS_execve
 
   ; Safeguard: if argc is 0 <-- No, the issue was argv=NULL, SIGSEGV solves
   ; Therefore the branch "no_args" would never traversed and can be removed
@@ -386,15 +378,13 @@ parent:
 ; ============================================================================
 child:
   ; 1c. 1st dup2: connect input (EDI) to STDIN (0) for both modes
-  push 63                      ; SYS_dup2
-  pop eax
+  mov al, 63                   ; SYS_dup2
   mov ebx, edi                 ; FD di input
   xor ecx, ecx                 ; 0 = stdin
   int 0x80
 
   ; 2c. 2nd dup2: connect output to STDOUT (1) of the child which is MEMFD
   mov al, 63                   ; SYS_dup2
-; mov ebx, [memfd]             ; zcat writes in memfd
   pop ebx                      ; [memfd] <-- c::stack { buf, filename, commd_exe, 0 }
   inc ecx                      ; 1 = stdout
   int 0x80
@@ -405,10 +395,8 @@ child:
   push 11                      ; SYS_execve
   pop eax
 
-; mov ebx, zcat_path           ;
   pop ecx                      ; buf <-- c::stack { filename, commd_exe, 0 }
   pop ebx                      ; filename <-- c::stack { commd_exe, 0 }
-; push zcat_path               ;
   add ebx, zcat_path-filename  ; zcat_path = filename + strlen(filename)
 
   push 0                       ; end of envp/argv
@@ -458,8 +446,7 @@ exit_error:
 ; exit_now:
 ; xor ebx, ebx
 ; inc ebx                       ; Exit code 1
-  push 1
-  pop eax
+  mov al, 1
   int 0x80
 
 ; ==============================================================================
