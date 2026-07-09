@@ -125,7 +125,7 @@ main_start:
   mov al, 172                   ; SYS_prctl
   mov bl, 4                     ; EBX = PR_SET_DUMPABLE
                                 ; EDX = 0, already
-  mov ecx, edx                  ; ECX = 0 (RAM !coredump)
+  dec ecx                       ; ECX = 0 (RAM !coredump)
   int 0x80                      ; prctl() in best-effort
 
   ; ============================================================================
@@ -323,18 +323,17 @@ parent:
   ; The memfd is sealed read-only, but FD=5 pollutes the range 3-6
   ; which is used by scripts while FD=9 is the single-char highest.
   ; ----------------------------------------------------------------------------
-; push 63                      ; SYS_dup2
-; pop eax
+  mov al, 63                   ; SYS_dup2
 ;;mov ebx, [memfd]             ; already set
 ;;xor ecx, ecx                 ; 0 = stdin
 ; push 9
 ; pop ecx                      ; file descriptor
-; int 0x80
+  mov cl, 9
+  int 0x80
 
 .fallback:
   ; 3s. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
-  push 11                      ; SYS_execve
-  pop eax
+  mov al,11                    ; SYS_execve
 
   ; Safeguard: if argc is 0 <-- No, the issue was argv=NULL, SIGSEGV solves
   ; Therefore the branch "no_args" would never traversed and can be removed
