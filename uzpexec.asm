@@ -345,7 +345,7 @@ parent:
 ; mov ebx, commd_exe
   mov dword [ebx+11], 0x392f6466 ; writes "fd/9" at the end of commd_exe
   mov dword [esp], ebx           ; replace argv[1] with "/proc/self/fd/9"
-  mov ebx, do_script
+  add ebx, do_script-commd_exe
   push dword ebx
   lea ecx, [esp]
   push dword ebx
@@ -368,7 +368,7 @@ parent:
   mov edx, esi                 ; EDX = argv (original)
   mov esi, ebp                 ; ESI = envp (original)
   mov edi, 0x1000              ; EDI = AT_EMPTY_PATH
- .do_int:
+.do_int:
   int 0x80                     ; this system call never returns
   jmp exit_error               ; unless it fails
 
