@@ -218,7 +218,8 @@ main_start:
   ; 4a. File pointer set
   push 19                      ; SYS_lseek
   pop eax
-  mov ecx, 512                 ; offset = 512
+  xor ecx, ecx                 ; offset = 512
+  mov  ch, 2
 ; xor edx, edx                 ; SEEK_SET = 0, already
   int 0x80
 
