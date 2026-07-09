@@ -144,7 +144,7 @@ main_start:
   mov eax, 356                 ; SYS_memfd_create
   sub ebx, commd_exe-filename  ; Linux requires a name here
   push ebx                     ; in stack { filename, commd_exe, 0 }
-  push 2                       ; MFD_ALLOW_SEALING (NO MFD_CLOEXEC !!!)
+  push 3                       ; MFD_ALLOW_SEALING (NO MFD_CLOEXEC !!!)
   pop ecx
   int 0x80
 
@@ -306,6 +306,7 @@ parent:
   xor edx, edx                 ; SEEK_SET = 0
   int 0x80
 
+.fallback:
   ; 2s. Duplicate the memfd on the FD n.9, arbitrary high id-number
   ;     instead, keep FD=5 from the parent and run on it is simpler
   ;     avoid FD5 duplication reduce the binary size by 8 bytes but
@@ -323,7 +324,6 @@ parent:
   mov cl, 9                    ; file descriptor
   int 0x80
 
-.fallback:
   ; 3s. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
   mov al, 11                   ; SYS_execve
 
@@ -335,7 +335,7 @@ parent:
   pop ebx                        ; filename <-- p::stack { commd_exe, 0 }
   pop ebx                        ; commd_exe <-- p::stack { 0 }
 ; mov ebx, commd_exe
-  mov dword [ebx+11], 0x352f6466 ; writes "fd/9" at the end of commd_exe
+  mov dword [ebx+11], 0x392f6466 ; writes "fd/9" at the end of commd_exe
   mov dword [esp], ebx           ; replace argv[1] with "/proc/self/fd/9"
   mov edx, ebp                   ; envp (intact from main_start)
   test ecx, ecx
