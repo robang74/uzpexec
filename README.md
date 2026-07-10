@@ -77,9 +77,9 @@ In a standalone mode, it can convert itself in `uzpack` and it becomes self-host
 
 Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.95** on the `master` branch.
 
-- In non-interactive enviroments like Makefile, `/proc/self/exe` works
-- Converting scripts others than shell is actially an customisation option
-- `waitpid()` on a long `zcat` can return `-EINTR`, get detected and retries
+- In non-interactive environments like Makefile, `/proc/self/exe` works
+- Converting scripts others than shell is actually an customisation option
+- `waitpid()` on a long `zcat` can return `-EINTR`, gets detected and retries
 - `execve()` fallback added for a specific `qemu` userland bug (also in 10.2.3)
 
 The above features have been added, providing a broader deployability and fixing relevant corner cases.
