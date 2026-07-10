@@ -239,11 +239,13 @@ parent:
   ; 1p. The parent waits for the child completes zcat writing in memfd
   push 7                       ; SYS_waitpid
   pop eax
-; xor ecx, ecx                 ; = 0, reset above
-  xor edx, edx                 ; = 0, already? no when from stdin
   xor ebx, ebx
-  dec ebx                      ; -1
-  int 0x80
+  dec ebx                      ; = -1, every child
+; xor ecx, ecx                 ; =  0, reset above
+  xor edx, edx                 ; =  0, already? no when from stdin
+  int 0x80   
+  cmp eax, -4
+  je parent                    ; -EINTR, try again
 
   ; 2p. Closing the real file once read in full, also for safety,
   ;     but fd is RD_ONLY so we can save bytes here, avoiding it.
@@ -270,7 +272,8 @@ parent:
   ;   files, meaning write-restricted seals could break compatibility.
   ; ----------------------------------------------------------------------------
 ; 2p. Sealing the memfd/ELF in RO mode, for security and integrity
-  mov al, 92                   ; SYS_fcntl (fix +5b)
+  push 92                      ; SYS_fcntl (security, set eax in full)
+  pop eax
 ; mov ebx, [memfd]             ; EBX = memfd, already
   mov ecx, 1033                ; ECX = F_ADD_SEALS (0x0409)
   ; F_SEAL_WRITE | F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL = 15 (0x0f)
@@ -327,7 +330,7 @@ parent:
   int 0x80
 
   ; 3s. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
-  mov eax, 11                    ; SYS_execve
+  mov al, 11                     ; SYS_execve
 
   ; Safeguard: if argc is 0 <-- No, the issue was argv=NULL, SIGSEGV solves
   ; Therefore the branch "no_args" would never traversed and can be removed
@@ -447,10 +450,8 @@ exit_error:
   pop ebx
   int 0x80
 
-; exit_now:
-; xor ebx, ebx
-; inc ebx                       ; Exit code 1
-  mov al, 1
+  push  1                       ; SYS_exit
+  pop eax
   int 0x80
 
 ; ==============================================================================
