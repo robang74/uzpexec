@@ -21,7 +21,7 @@ A 512-byte polymorphic stub/payload ([uzpexec](uzpexec.asm)) written in Assemble
 
 ### Index
 
-- [Presentation](#presentation) - [Release](#current-release) - [Usage](#usage) - [Compile](#how-to-compile) - [Examples](#example-1) - [Customisation](#quick-customisation) - [Trivials](#trivial-facts) - [TeenyELF](#wx-memory) - [Licensing](#licensing-terms) - [gzcmd.sh](#gzcmdsh)
+- [Presentation](#presentation) - [Release](#current-release) - [Usage](#usage) - [Compile](#how-to-compile) - [Examples](#example-1) - [Customisation](#quick-customisation) - [Trivials](#trivial-facts) - [TeenyELF](#wrx-memory) - [Licensing](#licensing-terms) - [gzcmd.sh](#gzcmdsh)
 
 ---
 
@@ -75,14 +75,14 @@ In a standalone mode, it can convert itself in `uzpack` and it becomes self-host
 
 ### Current release
 
-Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.94** on the `master` branch.
+Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.95** on the `master` branch.
 
-- In non-interactive enviroments like Makefile, call it with the full path
-- Converting scripts works only for shell scripting not others interpreters
-- `waitpid()` on a long `zcat` can return `-EINTR` but it does not try again
+- In non-interactive enviroments like Makefile, `/proc/self/exe` works
+- Converting scripts others than shell is actially an customisation option
+- `waitpid()` on a long `zcat` can return `-EINTR`, get detected and retries
 - `execve()` fallback added for a specific `qemu` userland bug (also in 10.2.3)
 
-The above shortcomings will be resolved in the next version, currently in testing on `devel`.
+The above features have been added, providing a broader deployability and fixing relevant corner cases.
 
 ### Notes
 
@@ -189,25 +189,19 @@ The alternatives that are natively compatible with `-f -` are fully supported.
 ; in do_script mode the 2 paths shrink to 20 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
 ;                                                                  LN | XE |  SH
-copy_vers:  db "(c) github/robang74 v0.93 "                     ;  26 | 26 |  26
+copy_vers:  db "(c) github/robang74 v0.95 "                     ;  26 | 26 |  26
 filename :  db      "uzpexec", 0                                ;   8 |  8 |   8
 provider :  db      "12345678", 0x0a, 0                         ;  10 | 10 |  10
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0 ;  21 | 42 |  21
 ; following fields are conditionally overwritable, do unions    :  ---------  65
 do_script:  db "/bin/sh", 0, 0, 0,0,0, 0,0,0,0   ; for shell    :  16 |  - |  21
 eof_tests:  db "U238", 0                         ; for tests    :   5 |  - |   -
-commd_arg:  db "-c", 0                           ; for shell    :   3 |  - |   3
 ; This introduces the need of having the /proc mounted, granted after the /init
 ; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
-%ifdef _USE_DEVFS
-commd_src:  db ". /dev"
-%else
-commd_src:  db ". /proc/self"
-%endif
-            db "/fd/9", 0                        ; for shell    :  18 |  - |  18
+commd_exe:  db "/proc/self/exe", 0,0                            ;  16 | 16 |  16
 force_arg:  db "-f", 0                           ; for zcat     :   3 |  3 |   3
-;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  45
-                                                                ; 110 (tot.) 110
+;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  40
+                                                                ;  95 (tot.)  95
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
 ; ==============================================================================
@@ -268,7 +262,7 @@ esac
 
 ---
 
-### W+X memory
+### WRX memory
 
 Separating executable code (X) from writing memory (W) costs too many bytes of code in stubs when a proper design can prevent any practical exploitation of that memory by an *unprivileged enough* attacker (aka before privileges escalation happens, aka for `uzpexec` not being the primary vector because this W+X memory design).
 
