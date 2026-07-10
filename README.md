@@ -79,6 +79,8 @@ Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.94** on
 
 - In non-interactive enviroments like Makefile, call it with the full path
 - Converting scripts works only for shell scripting not others interpreters
+- `waitpid()` on a long `zcat` can return `-EINTR` but it does not try again
+- `execve()` fallback added for a specific `qemu` userland bug (also in 10.2.3)
 
 The above shortcomings will be resolved in the next version, currently in testing on `devel`.
 
