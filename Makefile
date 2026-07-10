@@ -161,6 +161,7 @@ testexve:
 	{ cat uzpexec; gzip -9c hello; } > hellz
 	chmod +x hellz
 	$(call grep_and_tab,"strace ./hellz","execve[^a]")
+	$(call grep_and_tab,"WORLD=Wonderful ./hellz nice",".")
 	@echo
 	$(call grep_and_tab,"sh uzpack.sh uzpack.sh uzpeck","generated: uzpeck")
 	@echo
