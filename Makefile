@@ -26,10 +26,11 @@ MAINTAINER = Roberto A. Foglietta <roberto.foglietta@gmail.com>
 # Files
 # -----------------------------------------------------------------------------
 BINS       = uzpexec uzpack gzcmd.gz.sh
+CLEN       = uzpexec hello hellz uzpeck uzpeck.uzp
 MANPAGES   = uzpack.1 uzpexec.1
 DOCFILES   = README.md uzpack.md
-DEVFILES   = uzpack.sh uzpexec.asm uzpexec.arm hello.c zeroenv.c
-DEVFILES  += tests.sh sigsegv.c gzcmd.sh Makefile $(DOCFILES)
+DEVFILES   = uzpack.sh uzpexec.asm uzpexec.arm hello.c hello.sh hello.py
+DEVFILES  += tests.sh sigsegv.c gzcmd.sh Makefile $(DOCFILES) zeroenv.c
 RPMFILES   = $(BINS) $(MANPAGES) $(DEVFILES) uzpexec.spec.tmpl
 
 # -----------------------------------------------------------------------------
@@ -61,14 +62,19 @@ define git_relevant_log
 	sed -n -e 's/ *.HEAD -. .*//' -e 's/ *.tag: .*//' -e 's/^\+ /* /p'
 endef
 
+define grep_and_tab
+	eval $1 2>&1| grep $2 | sed -e "s,^,\t,"
+endef
+
 # -----------------------------------------------------------------------------
 # Build targets
 # -----------------------------------------------------------------------------
 .PHONY: all blkln tests clean install uninstall deb rpm
 
-JE_STDIN ?= "_DO_STDIN"
-JE_FORCE ?= "_DO_FORCE"
-JE_EXTRA ?= "_NO_EXTRA"
+JE_STDIN ?= _DO_STDIN
+JE_FORCE ?= _DO_FORCE
+JE_EXTRA ?= _NO_EXTRA
+JE_EXCVE ?= _N_EXECVE
 
 all: $(BINS)
 
@@ -85,7 +91,7 @@ gzcmd.gz.sh: gzcmd.sh
 uzpexec: uzpexec.asm
 	@echo ====== compile $^ ======
 	@echo
-	nasm -d$(JE_STDIN) -d$(JE_FORCE) -d$(JE_EXTRA) -O2 -f bin $^ -o $@
+	nasm -d$(JE_STDIN) -d$(JE_FORCE) -d$(JE_EXTRA) -d$(JE_EXCVE) -O2 -f bin $^ -o $@
 	@chmod +x $@
 	ln -sf uzpack.1 uzpexec.1
 	file $@ | sed -e 's/V), s/V),\n\ts/'
@@ -139,6 +145,32 @@ clean: blkln
 
 utils: hello zeroenv sigsegv
 
+doexecve:
+	@echo ====== compile execve ======
+	@echo
+	rm -f uzpexec
+	@echo
+	( make JE_EXCVE=_USE_EXECVE uzpexec )| grep -ve "^==="
+	@echo
+
+testexve:
+	@echo ====== testing execve ======
+	@echo
+	make doexecve hello >/dev/null 2>&1
+	@echo
+	{ cat uzpexec; gzip -9c hello; } > hellz
+	chmod +x hellz
+	$(call grep_and_tab,"strace ./hellz","execve[^a]")
+	@echo
+	$(call grep_and_tab,"sh uzpack.sh uzpack.sh uzpeck","generated: uzpeck")
+	@echo
+	$(call grep_and_tab,"strace ./uzpeck uzpack.sh uzpeck.uzp","execve[^a]")
+	@echo
+	$(call grep_and_tab,"./uzpeck.uzp -v","github/robang74")
+	@echo
+	rm -f $(CLEN)
+	@echo
+
 nostdin:
 	@echo ====== compile nostdin + provider ======
 	@echo
@@ -155,7 +187,7 @@ teststdin: nostdin
 	@rm -f uzpexec
 	@echo
 
-_tests: blkln teststdin distclean utils $(BINS)
+_tests: blkln teststdin testexve distclean utils $(BINS)
 	@echo ====== testing hello ======
 	./hello
 
@@ -311,6 +343,7 @@ distclean: clean
 	@echo
 	rm -f uzpexec-*.rpm uzpexec-*.deb zeroenv
 	rm -f $(BINS) hello uzpexec-*.t?z sigsegv
+	rm -f $(CLEN)
 	@echo
 
 # -----------------------------------------------------------------------------
