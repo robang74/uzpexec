@@ -144,7 +144,7 @@ main_start:
   mov eax, 356                 ; SYS_memfd_create
   sub ebx, commd_exe-filename  ; Linux requires a name here
   push ebx                     ; in stack { filename, commd_exe, 0 }
-  push 3                       ; MFD_ALLOW_SEALING (NO MFD_CLOEXEC !!!)
+  push 3                       ; MFD_ALLOW_SEALING | MFD_CLOEXEC
   pop ecx
   int 0x80
 
@@ -219,7 +219,7 @@ main_start:
   ; 4a. File pointer set
   push 19                      ; SYS_lseek
   pop eax
-; xor ecx, ecx                 ; = 0, reset above
+; xor ecx, ecx                 ; = 0, already reset above
   mov  ch, 2                   ; offset = 512
 ; xor edx, edx                 ; SEEK_SET = 0, already
   int 0x80
@@ -241,7 +241,7 @@ parent:
   pop eax
   xor ebx, ebx
   dec ebx                      ; = -1, every child
-; xor ecx, ecx                 ; =  0, reset above
+; xor ecx, ecx                 ; =  0, already reset above
   xor edx, edx                 ; =  0, already? no when from stdin
   int 0x80   
   cmp eax, -4
@@ -277,7 +277,7 @@ parent:
 ; mov ebx, [memfd]             ; EBX = memfd, already
   mov ecx, 1033                ; ECX = F_ADD_SEALS (0x0409)
   ; F_SEAL_WRITE | F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL = 15 (0x0f)
-  mov dl, 15                   ; EDX = 0x0f, write only fd
+  mov dl, 15                   ; EDX = 0x0f, sealed in full
   int 0x80                     ; ELF hardening provided in best effort
 
   ; 3p. Rewind memfd at the starting point to check for the shebang script
@@ -311,9 +311,10 @@ parent:
   xor edx, edx                 ; SEEK_SET = 0
   int 0x80
 
-  ; 2s. Duplicate the memfd on the FD n.9, arbitrary high id-number
-  ;     instead, keep FD=5 from the parent and run on it is simpler
-  ;     avoid FD5 duplication reduce the binary size by 8 bytes but
+  ; 2s. Duplicate the memfd on the FD n.9, an arbitrary high id-number.
+  ;     Initially, !noclosing FD=5 from the parent and run on it as-is
+  ;     because avoiding FD duplication reduces the binary size by 8 bytes
+  ;     but creates potentially security concerns and sub-proc pollution.
   ; ----------------------------------------------------------------------------
   ; SECURITY & ARCHITECTURAL ABOUT FD=5 INHERITANCE VS FD=9 DUP2()
   ;
@@ -343,12 +344,12 @@ parent:
   mov dword [ebx+11], 0x392f6466 ; writes "fd/9" at the end of commd_exe
   mov dword [esp], ebx           ; replace argv[1] with "/proc/self/fd/9"
   mov edx, ebp                   ; envp (intact from main_start)
-  shr di, 8
-  jnz .backfall
+  shr di, 8                      ; branch selector: di=0x1000 (execveat path)
+  jnz .backfall                  ; di=fd (normal path), continue with script
   add ebx, do_script-commd_exe
-  push dword ebx
+  push dword ebx                 ; argv[0] = "/bin/sh"
   lea ecx, [esp]
-  push dword ebx
+  push dword ebx                 ; spacer: aligns argv[1] with commd_exe
 
 .here:
   ; basic operations for calling the execve()
@@ -368,10 +369,10 @@ parent:
   mov esi, ebp                 ; ESI = envp (original)
   mov di, 0x1000               ; EDI = AT_EMPTY_PATH
 %ifndef _USE_EXECVE
-  int 0x80                      ; never returns unless it fails
+  int 0x80                     ; never returns unless it fails
 %endif
 
-  pop eax
+  pop eax                      ; execveat() failed, reset EAX for fallback
   jmp .fallback
 .backfall:
   lea ecx, [esp]
