@@ -17,7 +17,7 @@ A 512-byte polymorphic stub/payload ([uzpexec](uzpexec.asm)) written in Assemble
 
 > [!WARNING]
 > 
-> Since the release **v0.93** packages contain [uzpexec.arm](uzpexec.arm) source file for **ARM64** versioned as v0.22. That source compiles but it is still experimental and reasonably affected by bugs because for a full validation it is a required a complete aarm64 system, and in fact, it doesn't work properly by a simple Assembler instruction translation at running time.
+> Since the release **v0.93** packages contain [uzpexec.arm](uzpexec.arm) source file for **ARM64** versioned as v0.33. That source compiles but it is still experimental and reasonably affected by bugs because for a full validation it is a required a complete aarch64 system. However, testing with `qemu-aarch64-static` 10.2.3 in its original and customised form helped a lot to improve the x86 version.
 
 ### Index
 
