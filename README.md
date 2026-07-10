@@ -201,7 +201,7 @@ eof_tests:  db "U238", 0                         ; for tests    :   5 |  - |   -
 commd_exe:  db "/proc/self/exe", 0,0                            ;  16 | 16 |  16
 force_arg:  db "-f", 0                           ; for zcat     :   3 |  3 |   3
 ;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  40
-                                                                ;  95 (tot.)  95
+;                                                               : 105 (tot.) 105
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
 ; ==============================================================================
@@ -237,6 +237,40 @@ case "$HEX" in
       ;;
 esac
 ```
+
+#### Quick ELF32 view
+
+Just to have an idea of the compacting everything in a 1-dd-block challenge,
+this following schema shows the sections within the 512-byte binary file in
+which the effective code area is necessarily compressed between the headers
+and the static data stored in the bottom part: 320 bytes are two 160 chars
+GSM-era SMS with 8 bit/char text encoding, just to have an idea of the size.
+
+```
+ RAM ADDRESS        Stub/Payload 512 bytes         DISK SIZE
+
+ 0x08048000 -- +---------------------------------+ -- 0x0000
+               |  ELF Header          |   52 B   |
+ 0x08048034 -- +---------------------------------+ -- 0x0034
+               |  Program Header      |   32 B   |
+ 0x08048054 -- +---------------------------------+ -- 0x0054
+               |  Machine Code        |  320 B   |
+               |  (start → exit)      |          |
+ 0x08048194 -- +---------------------------------+ -- 0x0194
+               |  Embedded Data:      |  105 B   |
+               |  version, provider,  |          |
+               |  paths, args, etc.   |          |
+ 0x080481FD -- +---------------------------------+ -- 0x01FD
+               |  Padding (zeros)     |    3 B   |
+ 0x08048200 -- +---------------------------------+ -- 0x0200
+               |  .bss (RAM only)     |  not in  |
+               |   buf[516]           |   file   |
+               +---------------------------------+
+```
+
+Customising this little guy is easy because the data is stored in plain text
+which can easily be changed by a `sed` command line but altering the byte code
+to change its running behaviour or logic, is completely another story.
 
 ---
 

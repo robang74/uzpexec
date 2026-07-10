@@ -477,7 +477,7 @@ eof_tests:  db "U238", 0                         ; for tests    :   5 |  - |   -
 commd_exe:  db "/proc/self/exe", 0,0                            ;  16 | 16 |  16
 force_arg:  db "-f", 0                           ; for zcat     :   3 |  3 |   3
 ;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  40
-                                                                ;  95 (tot.)  95
+;                                                               : 105 (tot.) 105
 
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
