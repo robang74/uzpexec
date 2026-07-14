@@ -322,8 +322,8 @@ parent:
 
   // In-place stack manipulation: build new argv starting at argc slot
   // New argv: ["/bin/sh", "/proc/self/fd/9", original_args...]
-  mov x1, x19                           // x1 = argv (manipulated, contiguous)
-  mov x2, x20                           // x2 = envp (intact from main_start)
+  mov x1, x19                           // x1 = argv (original)
+  mov x2, x20                           // x2 = envp (original)
   cmp x4, #0x1000                       // branch selector: execve/at() path?
   b.eq .do_int
   adr x3, do_script
