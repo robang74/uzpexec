@@ -348,23 +348,24 @@ parent:
   // Execute the ELF binary using a Linux specific syscall (real hardware)
   mov x8, #281                          // SYS_execveat
   mov x0, x23                           // memfd
-  adr x1, empty_string                  // a "" necessarly
+  adr x1, empty_str                     // a "" necessarly
   mov x2, x19                           // argv (original)
   mov x3, x20                           // envp (original)
   mov x4, #0x1000                       // AT_EMPTY_PATH
+.ifndef _USE_EXECVE
   svc #0                                // never returns unless syscall fails
-.ifndef _REAL_AARM64
-.fallback_execve:
+  b exit_error
+.endif
+
   // Calls the standard execve, passing it the newly modified path (qemu)
   mov x8, #221                          // SYS_execve
   // Converts the FD in the corresponding character (e.g. 5 -> “5”)
-  adr x0, commd_src + 2                 // "/proc/self/fd/9"
+  adr x0, commd_src                     // "/proc/self/fd/9"
   add w1, w23, #'0'                     // '0' + 5 = '5'
   strb w1, [x0, #14]                    // &x0[14] = '5'
   mov x1, x19                           // argv (original)
   mov x2, x20                           // envp (original)
   svc #0                                // never returns unless syscall fails
-.endif
   b exit_error
 
 // ============================================================================
@@ -472,7 +473,8 @@ commd_src:  .ascii "/dev"
 commd_src:  .ascii "/proc/self"
 .endif
             .ascii "/fd/9\0"                                   //  16 |  - |  16
-force_arg:  .ascii "-f\0"                                      //   3 |  3 |   3
+force_arg:  .ascii "-f"                                        //   2 |  2 |   2
+empty_str:  .ascii "\0"                                        //   1 |  1 |   1
 //              |<-- 8 chars -->|<- +8c ->|                    //  ---------  40
                                                                //  95 (tot.)  95
 
