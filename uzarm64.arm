@@ -150,7 +150,7 @@ main_start:
   // 2. Try to open the memfd, as first operation
   mov x8, #279                          // SYS_memfd_create
   adr x0, filename                      // Linux requires a name here
-  mov x1, #3                            // MFD_CLOEXEC | MFD_ALLOW_SEALING
+  mov x1, #2                            // !MFD_CLOEXEC | MFD_ALLOW_SEALING
   svc #0
   mov x23, x0                           // X23 = [memfd]
 
@@ -168,7 +168,7 @@ main_start:
   mov x8, #220                          // SYS_clone (no flags = biological fork)
   mov x0, #17                           // SIGCHLD
   mov x1, #0
-//mov x2, #0                            // already set
+  mov x2, #0
 //mov x3, #0                            // already set
   svc #0
   cbz x0, child                         // the child jump to its routine
@@ -232,8 +232,8 @@ parent:
   // Prepare "/proc/self/fd/9" in commd_exe
   adr  x0, commd_exe                    // /proc/self/exe -> fd/9
   mov  w1, #0x6466                      // 'f','d' (little-endian)
-  movk w1, #0x352f, lsl #16             // '/','5' ('0' + 5 = 0x35)
-  str  w1, [x0, #11]                    // overwrite "exe\0" with "fd/5"
+  movk w1, #0x342f, lsl #16             // '/','4' ('0' + 4 = 0x34)
+  str  w1, [x0, #11]                    // overwrite "exe\0" with "fd/4"
 
   // In-place stack manipulation: build new argv starting at argc slot
   // New argv: ["/bin/sh", "/proc/self/fd/9", original_args...]
@@ -261,7 +261,6 @@ child:
   mov x1, #1                            // STDOUT
 //mov x2, #0                            // already set
   svc #0
-  cmp x0, #0
 
   // 3c. Execute zcat passing "-f" when reading from the STDIN (**)
   mov x8, #221                          // SYS_execve
@@ -270,9 +269,7 @@ child:
   // Here: x24 = buf (was set before fork), calculate zcat_path dynamically
   adr x0, filename
   add x0, x0, #(zcat_path - filename)   // zcat_path = filename + strlen(filename)
-
   str xzr, [sp, #-8]!                   // end of envp/argv (push 0)
-
   str x0, [sp, #-8]!                    // push zcat_path --> argv[0]
   mov x1, sp                            // argv[1...]
 //mov x2, #0                            // envp null
