@@ -7,7 +7,11 @@ int main(int argc, char *argv[]) {
     int nsec = 0;
 
     printf("\nHello %s%sWorld!\n",
-           argv[1] ? argv[1] : "", argv[1] ? " " : "");
+        argv[1] ? argv[1] : "", argv[1]? " " : "");
+
+    printf("  ARGV0: '%s'\n", argv[0] ?: "(none)");
+
+    printf("   ARGC: '%d'\n", argc);
 
     home  = getenv("HOME");
     printf("   HOME: '%s'\n", home    ?: "(none)");
@@ -15,7 +19,7 @@ int main(int argc, char *argv[]) {
     world = getenv("WORLD");
     printf("  WORLD: '%s'\n", world   ?: "(none)");
 
-    printf("  ARGV0: '%s'\n", argv[0] ?: "(none)");
+
 
     nsec = atoi(argv[argc-1]);
     if(nsec > 0)  {

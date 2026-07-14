@@ -282,11 +282,17 @@ _testa: hiarm64 hix86gz
         grep -E "execv|open\(|Hello" |\
             sed -e "s/, \[/,\n\t[/"
 	@echo
-	export WORLD=Wonderful && $(armloadr) \
-    ./hiarm64 $${WORLD:-nice}; printf "\tret: $$?\n"
+	export WORLD=Wonderful && \
+    $(armloadr) \
+      ./hiarm64 $${WORLD:-nice}; printf "\tret: $$?\n"
 	@echo
-	export WORLD=Wonderful && $(armloadr) \
-    ./hix86gz $${WORLD:-nice}; printf "\tret: $$?\n"
+	export WORLD=Wonderful &&  \
+    $(armloadr) \
+      ./hix86gz $${WORLD:-nice}; printf "\tret: $$?\n"
+	@echo
+	{ cat uzprm64; gzip -9c hello.sh; } > hellz
+	chmod +x hellz; export WORLD=Wonderful && \
+	  ./hellz $${WORLD:-nice}; printf "\tret: $$?\n"
 	@echo
 
 testa:
