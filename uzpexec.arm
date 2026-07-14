@@ -314,17 +314,17 @@ parent:
   // Therefore the branch "no_args" would never traversed and can be removed
 
   // In-place stack manipulation using ESP (argv is at [esp]):
-  // ["/bin/sh", "-c", ". /proc/self/fd/9", "--", original_args...]
+  // ["/bin/sh", "/proc/self/fd/9", original_args...]
   adr x0, do_script
   str x0, [x19, #0]                     // argv[0] = "/bin/sh"
   adr x0, commd_exe                     // /proc/self/exe -> fd/9
   mov w1, #0x6466                       // 'f','d' (little-endian)
   movk w1, #0x392f, lsl #16             // '/','9'
   str w1, [x0, #11]                     // overwrite "exe\0" with "fd/9"
-  str x0, [x19, #16]                    // argv[2] = "/proc/self/fd/9"
+  str x0, [x19, #8]                     // argv[1] = "/proc/self/fd/9"
 
   // Copy original argv[1]..argv[argc] (incl. NULL) to argv[4..]
-  add x1, x19, #32                      // dest = &argv[4]
+  add x1, x19, #16                      // dest = &argv[2]
   add x2, x19, #8                       // src = &argv[1]
   mov x3, x21                           // count = argc
 .copy_args:
