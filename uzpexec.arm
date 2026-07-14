@@ -147,13 +147,9 @@ hello_msg:
   mov x1, #0                            // disable
   svc #0
 
-  // Checking /proc/self/exe to open input (itself or stdin)
-  adr x1, commd_exe                     // CVE-2021-4034, pre-5.18, can't cover LK bugs
-                                        // Let SIGSEGV do the work and/or syscalls fail
-
   // ===========================================================================
-  // 1. Try to open itself file by /proc/self/exe
 
+  // 1. Try to open itself file by /proc/self/exe
   mov x8, #56                           // SYS_openat
   movn x0, #99                          // AT_FDCWD
   adr x1, commd_exe                     // /proc/self/exe
@@ -321,7 +317,10 @@ parent:
   // ["/bin/sh", "-c", ". /proc/self/fd/9", "--", original_args...]
   adr x0, do_script
   str x0, [x19, #0]                     // argv[0] = "/bin/sh"
-  adr x0, commd_src
+  adr x0, commd_exe                     // /proc/self/exe -> fd/9
+  mov w1, #0x6466                       // 'f','d' (little-endian)
+  movk w1, #0x392f, lsl #16             // '/','9'
+  str w1, [x0, #11]                     // overwrite "exe\0" with "fd/9"
   str x0, [x19, #16]                    // argv[2] = "/proc/self/fd/9"
 
   // Copy original argv[1]..argv[argc] (incl. NULL) to argv[4..]
@@ -360,7 +359,10 @@ parent:
   // Calls the standard execve, passing it the newly modified path (qemu)
   mov x8, #221                          // SYS_execve
   // Converts the FD in the corresponding character (e.g. 5 -> “5”)
-  adr x0, commd_src                     // "/proc/self/fd/9"
+  adr x0, commd_exe                     // /proc/self/exe -> fd/9
+  mov w1, #0x6466                       // 'f','d' (little-endian)
+  movk w1, #0x392f, lsl #16             // '/','9'
+  str w1, [x0, #11]                     // overwrite "exe\0" with "fd/9"
   add w1, w23, #'0'                     // '0' + 5 = '5'
   strb w1, [x0, #14]                    // &x0[14] = '5'
   mov x1, x19                           // argv (original)
@@ -456,7 +458,7 @@ exit_error:
 // in do_script mode the 2 paths shrink to 20 chars + ending \0
 // eof_strng helps to find the EOF, and where \0 padding starts
 //                                                                 LN | XE |  SH
-copy_vers:  .ascii "(c) github/robang74 v0.34 "                //  26 | 26 |  26
+copy_vers:  .ascii "(c) github/robang74 v0.35 "                //  26 | 26 |  26
 filename :  .ascii      "uzprm64\0"                            //   8 |  8 |   8
 provider :  .ascii      "12345678\n\0"                         //  10 | 10 |  10
 zcat_path:  .ascii         "/bin/zcat\0"                       //  11 | 42 |  21
@@ -465,15 +467,9 @@ zcat_path:  .ascii         "/bin/zcat\0"                       //  11 | 42 |  21
 do_script:  .ascii "/bin/sh\0"                                 //  16 |  - |  21
             .fill 8, 1, 0
 eof_tests:  .ascii "U238\0"                                    //   5 |  - |   -
-commd_exe:  .ascii "/proc/self/exe\0"                          //  16 | 16 |  16
 // This introduces the need of having the /proc mounted, granted after the /init
 // The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
-.ifdef _USE_DEVFS
-commd_src:  .ascii "/dev"
-.else
-commd_src:  .ascii "/proc/self"
-.endif
-            .ascii "/fd/9\0"                                   //  16 |  - |  16
+commd_exe:  .ascii "/proc/self/exe\0\0"                        //  16 | 16 |  16
 force_arg:  .ascii "-f"                                        //   2 |  2 |   2
 empty_str:  .ascii "\0"                                        //   1 |  1 |   1
 //              |<-- 8 chars -->|<- +8c ->|                    //  ---------  40
