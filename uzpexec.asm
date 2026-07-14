@@ -429,22 +429,16 @@ child:
 
   ; ============================================================================
 exit_error:
-; test ebx, ebx
-; jnz exit_now
-
   ; Print copyright notice, version and internal name
-%ifdef _DO_EXTRA
-  push zcat_path - copy_vers -1 ; bytes to write --> stack
-%else
-  push  provider - copy_vers    ; bytes to write --> stack
-%endif
-  pop edx                       ; bytes to write <-- stack
   mov ecx, copy_vers
 %ifdef _DO_EXTRA
-  mov byte [ecx + edx -10], 32  ; space (-10: strlen(provider))
+  push zcat_path - copy_vers - 1
+  mov byte [ecx + provider - copy_vers - 1], 32 ; space
 %else
-  mov byte [ecx + edx - 1], 10  ; line feed
+  push provider - copy_vers
+  mov byte [ecx + provider - copy_vers - 1], 10 ; line feed
 %endif
+  pop edx
   push  4                       ; SYS_write
   pop eax
   push  2                       ; stderr
