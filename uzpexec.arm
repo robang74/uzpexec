@@ -222,6 +222,10 @@ parent:
   mov x2, #0
   mov x3, #0                            // No rusage
   svc #0
+  cmn x0, #4                            // check for EINTR (-4)
+  b.eq parent                           // -EINTR, try again
+  cmp x0, #0
+  b.lt exit_error                       // other error, exit
 
   // 2p. Closing the real file once read in full, also for safety,
   //    but fd is RD_ONLY so we can save bytes here, avoiding it.
