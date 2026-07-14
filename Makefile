@@ -268,7 +268,7 @@ uzprm64: uzpexec.arm
 	rm -f $@
 	$(armcross)-as -o $@.o $^
 	$(armcross)-objcopy -O binary $@.o $@
-	chmod +x $@
+	chmod +x $@ && du -b $@
 	@echo
 
 _testa: hiarm64 hix86gz

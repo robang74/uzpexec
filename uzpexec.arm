@@ -142,7 +142,7 @@ hello_msg:
   svc #0
 
   // prctl(PR_SET_DUMPABLE, 0, 0, 0, 0)
-  mov x8, #167                          // SYS_prctl
+//mov x8, #167                          // SYS_prctl, aready set
   mov x0, #4                            // PR_SET_DUMPABLE
   mov x1, #0                            // disable
   svc #0
@@ -191,7 +191,7 @@ hello_msg:
 .rewind:
   // 4a. File pointer set
   mov x8, #62                           // SYS_lseek
-  mov x0, x22                           // input fd
+  mov x0, x22                           // input FD
   mov x1, #1024                         // offset = 1024
   mov x2, #0                            // SEEK_SET = 0
   svc #0
@@ -201,9 +201,9 @@ hello_msg:
   mov x8, #220                          // SYS_clone (no flags = biological fork)
   mov x0, #17                           // SIGCHLD
   mov x1, #0
-  mov x2, #0
-  mov x3, #0
-  mov x4, #0
+//mov x2, #0                            // already set
+//mov x3, #0                            // already set
+  mov x4, #0                            // branch selection 0 vs 0x1000
   svc #0
   cbz x0, child                         // the child jump to its routine
 
@@ -214,9 +214,9 @@ parent:
   // 1p. The parent waits for the child completes zcat writing in memfd
   mov x8, #260                          // SYS_wait4
   mov x0, #-1                           // any child
-  mov x1, #0
-  mov x2, #0
-  mov x3, #0                            // No rusage
+//mov x1, #0                            //            already set
+//mov x2, #0                            //            already set
+//mov x3, #0                            // No rusage, already set
   svc #0
   cmn x0, #4                            // check for EINTR (-4)
   b.eq parent                           // -EINTR, try again
@@ -252,13 +252,13 @@ parent:
   mov x0, x23                           // memfd
   mov x1, #1033                         // F_ADD_SEALS (0x0409)
   // F_SEAL_WRITE | F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL = 15 (0x0f)
-  mov x2, #15                           // write only fd
+  mov x2, #15                           // protected FD (0x0f)
   svc #0
 
 .rewind_memfd:
   // 3p. Rewind memfd at the starting point to check for the shebang script
   mov x8, #62                           // SYS_lseek
-  mov x0, x23
+  mov x0, x23                           // memfd
   mov x1, #0                            // offset = 0
   mov x2, #0                            // SEEK_SET = 0
   svc #0
@@ -266,7 +266,7 @@ parent:
   // The memfd content is cached in RAM and also here the read() is atomic: 4B or -ERRNO
   // 4p. Read the first uncompressed 4 bytes (just two for the shebang)
   mov x8, #63                           // SYS_read
-  mov x0, x23
+  mov x0, x23                           // memfd
   mov x1, x24                           // Buffer
   mov x2, #4                            // count = 4
   svc #0
@@ -274,10 +274,10 @@ parent:
   // 5p. Check about ELF magic chars sequence (\x7FELF)
   //    A 32-bit comparison is shorter, safer and faster
   //    compared with checking for the shebang (optional)
-  ldr w0, [x24]
+  ldr  w0, [x24]
   mov  w1, #0x457f
   movk w1, #0x464c, lsl #16
-  cmp w0, w1
+  cmp  w0, w1
   b.eq .execute_elf                     // If ELF, do execve()
 
   // ----------------------------------------------------------------------------
@@ -285,7 +285,7 @@ parent:
   // ----------------------------------------------------------------------------
   // 1s. Rewind memfd at the starting point to pass it to the shell
   mov x8, #62                           // SYS_lseek
-  mov x0, x23
+  mov x0, x23                           // memfd
   mov x1, #0                            // offset = 0
   mov x2, #0                            // SEEK_SET = 0
   svc #0
@@ -303,7 +303,7 @@ parent:
   // ----------------------------------------------------------------------------
 .fallback:
   mov x8, #24                           // SYS_dup3
-  mov x0, x23                           // from memfd
+  mov x0, x23                           // memfd
   mov x1, #9                            // to FD 9
   mov x2, #0                            // No flags
   svc #0
@@ -315,10 +315,10 @@ parent:
   // Therefore the branch "no_args" would never traversed and can be removed
 
   // Prepare "/proc/self/fd/9" in commd_exe
-  adr x0, commd_exe                     // /proc/self/exe -> fd/9
-  mov w1, #0x6466                       // 'f','d' (little-endian)
+  adr  x0, commd_exe                    // /proc/self/exe -> fd/9
+  mov  w1, #0x6466                      // 'f','d' (little-endian)
   movk w1, #0x392f, lsl #16             // '/','9' ('0' + 9 = 0x39)
-  str w1, [x0, #11]                     // overwrite "exe\0" with "fd/9"
+  str  w1, [x0, #11]                    // overwrite "exe\0" with "fd/9"
 
   // In-place stack manipulation: build new argv starting at argc slot
   // New argv: ["/bin/sh", "/proc/self/fd/9", original_args...]
@@ -361,7 +361,7 @@ child:
   // 1c. 1st dup2: connect input (EDI) to STDIN (0) for both modes
   mov x8, #24                           // SYS_dup3
   mov x0, x22                           // input FD
-  mov x1, #0                            // STDIN
+//mov x1, #0                            // STDIN, already set
   mov x2, #0
   svc #0
 
@@ -369,7 +369,7 @@ child:
   mov x8, #24                           // SYS_dup3
   mov x0, x23                           // zcat writes in memfd
   mov x1, #1                            // STDOUT
-  mov x2, #0
+//mov x2, #0                            // already set
   svc #0
   cmp x0, #0
   b.lt exit_error
@@ -410,21 +410,18 @@ exit_error:
   // Print copyright notice, version and internal name
   adr x1, copy_vers
 .ifdef _DO_EXTRA
-  mov x2, #(zcat_path - copy_vers - 1)  // bytes to write
-  mov w3, #32
+  mov  x2, #(zcat_path - copy_vers - 1)  // bytes to write
+  mov  w3, #32
   strb w3, [x1, #(zcat_path - copy_vers - 1 - 10)]
 .else
-  mov x2, #(provider - copy_vers)       // bytes to write
-  mov w3, #10
+  mov  x2, #(provider - copy_vers)       // bytes to write
+  mov  w3, #10
   strb w3, [x1, #(provider - copy_vers - 1)]
 .endif
   mov x8, #64                           // SYS_write
   mov x0, #2                            // stderr
   svc #0
 
-// exit_now:
-// xor ebx, ebx
-// inc ebx                              // Exit code 1
   mov x8, #93                           // SYS_exit
   mov x0, #1                            // Exit code 1
   svc #0
