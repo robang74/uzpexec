@@ -85,7 +85,7 @@ phdr:
 
   // Because uzpexec contains no input parsing logic that could be corrupted and
   // its fixed 512-byte read loop cannot be overflowed, the writeable-executable
-  // segment offers no exploitable attack vector. They are 1024 in aarm64 binary.
+  // segment offers no exploitable attack vector.
 
   // Since the loader immediately forfeits control through atomic fork() / exec()
   // or execveat() transitions that never return, an attacker cannot redirect
@@ -217,10 +217,11 @@ parent:
   mov x8, #221                          // SYS_execve
 
   // Prepare "/proc/self/fd/9" in commd_exe
-  adr  x0, commd_exe                    // /proc/self/exe -> fd/9
+  adr  x0, commd_exe                    // /proc/self/exe -> fd/n
   mov  w1, #0x6466                      // 'f','d' (little-endian)
-  movk w1, #0x342f, lsl #16             // '/','4' ('0' + 4 = 0x34)
-  str  w1, [x0, #11]                    // overwrite "exe\0" with "fd/4"
+  movk w1, #0x302f, lsl #16             // '/','0'
+  add  w1, w1, w23                      // w23 in 0-9 or it fails
+  str  w1, [x0, #11]                    // overwrite "exe\0" with "fd/n"
 
   // In-place stack manipulation: build new argv starting at argc slot
   // New argv: ["/bin/sh", "/proc/self/fd/9", original_args...]
@@ -296,24 +297,23 @@ copy_vers:  .ascii "(c) github/robang74 v0.38 "                //  26 | 26
 filename :  .ascii      "uzarm64\0"                            //   8 |  8
 provider :  .ascii      "12345678\n\0"                         //  10 | 10
 //following fields are conditionally overwritable, do unions   //  ---------  44
-zcat_path:  .ascii         "/bin/zcat\0\0"                     //  12 | 17
-eof_tests:  .ascii "U238\0"                                    //   5 |  -
+zcat_path:  .ascii      "/bin/zcat\0\0\0"                      //  13 | 13
 // This introduces the need of having the /proc mounted, granted after the /init
 // The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
 commd_exe:  .ascii "/proc/self/exe\0"                          //  15 | 15
 empty_str:  .ascii "\0"                                        //   1 |  1
-//              |<-- 8 chars -->|<- +8c ->|                    //  ---------  33 
-                                                               //  77 (tot.)  77
+//              |<-- 8 chars -->|<- +8c ->|                    //  ---------  29 
+                                                               //  73 (tot.)  73
 
 // ==============================================================================
-// PADDING: Aligned exactly to 1024 bytes (dd skip=2)
+// PADDING: Aligned exactly to 512 bytes (dd skip=1)
 // ==============================================================================
 file_end:                               // Physical end of the binary file!
-.fill (512 - (. - elf_header)), 1, 0   // Padding to 1024 bytes for skip=2
+.fill (512 - (. - elf_header)), 1, 0    // Padding to 512 bytes for skip=1
 
 // ==============================================================================
 // BSS SECTION (RAM only)
 // ==============================================================================
-buf:                                    // Label at offset 1024, RAM only
+buf:                                    // Label at offset 512, RAM only
 .equ bss_end, . + 512                   // Reserve 512 bytes for the buffer
 
