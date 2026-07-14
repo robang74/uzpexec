@@ -259,6 +259,12 @@ hix86gz: uzprm64 hello
 	chmod +x $@
 	@echo
 
+hlx86gz: uzarm64 hello
+	rm -f $@
+	cp -f uzarm64 $@ && gzip -9c hello >> $@
+	chmod +x $@
+	@echo
+
 hiarm64: hello.c
 	@echo
 	rm -f $@
@@ -267,6 +273,13 @@ hiarm64: hello.c
 	@echo
 
 uzprm64: uzpexec.arm
+	rm -f $@
+	$(armcross)-as $(armflags) -o $@.o $^
+	$(armcross)-objcopy -O binary $@.o $@
+	chmod +x $@ && du -b $@
+	@echo
+
+uzarm64: uzarm64.arm
 	rm -f $@
 	$(armcross)-as $(armflags) -o $@.o $^
 	$(armcross)-objcopy -O binary $@.o $@
@@ -307,9 +320,44 @@ testa:
 	@echo
 	@echo ====== compiling for ARM64 ======
 	@echo
-	rm -f uzprm64 hello hiarm64 hix86gz
+	rm -f uzprm64 hello hellz hiarm64 hlx86gz
 	@echo
 	@make _testa
+	@echo
+
+_testb: hiarm64 hlx86gz
+	@echo ====== testing for ARM64 elf ======
+	@echo
+	@echo "RAF,TODO: argv[0] requires full path in Makefile"
+	@echo "It might fail in Makefile, not in a login console"
+	@echo
+	strace $(armuqemu) \
+    ./hlx86gz $${WORLD:-nice} 2>&1 |\
+        grep -E "execv|open\(|Hello" |\
+            sed -e "s/, \[/,\n\t[/"
+	@echo
+	export WORLD=Wonderful && \
+    $(armloadr) \
+      ./hiarm64 $${WORLD:-nice}; printf "\tret: $$?\n"
+	@echo
+	export WORLD=Wonderful &&  \
+    $(armloadr) \
+      ./hlx86gz $${WORLD:-nice}; printf "\tret: $$?\n"
+	@echo
+	./uzarm64 <&- 2>&- | sed -e "s/^/    /" | grep robang74
+	@echo
+	@rm -f uzarm64
+	@make JE_EXTRA=_DO_EXTRA uzarm64 >/dev/null 2>&1
+	./uzarm64 <&- 2>&- | sed -e "s/^/    /" | grep 12345678
+	@echo
+
+testb:
+	@echo
+	@echo ====== compiling for ARM64 elf ======
+	@echo
+	rm -f uzarm64 hello hiarm64 hlx86gz
+	@echo
+	@make _testb
 	@echo
 
 # -----------------------------------------------------------------------------
