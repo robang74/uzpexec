@@ -277,16 +277,16 @@ _testa: hiarm64 hix86gz
 	@echo "RAF,TODO: argv[0] requires full path in Makefile"
 	@echo "It might fail in Makefile, not in a login console"
 	@echo
-	strace $(armuqemu) \
-    ./hix86gz $${WORD:-nice} 2>&1 |\
-        grep -E "execv|open\(|Hello" |\
+	export WORLD=Nice && strace $(armuqemu) \
+    ./hix86gz $${WORLD:-nice} 2>&1 |\
+        grep -iE "execv|open\(|Hello|Nice|^ " |\
             sed -e "s/, \[/,\n\t[/"
 	@echo
 	$(armloadr) \
-    ./hiarm64 $${WORD:-nice}; printf "\tret: $$?\n"
+    ./hiarm64 $${WORLD:-nice}; printf "\tret: $$?\n"
 	@echo
 	$(armloadr) \
-    ./hix86gz $${WORD:-nice}; printf "\tret: $$?\n"
+    ./hix86gz $${WORLD:-nice}; printf "\tret: $$?\n"
 	@echo
 
 testa:
