@@ -150,8 +150,8 @@ main_start:
   // 2. Try to open the memfd, as first operation
   mov x8, #279                          // SYS_memfd_create
   ldr x0, [x19]                         // Linux requires a name, use argv[0]
-  // CVE-2021-4034, pre-5.18, can't cover LK bugs, so let SIGSEGV do the work
-  ldr x1, [x0]                          // SIGSEGV when x0 = argv[0] = NULL
+  // CVE-2021-4034, pre-5.18, can't cover LK bugs
+  cbz x0, exit_error                    // exit(1) when x0 = argv[0] = NULL
   mov x1, #3                            // MFD_CLOEXEC | MFD_ALLOW_SEALING
   svc #0
   mov x23, x0                           // X23 = [memfd]
@@ -317,23 +317,17 @@ exit_error:
 // ==============================================================================
 // COMPACT DATA SECTION (appended to code)
 // ==============================================================================
-// filename can be changed by sed up to 7 chars + ending \0
-// zcat -f is cat when input isn't gzip, options up to -6c\0
-// /bin/zcat can be changed by sed up to 41 chars + ending \0
-// - for example: /usr/local/bin/xzcat is 20 chars + ending \0
-// in do_script mode the 2 paths shrink to 20 chars + ending \0
-// eof_strng helps to find the EOF, and where \0 padding starts
 //                                                                 LN | XE
 copy_vers:  .ascii "(c) github/robang74/uzpexec v0.39\0"       //  34 | 34
 provider :  .ascii      "12345678\n\0"                         //  10 | 10
-//following fields are conditionally overwritable, do unions   //  ---------  44
-zcat_path:  .ascii "/bin/zcat\0\0\0\0"                         //  14 | 14
+// /bin/zcat can be changed by sed up to 11 chars + ending \0  //  ---------  44
+zcat_path:  .ascii "/bin/zcat\0\0\0"                           //  12 | 12
 // This introduces the need of having the /proc mounted, granted after the /init
 // The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
 commd_exe:  .ascii "/proc/self/exe\0"                          //  15 | 15
 empty_str:  .ascii "\0"                                        //   1 |  1
-//              |<-- 8 chars -->|<- +8c ->|                    //  ---------  30
-                                                               //  74 (tot.)  74
+//              |<-- 8 chars -->|<- +8c ->|                    //  ---------  28
+                                                               //  72 (tot.)  72
 
 // ==============================================================================
 // PADDING: Aligned exactly to 512 bytes (dd skip=1)
