@@ -249,6 +249,8 @@ version: distclean
 armcross := aarch64-linux-gnu
 armuqemu := qemu-aarch64-static
 armloadr := $(shell which $(armuqemu))
+armflags := --defsym $(JE_STDIN)=1 --defsym $(JE_FORCE)=1
+armflags += --defsym $(JE_EXTRA)=1 --defsym $(JE_EXCVE)=1
 
 hix86gz: uzprm64 hello
 	rm -f $@
@@ -266,7 +268,7 @@ hiarm64: hello.c
 
 uzprm64: uzpexec.arm
 	rm -f $@
-	$(armcross)-as -o $@.o $^
+	$(armcross)-as $(armflags) -o $@.o $^
 	$(armcross)-objcopy -O binary $@.o $@
 	chmod +x $@ && du -b $@
 	@echo
@@ -293,6 +295,12 @@ _testa: hiarm64 hix86gz
 	{ cat uzprm64; gzip -9c hello.sh; } > hellz
 	chmod +x hellz; export WORLD=Wonderful && \
 	  ./hellz $${WORLD:-nice}; printf "\tret: $$?\n"
+	@echo
+	./uzprm64 <&- 2>&- | sed -e "s/^/    /" | grep robang74
+	@echo
+	@rm -f uzprm64
+	@make JE_EXTRA=_DO_EXTRA uzprm64 >/dev/null 2>&1
+	./uzprm64 <&- 2>&- | sed -e "s/^/    /" | grep 12345678
 	@echo
 
 testa:
