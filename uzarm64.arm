@@ -75,7 +75,7 @@ phdr:
   .quad BASE_ADDR                       // p_vaddr
   .quad BASE_ADDR                       // p_paddr
   .quad file_end - elf_header           // p_filesz (file size)
-  .quad file_end - elf_header + 1024    // p_memsz  (file size + buf size)
+  .quad file_end - elf_header + 512     // p_memsz  (file size + buf size)
   .quad 0x1000                          // p_align
 
   // ----------------------------------------------------------------------------
