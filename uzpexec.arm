@@ -410,16 +410,15 @@ exit_error:
   // Print copyright notice, version and internal name
   adr x1, copy_vers
 .ifdef _DO_EXTRA
-  mov  x2, #(zcat_path - copy_vers - 1)  // bytes to write
-  mov  w3, #32
-  strb w3, [x1, #(zcat_path - copy_vers - 1 - 10)]
-.else                                    // - 10: strlen(provider)
-  mov  x2, #(provider - copy_vers)       // bytes to write
-  mov  w3, #10
-  strb w3, [x1, #(provider - copy_vers - 1)]
+  mov x2, #(zcat_path - copy_vers - 1)  // bytes to write
+  mov w3, ' '                           // space
+.else
+  mov x2, #(provider - copy_vers)       // bytes to write
+  mov w3, '\n'                          // line feed
 .endif
+  strb w3, [x1, #(provider - copy_vers - 1)]
   mov x8, #64                           // SYS_write
-  mov x0, #2                            // stderr
+  mov x0, #1                            // stdout
   svc #0
 
   mov x8, #93                           // SYS_exit
@@ -436,7 +435,7 @@ exit_error:
 // in do_script mode the 2 paths shrink to 20 chars + ending \0
 // eof_strng helps to find the EOF, and where \0 padding starts
 //                                                                 LN | XE |  SH
-copy_vers:  .ascii "(c) github/robang74 v0.36 "                //  26 | 26 |  26
+copy_vers:  .ascii "(c) github/robang74 v0.37 "                //  26 | 26 |  26
 filename :  .ascii      "uzprm64\0"                            //   8 |  8 |   8
 provider :  .ascii      "12345678\n\0"                         //  10 | 10 |  10
 zcat_path:  .ascii         "/bin/zcat\0"                       //  11 | 42 |  21
