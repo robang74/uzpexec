@@ -147,16 +147,16 @@ hello_msg:
   mov x1, #0                            // disable
   svc #0
 
-  // Checking argv[0] to open input (itself or stdin)
-  ldr x1, [x19]                         // CVE-2021-4034, pre-5.18, can't cover LK bugs
+  // Checking /proc/self/exe to open input (itself or stdin)
+  adr x1, commd_exe                     // CVE-2021-4034, pre-5.18, can't cover LK bugs
                                         // Let SIGSEGV do the work and/or syscalls fail
 
   // ===========================================================================
+  // 1. Try to open itself file by /proc/self/exe
 
-  // 1. Try to open itself file by argv[0] (CVE-2021-4034, ends here)
   mov x8, #56                           // SYS_openat
   movn x0, #99                          // AT_FDCWD
-  ldr x1, [x19]                         // argv[0]
+  adr x1, commd_exe                     // /proc/self/exe
   movz x2, #8, lsl #16                  // O_RDONLY | O_CLOEXEC
   svc #0
   mov x22, x0                           // Move FD in X22 to save it for later
@@ -456,7 +456,7 @@ exit_error:
 // in do_script mode the 2 paths shrink to 20 chars + ending \0
 // eof_strng helps to find the EOF, and where \0 padding starts
 //                                                                 LN | XE |  SH
-copy_vers:  .ascii "(c) github/robang74 v0.33 "                //  26 | 26 |  26
+copy_vers:  .ascii "(c) github/robang74 v0.34 "                //  26 | 26 |  26
 filename :  .ascii      "uzprm64\0"                            //   8 |  8 |   8
 provider :  .ascii      "12345678\n\0"                         //  10 | 10 |  10
 zcat_path:  .ascii         "/bin/zcat\0"                       //  11 | 42 |  21
@@ -465,6 +465,7 @@ zcat_path:  .ascii         "/bin/zcat\0"                       //  11 | 42 |  21
 do_script:  .ascii "/bin/sh\0"                                 //  16 |  - |  21
             .fill 8, 1, 0
 eof_tests:  .ascii "U238\0"                                    //   5 |  - |   -
+commd_exe:  .ascii "/proc/self/exe\0"                          //  16 | 16 |  16
 // This introduces the need of having the /proc mounted, granted after the /init
 // The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
 .ifdef _USE_DEVFS
