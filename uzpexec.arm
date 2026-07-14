@@ -413,7 +413,7 @@ exit_error:
   mov  x2, #(zcat_path - copy_vers - 1)  // bytes to write
   mov  w3, #32
   strb w3, [x1, #(zcat_path - copy_vers - 1 - 10)]
-.else
+.else                                    // - 10: strlen(provider)
   mov  x2, #(provider - copy_vers)       // bytes to write
   mov  w3, #10
   strb w3, [x1, #(provider - copy_vers - 1)]

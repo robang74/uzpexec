@@ -441,7 +441,7 @@ exit_error:
   pop edx                       ; bytes to write <-- stack
   mov ecx, copy_vers
 %ifdef _DO_EXTRA
-  mov byte [ecx + edx -10], 32  ; space
+  mov byte [ecx + edx -10], 32  ; space (-10: strlen(provider))
 %else
   mov byte [ecx + edx - 1], 10  ; line feed
 %endif
