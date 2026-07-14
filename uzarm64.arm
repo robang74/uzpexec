@@ -54,12 +54,13 @@ elf_header:
   .short 2                              // e_type (ET_EXEC, Executable)
   .short 183                            // e_machine (EM_AARCH64, ARM AArch64)
   .word 1                               // e_version
-  .quad BASE_ADDR + 120                 // e_entry (Salto matematico sicuro a main_start)
-  .quad 64                              // e_phoff (Il Program Header inizia a offset 64)
+  .quad BASE_ADDR + main_start - elf_header
+                                        // e_entry
+  .quad phdr - elf_header               // e_phoff (phdr's offset)
   .quad 0                               // e_shoff
   .word 0                               // e_flags
-  .short 64                             // e_ehsize
-  .short 56                             // e_phentsize
+  .short phdr - elf_header              // e_ehsize
+  .short 56                             // e_phentsize (fixed value)
   .short 1                              // e_phnum
   // ----------------------------------------------------------------------------
   // Many Linux kernel ELF parsers completely ignore these 6
@@ -76,7 +77,7 @@ phdr:
   .quad BASE_ADDR                       // p_paddr
   .quad file_end - elf_header           // p_filesz (file size)
   .quad file_end - elf_header + 512     // p_memsz  (file size + buf size)
-  .quad 0x1000                          // p_align
+  .quad 0x1000                          // p_align  (page size, 4096 bytes)
 
   // ----------------------------------------------------------------------------
   // p_flags (PF_R + PF_W + PF_X)
@@ -150,8 +151,8 @@ main_start:
   // 2. Try to open the memfd, as first operation
   mov x8, #279                          // SYS_memfd_create
   ldr x0, [x19]                         // Linux requires a name, use argv[0]
-  // CVE-2021-4034, pre-5.18, can't cover LK bugs
-  cbz x0, exit_error                    // exit(1) when x0 = argv[0] = NULL
+  // CVE-2021-4034, pre-5.18, tiny can't cover LK bugs, let the syscall fail
+//cbz x0, exit_error                    // exit(1) when x0 = argv[0] = NULL
   mov x1, #3                            // MFD_CLOEXEC | MFD_ALLOW_SEALING
   svc #0
   mov x23, x0                           // X23 = [memfd]
@@ -252,8 +253,9 @@ parent:
   adr  x0, commd_exe                    // /proc/self/exe -> fd/n
   mov  w1, #0x6466                      // 'f','d' (little-endian)
   movk w1, #0x302f, lsl #16             // '/','0'
-  add  w1, w1, w23                      // w23 in 0-9 or it fails
   str  w1, [x0, #11]                    // overwrite "exe\0" with "fd/n"
+  add w1, w23, #'0'                     // w23 in 0-9 or it fails
+  strb w1, [x0, #14]
 
   // In-place stack manipulation: build new argv starting at argc slot
   // New argv: ["/bin/sh", "/proc/self/fd/9", original_args...]
