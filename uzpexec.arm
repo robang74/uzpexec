@@ -301,6 +301,7 @@ parent:
   // The memfd is sealed read-only, but FD=5 pollutes the range 3-6
   // which is used by scripts while FD=9 is the single-char highest.
   // ----------------------------------------------------------------------------
+.fallback:
   mov x8, #24                           // SYS_dup3
   mov x0, x23                           // from memfd
   mov x1, #9                            // to FD 9
@@ -316,20 +317,23 @@ parent:
   // Prepare "/proc/self/fd/9" in commd_exe
   adr x0, commd_exe                     // /proc/self/exe -> fd/9
   mov w1, #0x6466                       // 'f','d' (little-endian)
-  movk w1, #0x392f, lsl #16             // '/','9'
+  movk w1, #0x392f, lsl #16             // '/','9' ('0' + 9 = 0x39)
   str w1, [x0, #11]                     // overwrite "exe\0" with "fd/9"
 
   // In-place stack manipulation: build new argv starting at argc slot
   // New argv: ["/bin/sh", "/proc/self/fd/9", original_args...]
-  adr x3, do_script
-  str x3, [x19, #-8]!                   // overwrite argc with "/bin/sh", x19 = new argv
-  str x0, [x19, #8]                     // overwrite argv[0] with "/proc/self/fd/9"
-
-.here:
-  // basic operations for calling the execve()
-  mov x0, x3                            // x0 = "/bin/sh" (pathname)
   mov x1, x19                           // x1 = argv (manipulated, contiguous)
   mov x2, x20                           // x2 = envp (intact from main_start)
+  cmp x4, #0x1000                       // branch selector: execve/at() path?
+  b.eq .do_int
+  adr x3, do_script
+  str x3, [x1, #-8]!                    // argc = "/bin/sh", x19 = new argv
+  str x0, [x1, #8]                      // argv[0] = "/proc/self/fd/9"
+
+  // basic operations for calling the execve()
+  mov x0, x3                            // x0 = "/bin/sh" (pathname)
+
+.do_int:
   svc #0
   b exit_error                          // eventually will fail later
 
@@ -348,20 +352,7 @@ parent:
   svc #0                                // never returns unless syscall fails
   b exit_error
 .endif
-
-  // Calls the standard execve, passing it the newly modified path (qemu)
-  mov x8, #221                          // SYS_execve
-  // Converts the FD in the corresponding character (e.g. 5 -> “5”)
-  adr x0, commd_exe                     // /proc/self/exe -> fd/9
-  mov w1, #0x6466                       // 'f','d' (little-endian)
-  movk w1, #0x392f, lsl #16             // '/','9'
-  str w1, [x0, #11]                     // overwrite "exe\0" with "fd/9"
-  add w1, w23, #'0'                     // '0' + 5 = '5'
-  strb w1, [x0, #14]                    // &x0[14] = '5'
-  mov x1, x19                           // argv (original)
-  mov x2, x20                           // envp (original)
-  svc #0                                // never returns unless syscall fails
-  b exit_error
+  b .fallback
 
 // ============================================================================
 // CHILD PROCESS ( c::stack { [memfd], buf, filename, 0 } )
@@ -416,9 +407,6 @@ child:
 
   // ============================================================================
 exit_error:
-// test ebx, ebx
-// jnz exit_now
-
   // Print copyright notice, version and internal name
   adr x1, copy_vers
 .ifdef _DO_EXTRA
@@ -451,7 +439,7 @@ exit_error:
 // in do_script mode the 2 paths shrink to 20 chars + ending \0
 // eof_strng helps to find the EOF, and where \0 padding starts
 //                                                                 LN | XE |  SH
-copy_vers:  .ascii "(c) github/robang74 v0.35 "                //  26 | 26 |  26
+copy_vers:  .ascii "(c) github/robang74 v0.36 "                //  26 | 26 |  26
 filename :  .ascii      "uzprm64\0"                            //   8 |  8 |   8
 provider :  .ascii      "12345678\n\0"                         //  10 | 10 |  10
 zcat_path:  .ascii         "/bin/zcat\0"                       //  11 | 42 |  21
