@@ -150,7 +150,7 @@ main_start:
   // 2. Try to open the memfd, as first operation
   mov x8, #279                          // SYS_memfd_create
   adr x0, filename                      // Linux requires a name here
-  mov x1, #2                            // !MFD_CLOEXEC | MFD_ALLOW_SEALING
+  mov x1, #3                            // MFD_CLOEXEC | MFD_ALLOW_SEALING
   svc #0
   mov x23, x0                           // X23 = [memfd]
 
@@ -187,16 +187,6 @@ parent:
   cmn x0, #4                            // check for EINTR (-4)
   b.eq parent                           // -EINTR, try again
 
-  // 2p. Closing the real file once read in full, also for safety,
-  //    but fd is RD_ONLY so we can save bytes here, avoiding it.
-  //    Expecially because with O_CLOEXEC, it lasts just a little
-  // test edi, edi
-  // jz .rewind_memfd
-  // push 6                              ; SYS_close
-  // pop eax
-  // mov ebx, edi
-  // int 0x80
-
   // ----------------------------------------------------------------------------
   // HARDENING: F_ADD_SEALS TO MEMFD
   // 
@@ -225,9 +215,6 @@ parent:
 
   // 3s. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
   mov x8, #221                          // SYS_execve
-
-  // Safeguard: if argc is 0 <-- No, the issue was argv=NULL, SIGSEGV solves
-  // Therefore the branch "no_args" would never traversed and can be removed
 
   // Prepare "/proc/self/fd/9" in commd_exe
   adr  x0, commd_exe                    // /proc/self/exe -> fd/9
