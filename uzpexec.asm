@@ -142,7 +142,9 @@ main_start:
 
   ; 2. Try to open the memfd, as first operation
   mov eax, 356                 ; SYS_memfd_create
-  mov ebx, [esp]               ; Linux requires a name here, argv[0]
+                               ; Linux requires a name here, using argv[0]
+                               ; CVE-2021-4034, pre-5.18, can't cover LK bugs
+  mov ebx, [esi]               ; Let SIGSEGV do the work and/or syscalls fail
   push 3                       ; MFD_ALLOW_SEALING | MFD_CLOEXEC
   pop ecx
   int 0x80
@@ -155,7 +157,7 @@ main_start:
 
   ; 3. Try to read from the file the 1st block + 4 bytes to check the carryload
   mov dh, 2                    ; read size (512+4), 32-bit aligned
-  mov dl, 4
+  mov dl, 4                    ; EDX
 ; ------------------------------------------------------------------------------
 ; WHY -EINTR ISN'T AN ISSUE HERE (and it wasn't correctly addressed anyway)
 ;
@@ -291,7 +293,7 @@ parent:
   ; 4p. Read the first uncompressed 4 bytes (just two for the shebang)
   mov al, 3                    ; SYS_read
   pop ecx                      ; buf <-- p::stack { commd_exe, 0 }
-  mov dl, 4                    ; count = 4
+  mov dl, 4                    ; count = 4, EDX
   int 0x80
 
   ; 5p. Check about ELF magic chars sequence (\x7FELF)
