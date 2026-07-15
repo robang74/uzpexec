@@ -272,6 +272,18 @@ Customising this little guy is easy because the data is stored in plain text
 which can easily be changed by a `sed` command line but altering the byte code
 to change its running behaviour or logic, is completely another story.
 
+#### Quick ARM64 view
+
+The [uzarm64.arm](uzarm64.arm) for aarch64 is a 512-byte stub/payload function-tuned created by refactorying down from the full 1024-bytes [uzpexec.arm](uzpexec.arm) version, introduces some limitations to cut down its size:
+
+- just gzipped elf by `execve()`
+- `qemu-aarch64`'s bug friendly
+- still has the provider field
+
+Potentially separating the ELF binaries from scripts support, it is reasonable to have two stubs both `dd` single-block size that a script like [zpack.sh](zpack.sh) can embedded as payload and deploy each of them selectively.
+
+![img/arm64-little-guy-lowhi16c.png](img/arm64-little-guy-lowhi16c.png)
+
 ---
 
 ### Trivial facts
