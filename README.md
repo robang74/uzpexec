@@ -282,7 +282,33 @@ The [uzarm64.arm](uzarm64.arm) for aarch64 is a 512-byte stub/payload function-t
 
 Potentially separating the ELF binaries from scripts support, it is reasonable to have two stubs both `dd` single-block size that a script like [zpack.sh](zpack.sh) can embedded as payload and deploy each of them selectively.
 
-![img/arm64-little-guy-lowhi16c.png](img/arm64-little-guy-lowhi16c.png)
+```sh
+$ make testb
+$ export WORLD=Wonderful
+$ { cat uzarm64; gzip -9c hello; } > hiwld && chmod +x hiwld
+$ ~/bin/qemu-aarch64-static -d strace ./hiwld nice
+```
+```
+    1147131 prctl(38,1,0,0,0,0) = 0
+    1147131 prctl(4,0,0,0,0,0) = 0
+    1147131 openat(AT_FDCWD,"/proc/self/exe",O_RDONLY|O_CLOEXEC) = 4
+    1147131 memfd_create(124085102814410,3,524288,0,0,0) = 5
+    1147131 read(4,0x400200,512) = 512
+    1147131 clone(0x11,child_stack=0x0000000000000000,
+            parent_tidptr=0x0000000000000000,tls=0x0000000000000000,
+            child_tidptr=0x0000000000000000) = 1147134
+    1147131 wait4(-1,0,0,0) = 0
+    1147134 dup3(4,0,0) = 0
+    1147134 dup3(5,1,0) = 1
+    1147134 execve("/bin/zcat",{"/bin/zcat",NULL}) = 
+    1147131 fcntl(5,F_ADD_SEALS,0x000000000000000f) = 0
+    1147131 execve("/proc/self/fd/5",{"./hiwld","nice",NULL})
+    Hello nice World!
+      ARGV0: './hiwld'
+       ARGC: '2'
+       HOME: '/home/roberto'
+      WORLD: 'Wonderful'
+```
 
 ---
 
