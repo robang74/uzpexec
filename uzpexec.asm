@@ -150,9 +150,9 @@ main_start:
 
   ; Organising the stack in the proper order (inverse order of popping)
   mov ecx, buf
-  push ecx                     ; in stack { buf, filename, 0 }
-  push eax                     ; in stack { [memfd], buf, filename, commd_exe, 0 }
-; mov [memfd], eax             ; save the memfd in RAM
+  push ecx                     ; --> m::stack { buf, commd_exe, 0 }
+  push eax                     ; --> m::stack { [memfd], buf, commd_exe, 0 }
+
 
   ; 3. Try to read from the file the 1st block + 4 bytes to check the carryload
   mov dh, 2                    ; read size (512+4), 32-bit aligned
