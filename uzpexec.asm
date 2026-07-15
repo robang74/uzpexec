@@ -142,8 +142,7 @@ main_start:
 
   ; 2. Try to open the memfd, as first operation
   mov eax, 356                 ; SYS_memfd_create
-  sub ebx, commd_exe-filename  ; Linux requires a name here
-  push ebx                     ; in stack { filename, commd_exe, 0 }
+  mov ebx, [esp]               ; Linux requires a name here, argv[0]
   push 3                       ; MFD_ALLOW_SEALING | MFD_CLOEXEC
   pop ecx
   int 0x80
@@ -233,7 +232,7 @@ main_start:
   jz child                     ; the child jump to its routine
 
   ; ============================================================================
-  ; PARENT PROCESS ( p::stack { [memfd], buf, filename, commd_exe, 0 } )
+  ; PARENT PROCESS ( p::stack { [memfd], buf, commd_exe, 0 } )
   ; ============================================================================
 parent:
   ; 1p. The parent waits for the child completes zcat writing in memfd
@@ -283,7 +282,7 @@ parent:
   ; 3p. Rewind memfd at the starting point to check for the shebang script
   push 19                      ; SYS_lseek
   pop eax
-  pop ebx                      ; [memfd] <-- p::stack { buf, filename, commd_exe, 0 }
+  pop ebx                      ; [memfd] <-- p::stack { buf, commd_exe, 0 }
   xor ecx, ecx                 ; offset = 0
   xor edx, edx                 ; SEEK_SET = 0
   int 0x80
@@ -291,7 +290,7 @@ parent:
   ; The memfd content is cached in RAM, thus read() is atomic: 4B or -ERRNO
   ; 4p. Read the first uncompressed 4 bytes (just two for the shebang)
   mov al, 3                    ; SYS_read
-  pop ecx                      ; buf <-- p::stack { filename, commd_exe, 0 }
+  pop ecx                      ; buf <-- p::stack { commd_exe, 0 }
   mov dl, 4                    ; count = 4
   int 0x80
 
@@ -338,7 +337,6 @@ parent:
 
   ; In-place stack manipulation using ESP (argv is at [esp]):
   ; ["/bin/sh", "/proc/self/fd/9", original_args ...]
-  pop ebx                        ; filename <-- p::stack { commd_exe, 0 }
   pop ebx                        ; commd_exe <-- p::stack { 0 }
 ; mov ebx, commd_exe
   mov dword [ebx+11], 0x392f6466 ; writes "fd/9" at the end of commd_exe
@@ -382,7 +380,7 @@ parent:
   jmp exit_error               ; unless it fails
 
 ; ============================================================================
-; CHILD PROCESS ( c::stack { [memfd], buf, filename, 0 } )
+; CHILD PROCESS ( c::stack { [memfd], buf, 0 } )
 ; ============================================================================
 child:
   ; 1c. 1st dup2: connect input (EDI) to STDIN (0) for both modes
@@ -393,7 +391,7 @@ child:
 
   ; 2c. 2nd dup2: connect output to STDOUT (1) of the child which is MEMFD
   mov al, 63                   ; SYS_dup2
-  pop ebx                      ; [memfd] <-- c::stack { buf, filename, commd_exe, 0 }
+  pop ebx                      ; [memfd] <-- c::stack { buf, commd_exe, 0 }
   inc ecx                      ; 1 = stdout
   int 0x80
   test eax, eax
@@ -403,9 +401,8 @@ child:
   push 11                      ; SYS_execve
   pop eax
 
-  pop ecx                      ; buf <-- c::stack { filename, commd_exe, 0 }
-  pop ebx                      ; filename <-- c::stack { commd_exe, 0 }
-  add ebx, zcat_path-filename  ; zcat_path = filename + strlen(filename)
+  pop ecx                      ; buf <-- c::stack { commd_exe, 0 }
+  mov ebx, zcat_path
 
   push 0                       ; end of envp/argv
 
@@ -459,8 +456,7 @@ exit_error:
 ; in do_script mode the 2 paths shrink to 20 chars + ending \0
 ; eof_strng helps to find the EOF, and where \0 padding starts
 ;                                                                  LN | XE |  SH
-copy_vers:  db "(c) github/robang74 v0.95 "                     ;  26 | 26 |  26
-filename :  db      "uzpexec", 0                                ;   8 |  8 |   8
+copy_vers:  db "(c) github/robang74/uzpexec v0.95 "             ;  34 | 34 |  34
 provider :  db      "12345678", 0x0a, 0                         ;  10 | 10 |  10
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0 ;  21 | 42 |  21
 ; following fields are conditionally overwritable, do unions    :  ---------  65
