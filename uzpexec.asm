@@ -97,7 +97,8 @@ main_start:
   mov esi, esp                 ; ESI = argv
   lea ebp, [esi+eax*4+4]       ; EBP = envp (callee-saved or SIGSEGV on [esi])
                                ; CVE-2021-4034, pre-5.18, can't cover LK bugs
-  mov ebx, [esi]               ; Let SIGSEGV do the work and/or syscalls fail
+; mov ebx, [esi]               ; Let SIGSEGV do the work and/or syscalls fail
+; push ebx                     ; --> m::stack { argv[0], 0 }
 
   ; ----------------------------------------------------------------------------
   ; HARDENING: NO_NEW_PRIVS & ANTI-CORE-DUMP
@@ -134,11 +135,10 @@ main_start:
   push 5                       ; SYS_open
   pop eax
   mov ebx, commd_exe
-  push ebx                     ; in stack { commd_exe, 0 }
+  push ebx                     ; --> m::stack { commd_exe, 0 }
   mov ecx, 0x00080000          ; O_RDONLY | O_CLOEXEC
   int 0x80
-
-  mov edi, eax                 ; Move fd in EDI to save it for later
+  mov edi, eax                 ; save FD in EDI for later
 
   ; 2. Try to open the memfd, as first operation
   mov eax, 356                 ; SYS_memfd_create
