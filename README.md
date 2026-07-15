@@ -210,15 +210,12 @@ The alternatives that are natively compatible with `-f -` are fully supported.
 ; ==============================================================================
 ; COMPACT DATA SECTION (appended to code)
 ; ==============================================================================
-; filename can be changed by sed up to 7 chars + ending \0
 ; zcat -f is cat when input isn't gzip, options up to -6c\0
 ; /bin/zcat can be changed by sed up to 41 chars + ending \0
 ; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
 ; in do_script mode the 2 paths shrink to 20 chars + ending \0
-; eof_strng helps to find the EOF, and where \0 padding starts
 ;                                                                  LN | XE |  SH
-copy_vers:  db "(c) github/robang74 v0.95 "                     ;  26 | 26 |  26
-filename :  db      "uzpexec", 0                                ;   8 |  8 |   8
+copy_vers:  db "(c) github/robang74/uzpexec v0.95 "             ;  34 | 34 |  34
 provider :  db      "12345678", 0x0a, 0                         ;  10 | 10 |  10
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0 ;  21 | 42 |  21
 ; following fields are conditionally overwritable, do unions    :  ---------  65

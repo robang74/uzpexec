@@ -31,7 +31,7 @@ emb=0
 old=0
 
 nme="uzpexec"
-cpy='(c) github/''robang74 v[^ ]* '$nme
+cpy='(c) github/'"robang74/$nme v[^ ]* "
 
 
 #######################################################################

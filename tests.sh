@@ -31,7 +31,7 @@ printf "\t%d bytes\n\n" $(( ${n:--$eof_len} + $eof_len ))
 echo "Strings output:"
 ( exec 2>&1
   echo "$(strings $bin)" | sed -e "s/^/  /" | tee /proc/self/fd/2 |
-  grep -qe "([cC]) .*robang74 v[0-9.]\{4\}" ||{
+  grep -qe "([cC]) .*robang74/uzpexec v[0-9.]\{4\}" ||{
     printf "\nWARNING:\n"
     printf "\tAuthorship isn't allowed to be changed or removed"
     printf "\n\n"
@@ -131,7 +131,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/bc965dd6f78bc2328b7950712fb8192e5e57e128/$bin OK/" |
+sed "s/44da0f0109e5e6f9d154807b374ef848b0405d01/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
