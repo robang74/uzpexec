@@ -274,13 +274,14 @@ to change its running behaviour or logic, is completely another story.
 
 #### Quick ARM64 view
 
-The [uzarm64.arm](uzarm64.arm) for aarch64 is a 512-byte stub/payload function-tuned created by refactorying down from the full 1024-bytes [uzpexec.arm](uzpexec.arm) version, introduces some limitations to cut down its size:
+The [uzarm64.arm](uzarm64.arm) for aarch64 is a 512-byte stub/payload function-tuned created by refactoring down from the full 1024-bytes [uzpexec.arm](uzpexec.arm) version, introduces some limitations to cut down its size:
 
+- it uses `argv[0]` as filename
 - just gzipped elf by `execve()`
 - `qemu-aarch64`'s bug friendly
 - still has the provider field
 
-Potentially separating the ELF binaries from scripts support, it is reasonable to have two stubs both `dd` single-block size that a script like [zpack.sh](zpack.sh) can embedded as payload and deploy each of them selectively.
+Potentially separating the ELF binary from script support, it is reasonable to have two stubs both `dd` single-block size that a script like [zpack.sh](zpack.sh) can embed as payload and deploy each of them selectively.
 
 ```sh
 $ make testb
@@ -309,6 +310,8 @@ $ ~/bin/qemu-aarch64-static -d strace ./hiwld nice
        HOME: '/home/roberto'
       WORLD: 'Wonderful'
 ```
+
+The above reported console commands and output provide a reference about the running of a simple ARM64 compressed elf, the system call involved, the args/envp management and last but not the simplicity of assembling it.
 
 ---
 
