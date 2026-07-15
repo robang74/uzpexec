@@ -144,6 +144,8 @@ main_start:
   mov eax, 356                 ; SYS_memfd_create
                                ; Linux requires a name here, using argv[0]
                                ; CVE-2021-4034, pre-5.18, can't cover LK bugs
+  test esi, esi
+  jz parent.fail
   mov ebx, [esi]               ; Let SIGSEGV do the work and/or syscalls fail
   push 3                       ; MFD_ALLOW_SEALING | MFD_CLOEXEC
   pop ecx
@@ -257,7 +259,6 @@ parent:
   ; pop eax
   ; mov ebx, edi
   ; int 0x80
-
   ; ----------------------------------------------------------------------------
   ; HARDENING: F_ADD_SEALS TO MEMFD
   ;
@@ -272,6 +273,7 @@ parent:
   ;   often require standard read/write descriptors or create temporary
   ;   files, meaning write-restricted seals could break compatibility.
   ; ----------------------------------------------------------------------------
+.fail
 ; 2p. Sealing the memfd/ELF in RO mode, for security and integrity
   push 92                      ; SYS_fcntl (security, set eax in full)
   pop eax
@@ -334,8 +336,6 @@ parent:
   ; 3s. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
   mov al, 11                     ; SYS_execve
 
-  ; Safeguard: if argc is 0 <-- No, the issue was argv=NULL, SIGSEGV solves
-  ; Therefore the branch "no_args" would never traversed and can be removed
 
   ; In-place stack manipulation using ESP (argv is at [esp]):
   ; ["/bin/sh", "/proc/self/fd/9", original_args ...]
