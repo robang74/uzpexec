@@ -333,6 +333,12 @@ $ ~/bin/qemu-aarch64-static -d strace ./hiwld nice
 
 The above reported console commands and output provide a reference about the running of a simple ARM64 compressed elf, the system call involved, the args/envp management and last but not the simplicity of assembling it.
 
+#### Quick deploy view
+
+The execution by pipe allows a basic running system, then an app is piped into uzpexec and executed accordingly with its nature and compression format. And this is a great feature for a lightweight supervisor OS that can create separated virtual execution spaces for each app granting that there is no absolute way one can sniff or read data from the others (unless system vulnerabilities, obviously, but not for the design of the uzpexec). 
+
+As a standalone utility uzpexec doesn't need to subdue the strict dd skip=1 constraint, being just an utility on a system. And this explains why the full version for AMR64 is totally fine being 1Kb or whatever minimal size, while the stub (two different for elf and scripts) are designed for the same constraint of the x86 counterpart. Knowing that x86 is for data center and arm64 for mobile devices.
+
 ---
 
 ### Trivial facts
