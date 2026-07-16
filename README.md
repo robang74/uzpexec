@@ -12,11 +12,11 @@ A 512-byte polymorphic stub/payload ([uzpexec](uzpexec.asm)) written in Assemble
 - Development happens in [devel](https://github.com/robang74/uzpexec/tree/devel) branch, testing on [devsrc](https://github.com/robang74/uzpexec/releases/tag/devsrc) tag.
 
 > [!NOTE]
-> 
+>
 > Only the stub, which executes the compressed binary or script, runs as ELF32 and it makes perfect sense since its role is to deal with few system calls and runs everywhere (x86 all arches, because the Assembler is a machine specific language). Obviously the ELF32 nature of the launcher doesn't affect in any manner what is executed which runs by its own kind. Cfr. [Examples](#example-1).
 
 > [!WARNING]
-> 
+>
 > Since the release **v0.93** packages contain [uzpexec.arm](uzpexec.arm) source file for **ARM64** versioned as v0.33. That source compiles but it is still experimental and reasonably affected by bugs because for a full validation it is a required a complete aarch64 system. However, testing with `qemu-aarch64-static` 10.2.3 in its original and customised form helped a lot to improve the x86 version.
 
 ### Index
@@ -169,7 +169,7 @@ While before v0.95, supporting phython scripts was possible ony by system change
 An example of use is related to this [project](https://github.com/robang74/uchaosys/blob/v074/qemu/README.md) about QEMU footprint reduction which uses `uzpexec` to deliver the executable binary in `UZP` format which can be downloaded from [here](https://github.com/robang74/working-in-progress/tree/main/uchaosys.qemu)
 
 > [!NOTE]
-> 
+>
 > The `qemu-system-x86_64`, provided in `UZP` self-inflate executable, appears to be an x86 ELF 32-bit LSB executable. That type file refers to the extractor. While qemu is expanded in RAM and execute in its original ELF 64-bit format.
 
 ### Example #2
@@ -181,7 +181,7 @@ Obviously, it is possible to convert an already converted binary. Which fails to
 A different result can be obtained by double converting and executing a binary (bigger is better) because it creates a "*fork bomb*" which will eventually trigger an OOM `kill` by the kernel itself... a show to enjoy with a `htop` view. ;-)
 
 > [!NOTE]
-> 
+>
 > Performance report: this little guy in "fork bomb" mode or better said in "fork loop" mode, is capable of sucking 2 core power from my i5-8365. Two! And this number can correctly taken as an index of its performance: no any lags but pure execution.
 
 ---
@@ -230,7 +230,7 @@ times (512 - ($ - $$)) db 0     ; Padding to 512 bytes for skip=1
 Since `zcat` is a shell script, it can be changed to pair the input with the proper decompressing tool. While a tiny `xcat` binary in ASM would be much faster in properly pairing the matches.
 
 > [!WARNING]
-> 
+>
 > The following script is provided **untested** AS-IS, just for the concept:
 
 ```sh
@@ -321,7 +321,7 @@ $ ~/bin/qemu-aarch64-static -d strace ./hiwld nice
     1147131 wait4(-1,0,0,0) = 0
     1147134 dup3(4,0,0) = 0
     1147134 dup3(5,1,0) = 1
-    1147134 execve("/bin/zcat",{"/bin/zcat",NULL}) = 
+    1147134 execve("/bin/zcat",{"/bin/zcat",NULL}) =
     1147131 fcntl(5,F_ADD_SEALS,0x000000000000000f) = 0
     1147131 execve("/proc/self/fd/5",{"./hiwld","nice",NULL})
     Hello nice World!
@@ -335,9 +335,9 @@ The above reported console commands and output provide a reference about the run
 
 #### Quick deploy view
 
-The execution by pipe allows a basic running system, then an app is piped into uzpexec and executed accordingly with its nature and compression format. And this is a great feature for a lightweight supervisor OS that can create separated virtual execution spaces for each app granting that there is no absolute way one can sniff or read data from the others (unless system vulnerabilities, obviously, but not for the design of the uzpexec). 
+The execution by pipe allows a basic running system, then an app is piped into uzpexec and executed accordingly with its nature and compression format. And this is a great feature for a lightweight supervisor OS that can create separated virtual execution spaces for each app granting that there is no absolute way one can sniff or read data from the others (unless system vulnerabilities, obviously, but not for the design of the uzpexec).
 
-As a standalone utility uzpexec doesn't need to subdue the strict dd skip=1 constraint, being just an utility on a system. And this explains why the full version for AMR64 is totally fine being 1Kb or whatever minimal size, while the stub (two different for elf and scripts) are designed for the same constraint of the x86 counterpart. Knowing that x86 is for data center and arm64 for mobile devices.
+As a standalone utility uzpexec doesn't need to subdue the strict dd skip=1 constraint, being just an utility on a system. And this explains why the full version for AMR64 is totally fine being 1Kb or whatever minimal size, while the stub (two different for elf and scripts) are designed for the same constraint of the x86 counterpart. Knowing that x86 is for data-centers and arm64 for mobile devices.
 
 ---
 
