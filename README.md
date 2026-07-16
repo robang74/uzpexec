@@ -256,6 +256,8 @@ case "$HEX" in
 esac
 ```
 
+From the desktop user perspective the GNU coreutils `sed` command, or a specific shell script, can properly deal with elf and different script interpreters like python. From the system integration perspective, a `/bin/xcat` and `/bin/xsh` would automatically deal with different decompressing formats and selecting the proper script interpreter on the fly. Hence, the customisable scale up to completely different use and deploying paradigms but relying on the same basic tools and strings.
+
 #### Quick ELF32 view
 
 Just to have an idea of the compacting everything in a 1-dd-block challenge,
