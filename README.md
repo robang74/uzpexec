@@ -255,7 +255,7 @@ GSM-era SMS with 8 bit/char text encoding, just to have an idea of the size.
                |  Program Header      |   32 B   |
  0x08048054 -- +---------------------------------+ -- 0x0054
                |  Machine Code        |  320 B   |
-               |  (start → exit)      |          |
+               | (start -> exit)      |          |
  0x08048194 -- +---------------------------------+ -- 0x0194
                |  Embedded Data:      |  105 B   |
                |  version, provider,  |          |
