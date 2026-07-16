@@ -52,11 +52,11 @@ In a standalone mode, it can convert itself in `uzpack` and it becomes self-host
 
 #### Short notes
 
-- Since v0.92 the support is extended from dash-only to *potentially* every shell.
+- Support extentions: from `dash`-only to every shell in v0.92, [python](#python-support) scripts since v0.95.
 
 - RAM-only, without writing on the remote/local systems storage because `memfd_create()`.
 
-- Obviously, RAM-only is a benefit otherwise [gzcmd.sh](#gzcmdsh) writes on disk&thinsp;/&thinsp;tmpfs.
+- Obviously when RAM-only is a benefit otherwise [gzcmd.sh](#gzcmdsh) writes on disk&thinsp;/&thinsp;tmpfs.
 
 #### For providers
 
@@ -143,6 +143,24 @@ Test by yourself and then decide how to deploy.
 - `uzpexec <&-||echo` # for the version + github
 
 It works as a single block 512-bytes self-inflating executable payload replacing also `gzcmd.sh` with the sole requirement of `/bin/zcat` available.
+
+### Python support
+
+Using `sed` to change the interpreter from `/bin/sh` to every other available interpreter, the `uzpexec` can inflate and execute also non-shell scripts. Packaging a `.pyz` is a trivial procedure:
+
+```sh
+bin=hello.py
+sed -e "s,bin/sh\x00\{5\},bin/python3," uzpexec > ${bin}z
+gzip -9c $bin >> ${bin}z && chmod +x ${bin}z && ./${bin}z
+
+    Hello World!
+    lsfd: 0 1 2 3 4 9
+    args: ''
+    HOME: '/home/roberto'
+    WORLD: ''
+```
+
+While before v0.95, supporting phython scripts was possible ony by system changes like configuring the `/bin/sh` or Linux `binfmt` to properly routing properly shebang-ed scripts to their own interpreter.
 
 ---
 
