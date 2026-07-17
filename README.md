@@ -151,13 +151,17 @@ Using `sed` to change the interpreter from `/bin/sh` to every other available in
 ```sh
 bin=hello.py
 sed -e "s,bin/sh\x00\{5\},bin/python3," uzpexec > ${bin}z
-gzip -9c $bin >> ${bin}z && chmod +x ${bin}z && ./${bin}z
+gzip -11c $bin >>${bin}z && chmod +x ${bin}z && ./${bin}z
 
     Hello World!
     lsfd: 0 1 2 3 4 9
     args: ''
     HOME: '/home/roberto'
     WORLD: ''
+
+du -b hello.py*
+  1370	hello.py
+  1235	hello.pyz <-- the output is smaller than original
 ```
 
 While before v0.95, supporting phython scripts was possible ony by system changes like configuring the `/bin/sh` or Linux `binfmt` to properly routing properly shebang-ed scripts to their own interpreter.
