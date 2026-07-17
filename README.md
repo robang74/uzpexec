@@ -168,7 +168,9 @@ While before v0.95, supporting phython scripts was possible ony by system change
 
 ### BusyBox support
 
-Adding 6 bytes extra [#37ab6ac38](https://github.com/robang74/busybox/commit/37ab6ac38ffec8dad72f067d083104a39a99529b) to busybox [uchaosys](https://github.com/robang74/busybox) edition, `/bin/uzcat` is created as applet and its link signals that it can by magic-number auto-detection decompress any supported format by busybox. This allows `uzpexec` as stub to work "seamless" with any compression format (gz, bz2, xz, lzma) without further customisation, while the uncompressing algorithms are already embedded in BusyBox.
+Integrating [#37ab6ac38](https://github.com/robang74/busybox/commit/37ab6ac38ffec8dad72f067d083104a39a99529b) (0.1Kb) to busybox [uchaosys](https://github.com/robang74/busybox) edition, `/bin/uzcat` is created as applet and its link signals that it can by magic-number auto-detection decompress any supported format by busybox. This allows `uzpexec` as stub to work "seamlessly" with any compression format (gz, bz2, xz, lzma) without further customisation, while the uncompressing algorithms are already included in BusyBox.
+
+Moreover, by the integration of the `/bin/uxsh` applet (0.4Kb) in BusyBox, the `uzpexec` should no longer care about carrying the proper interpreter full path when it stubs as a launcher script. Calling directly `/bin/uxsh` the shebang line will be used to call the defined interpreter. This applet isn't strictly necessary because `binfmt_script` might be missing in some embedded or lightweight systems.
 
 ---
 
