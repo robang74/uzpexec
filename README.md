@@ -166,6 +166,10 @@ du -b hello.py*
 
 While before v0.95, supporting phython scripts was possible ony by system changes like configuring the `/bin/sh` or Linux `binfmt` to properly routing properly shebang-ed scripts to their own interpreter.
 
+### BusyBox support
+
+Adding 6 bytes extra [#37ab6ac38](https://github.com/robang74/busybox/commit/37ab6ac38ffec8dad72f067d083104a39a99529b) to busybox [uchaosys](https://github.com/robang74/busybox) edition, `/bin/uzcat` is created as applet and its link signals that it can by magic-number auto-detection decompress any supported format by busybox. This allows `uzpexec` as stub to work "seamless" with any compression format (gz, bz2, xz, lzma) without further customisation, while the uncompressing algorithms are already embedded in BusyBox.
+
 ---
 
 ### Example #1
