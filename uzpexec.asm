@@ -273,7 +273,7 @@ parent:
   ;   often require standard read/write descriptors or create temporary
   ;   files, meaning write-restricted seals could break compatibility.
   ; ----------------------------------------------------------------------------
-.fail
+.fail:
 ; 2p. Sealing the memfd/ELF in RO mode, for security and integrity
   push 92                      ; SYS_fcntl (security, set eax in full)
   pop eax
