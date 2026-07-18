@@ -75,14 +75,12 @@ In a standalone mode, it can convert itself in `uzpack` and it becomes self-host
 
 ### Current release
 
-Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.95** on the `master` branch.
+Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.96** on the `master` branch.
 
-- In non-interactive environments like Makefile, `/proc/self/exe` works
-- Converting scripts others than shell is actually an customisation option
-- `waitpid()` on a long `zcat` can return `-EINTR`, gets detected and retries
-- `execve()` fallback added for a specific `qemu` userland bug (also in 10.2.3)
+- It executes in a `pgrep`-friendly way, using `argv[0]` as process name.
+- Last release supporting rarest system cases by `uzpexec` customisation.
 
-The above features have been added, providing a broader deployability and fixing relevant corner cases.
+Next release aims to keep the `uzpexec` fix and relies on system standards like `binfmt_script`, zutils `zcat` and busybox `zcat` seamless decompression, offering lightweight alternatives for system customisation.
 
 ### Notes
 

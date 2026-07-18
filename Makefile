@@ -16,7 +16,7 @@ SRCDIR     = $(DATADIR)/src
 # -----------------------------------------------------------------------------
 # Package metadata
 # -----------------------------------------------------------------------------
-VERSION   ?= 0.95
+VERSION   ?= 0.96
 PKGNAME    = uzpexec
 FILENME    = $(PKGNAME)-$(VERSION)
 ARCH       = $(shell dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null || uname -m)
@@ -46,7 +46,7 @@ ZDDCMD    := dd if=hello.gz.sh skip=1 | zcat
 GITMPLOG  := deb/changes.log
 
 define version_change
-	sed -e "s,\(github/robang74 \)v[0-9.]\{4\},\1v$1," \
+	sed -e "s,\(github/robang74[^ ]* \)v[0-9.]\{4\},\1v$1," \
 	    -e "s,\(Version[:?= ]*\)[0-9.]\{4\},\1$1,I" -i $(VERSNED)
 	sed -e "s,^v[0-9.]\{4\},v$1," -i uzpack.md
 	sed -e  "s,v[0-9.]\{4\},v$1," -i uzpack.1
