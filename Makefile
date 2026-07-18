@@ -348,6 +348,10 @@ _testb: hiarm64 hlx86gz
     $(armloadr) \
       ./hlx86gz $${WORLD:-nice}; printf "\tret: $$?\n"
 	@echo
+#	cp -af uzarm64 hello.pyz
+#	gzip -9c hello.py >> hello.pyz
+#	$(armloadr) -d strace ./hello.pyz
+#	@echo
 	./uzarm64 <&- 2>&- | sed -e "s/^/    /" | grep robang74
 	@echo
 	@rm -f uzarm64
