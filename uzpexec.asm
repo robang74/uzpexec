@@ -293,7 +293,7 @@ parent:
 
   pop ecx                      ; buf <-- p::stack { commd_exe, 0 }
 %ifdef _DO_SCRIPT
-  ; The memfd content is cached in RAM, thus read() is atomic: 4B or -ERRNO
+  ; The memfd content is cached in RAM, thus read() is atomic: 4 or -ERRNO
   ; 4p. Read the first uncompressed 4 bytes (just two for the shebang)
   mov al, 3                    ; SYS_read
   mov dl, 4                    ; count = 4, EDX
@@ -409,7 +409,7 @@ child:
   test eax, eax
   js exit_error
 
-  ; 3c. Execute zcat passing "-f" when reading from the STDIN (**)
+  ; 3c. Execute zcat passing "-f" when detecting a gzip input
   push 11                      ; SYS_execve
   pop eax
 
@@ -451,7 +451,7 @@ exit_error:
   pop edx
   push  4                       ; SYS_write
   pop eax
-  push  2                       ; stderr
+  push  1                       ; stdout
   pop ebx
   int 0x80
 
