@@ -473,7 +473,9 @@ copy_vers:  db "(c) github/robang74/uzpexec v0.96 "             ;  34 | 34 |  34
 provider :  db      "12345678", 0x0a, 0                         ;  10 | 10 |  10
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0 ;  21 | 42 |  21
 ; following fields are conditionally overwritable, do unions    :  ---------  65
+%ifdef _DO_SCRIPT
 do_script:  db "/bin/sh", 0, 0, 0,0,0, 0,0,0,0   ; for shell    :  16 |  - |  21
+%endif
 eof_tests:  db "U238", 0                         ; for tests    :   5 |  - |   -
 ; This introduces the need of having the /proc mounted, granted after the /init
 ; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
