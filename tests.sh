@@ -134,7 +134,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/be4559df9947058a0387e4feff475edadd2064be/$bin OK/" |
+sed "s/b9ccfb53d08f50565fde1fe28c9c45ddf4207eb5/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################

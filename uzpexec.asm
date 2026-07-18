@@ -291,10 +291,11 @@ parent:
   xor edx, edx                 ; SEEK_SET = 0
   int 0x80
 
+  pop ecx                      ; buf <-- p::stack { commd_exe, 0 }
+%ifdef _DO_SCRIPT
   ; The memfd content is cached in RAM, thus read() is atomic: 4B or -ERRNO
   ; 4p. Read the first uncompressed 4 bytes (just two for the shebang)
   mov al, 3                    ; SYS_read
-  pop ecx                      ; buf <-- p::stack { commd_exe, 0 }
   mov dl, 4                    ; count = 4, EDX
   int 0x80
 
@@ -313,6 +314,13 @@ parent:
   xor ecx, ecx                 ; offset = 0
   xor edx, edx                 ; SEEK_SET = 0
   int 0x80
+%else
+  ; ----------------------------------------------------------------------------
+  ; BINFMT MODE
+  ; ----------------------------------------------------------------------------
+  ; 1s. leverage the kernel/syste binfmt_script to exec scripts directly
+  jmp .execute_elf
+%endif
 
   ; 2s. Duplicate the memfd on the FD n.9, an arbitrary high id-number.
   ;     Initially, !noclosing FD=5 from the parent and run on it as-is
