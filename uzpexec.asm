@@ -352,12 +352,16 @@ parent:
   mov dword [ebx+11], 0x392f6466 ; writes "fd/9" at the end of commd_exe
   mov dword [esp], ebx           ; replace argv[1] with "/proc/self/fd/9"
   mov edx, ebp                   ; envp (intact from main_start)
+%ifdef _DO_SCRIPT
   shr di, 8                      ; branch selector: di=0x1000 (execveat path)
   jnz .backfall                  ; di=fd (normal path), continue with script
   add ebx, do_script-commd_exe
   push dword ebx                 ; argv[0] = "/bin/sh"
   lea ecx, [esp]
   push dword ebx                 ; spacer: aligns argv[1] with commd_exe
+%else
+  jmp .backfall
+%endif
 
 .here:
   ; basic operations for calling the execve()
