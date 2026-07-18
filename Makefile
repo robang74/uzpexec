@@ -75,6 +75,9 @@ JE_STDIN ?= _DO_STDIN
 JE_FORCE ?= _DO_FORCE
 JE_EXTRA ?= _NO_EXTRA
 JE_EXCVE ?= _N_EXECVE
+JE_SCRPT ?= _N_SCRIPT
+
+nasm_opts := -d$(JE_STDIN) -d$(JE_FORCE) -d$(JE_EXTRA) -d$(JE_EXCVE) -d$(JE_SCRPT)
 
 all: $(BINS)
 
@@ -91,7 +94,7 @@ gzcmd.gz.sh: gzcmd.sh
 uzpexec: uzpexec.asm
 	@echo ====== compile $^ ======
 	@echo
-	nasm -d$(JE_STDIN) -d$(JE_FORCE) -d$(JE_EXTRA) -d$(JE_EXCVE) -O2 -f bin $^ -o $@
+	nasm $(nasm_opts) -O2 -f bin $^ -o $@
 	@chmod +x $@
 	ln -sf uzpack.1 uzpexec.1
 	file $@ | sed -e 's/V), s/V),\n\ts/'
@@ -251,6 +254,7 @@ armuqemu := qemu-aarch64-static
 armloadr := $(shell which $(armuqemu))
 armflags := --defsym $(JE_STDIN)=1 --defsym $(JE_FORCE)=1
 armflags += --defsym $(JE_EXTRA)=1 --defsym $(JE_EXCVE)=1
+armflags += --defsym $(JE_SCRPT)=1
 
 hix86gz: uzprm64 hello
 	rm -f $@

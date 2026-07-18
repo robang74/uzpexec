@@ -344,11 +344,9 @@ parent:
   ; 3s. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
   mov al, 11                     ; SYS_execve
 
-
   ; In-place stack manipulation using ESP (argv is at [esp]):
   ; ["/bin/sh", "/proc/self/fd/9", original_args ...]
   pop ebx                        ; commd_exe <-- p::stack { 0 }
-; mov ebx, commd_exe
   mov dword [ebx+11], 0x392f6466 ; writes "fd/9" at the end of commd_exe
   mov dword [esp], ebx           ; replace argv[1] with "/proc/self/fd/9"
   mov edx, ebp                   ; envp (intact from main_start)
@@ -472,17 +470,17 @@ exit_error:
 copy_vers:  db "(c) github/robang74/uzpexec v0.96 "             ;  34 | 34 |  34
 provider :  db      "12345678", 0x0a, 0                         ;  10 | 10 |  10
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0 ;  21 | 42 |  21
-; following fields are conditionally overwritable, do unions    :  ---------  65
 %ifdef _DO_SCRIPT
-do_script:  db "/bin/sh", 0, 0, 0,0,0, 0,0,0,0   ; for shell    :  16 |  - |  21
+do_script:  db "/bin/sh", 0, 0, 0,0,0, 0,0,0,0   ; for shell    :   - |  - |  21
 %endif
+; following fields are conditionally overwritable, do unions    :  65 ------  76
 eof_tests:  db "U238", 0                         ; for tests    :   5 |  - |   -
 ; This introduces the need of having the /proc mounted, granted after the /init
 ; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
 commd_exe:  db "/proc/self/exe", 0,0                            ;  16 | 16 |  16
 force_arg:  db "-f", 0                           ; for zcat     :   3 |  3 |   3
 ;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  40
-;                                                               : 105 (tot.) 105
+;                                                               :  89 (tot.) 105
 
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
