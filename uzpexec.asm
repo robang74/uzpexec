@@ -239,26 +239,38 @@ main_start:
   ; PARENT PROCESS ( p::stack { [memfd], buf, commd_exe, 0 } )
   ; ============================================================================
 parent:
-  ; 1p. The parent waits for the child completes zcat writing in memfd
+  ; 1p. Rewind memfd at the starting point to check for the shebang script
+  push 19                      ; SYS_lseek
+  pop eax
+; mov ebx, [memfd]             ; EBX = memfd, already
+; xor ecx, ecx                 ; offset = 0
+  xor edx, edx                 ; SEEK_SET = 0
+  int 0x80
+
+  ; 2p. Closing the real file once read in full, also for safety,
+  ;     but fd is RD_ONLY so we can save bytes here, avoiding it.
+  ;     Expecially because with O_CLOEXEC, it lasts just a little
+%if 0; def _DO_CLOSE           ; proved to be useless
+  test edi, edi
+  jz .skip_close
+  mov al, 6                     ; SYS_close
+  mov ebx, edi
+  int 0x80
+.skip_close:
+%endif
+
+  ; 3p. The parent waits for the child completes zcat writing in memfd
+.do_loop:
   push 7                       ; SYS_waitpid
   pop eax
   xor ebx, ebx
   dec ebx                      ; = -1, every child
 ; xor ecx, ecx                 ; =  0, already reset above
-  xor edx, edx                 ; =  0, already? no when from stdin
+; xor edx, edx                 ; =  0, already? no when from stdin
   int 0x80
   cmp eax, -4
-  je parent                    ; -EINTR, try again
+  je .do_loop                  ; -EINTR, try again
 
-  ; 2p. Closing the real file once read in full, also for safety,
-  ;     but fd is RD_ONLY so we can save bytes here, avoiding it.
-  ;     Expecially because with O_CLOEXEC, it lasts just a little
-  ; test edi, edi
-  ; jz .memfd_rwd
-  ; push 6                     ; SYS_close
-  ; pop eax
-  ; mov ebx, edi
-  ; int 0x80
   ; ----------------------------------------------------------------------------
   ; HARDENING: F_ADD_SEALS TO MEMFD
   ;
@@ -274,22 +286,14 @@ parent:
   ;   files, meaning write-restricted seals could break compatibility.
   ; ----------------------------------------------------------------------------
 .fail:
-; 2p. Sealing the memfd/ELF in RO mode, for security and integrity
+; 4p. Sealing the memfd/ELF in RO mode, for security and integrity
   push 92                      ; SYS_fcntl (security, set eax in full)
   pop eax
-; mov ebx, [memfd]             ; EBX = memfd, already
+  pop ebx                      ; [memfd] <-- p::stack { buf, commd_exe, 0 }
   mov ecx, 1033                ; ECX = F_ADD_SEALS (0x0409)
   ; F_SEAL_WRITE | F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL = 15 (0x0f)
   mov dl, 15                   ; EDX = 0x0f, sealed in full
   int 0x80                     ; ELF hardening provided in best effort
-
-  ; 3p. Rewind memfd at the starting point to check for the shebang script
-  push 19                      ; SYS_lseek
-  pop eax
-  pop ebx                      ; [memfd] <-- p::stack { buf, commd_exe, 0 }
-  xor ecx, ecx                 ; offset = 0
-  xor edx, edx                 ; SEEK_SET = 0
-  int 0x80
 
   pop ecx                      ; buf <-- p::stack { commd_exe, 0 }
 %ifdef _DO_SCRIPT
@@ -340,6 +344,12 @@ parent:
   push 9                       ; file descriptor
   pop ecx
   int 0x80
+
+%if 0; def _DO_CLOSE           ; proved to be useless
+  mov al, 6                    ; SYS_close
+; mov ebx, [memfd]             ; already set
+  int 0x80
+%endif
 
   ; 3s. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
   mov al, 11                     ; SYS_execve
