@@ -277,7 +277,7 @@ and the static data stored in the bottom part: 320 bytes are two 160 chars
 GSM-era SMS with 8 bit/char text encoding, just to have an idea of the size.
 
 ```
- RAM ADDRESS        Stub/Payload 512 bytes         DISK SIZE
+ RAM ADDRESS      Stub/Payload 512 bytes, v0.95    DISK SIZE
 
  0x08048000 -- +---------------------------------+ -- 0x0000
                |  ELF Header          |   52 B   |
