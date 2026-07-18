@@ -122,6 +122,11 @@ echo "Strings output:"
   ./$bin <&-
   retprt
 
+  rm -f uzpexec; make JE_SCRPT=_DO_SCRIPT uzpexec >/dev/null
+  echo "Code size when _DO_SCRIPT compiled:"
+  n=$(grep --color=never -abo "$eof_str" $bin | cut -f1 -d:)
+  printf "\t%d bytes\n\n" $(( ${n:--$eof_len} + $eof_len ))
+
   echo "====== ARGS TO PASS (x2) ======"
 
   echo
@@ -134,7 +139,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/285ae6030d8f760f9fbb2ae298be1ce733090423/$bin OK/" |
+sed "s/a67ff4877242148ad6a2d75d3eb593f10fcb4131/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################

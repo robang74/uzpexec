@@ -189,7 +189,7 @@ main_start:
 ;
 ; https://github.com/robang74/uzpexec/blob/devel/
 ;                                    /doc/the-x86-asm-eintr-dilemma-question.txt
-; ------------------------------------------------------------------------------   
+; ------------------------------------------------------------------------------
   mov al, 3                    ; SYS_read
   mov ebx, edi                 ; input fd
   int 0x80
@@ -246,7 +246,7 @@ parent:
   dec ebx                      ; = -1, every child
 ; xor ecx, ecx                 ; =  0, already reset above
   xor edx, edx                 ; =  0, already? no when from stdin
-  int 0x80   
+  int 0x80
   cmp eax, -4
   je parent                    ; -EINTR, try again
 
@@ -419,8 +419,12 @@ child:
 
   push 0                       ; end of envp/argv
 
-  cmp word [ecx], 0x8b1f       ; match Little-Endian per GZIP (0x1F, 0x8B)
-  jz .ok_force                 ; be strict on gzip input (no -f option)
+  ; 3c. allowing '-f' only when strictly necessary grants the running
+  ;     because inflating is equivalent to check a hash on the output
+  cmp  word [ecx], 0x2123      ; match shebang
+  jz .ok_force                 ; if '!#' use the '-f'
+  cmp dword [ecx], 0x464c457f  ; match ELF magic
+  jz .ok_force                 ; if ELF use the '-f'
   test edi, edi
 %ifdef _NO_FORCE
   jnz exit_error               ; the -f option could be completely excluded
