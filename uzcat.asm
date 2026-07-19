@@ -228,16 +228,15 @@ child:
   int 0x80
 
   ; Close original read end
+%ifdef _DO_CLOSE
   push 6                      ; SYS_close
   pop eax
 ; mov ebx, [esp]              ; pipefd[0]
   int 0x80
+%endif
 
-  ; Get selected decompressor (inherited from parent via COW)
+  ; Get selected decompressor
   mov ebx, edi
-  test ebx, ebx
-  jnz .exec_it
-  mov ebx, catcmd             ; fallback if somehow zero
 
 .exec_it:
   ; Execve the decompressor
@@ -255,8 +254,9 @@ child:
 ; ERROR HANDLING
 ; ==============================================================================
 exit_error:
-  mov eax, 1                  ; SYS_exit
-; mov ebx, 1                  ; exit code 1
+  mov ebx, eax                ; error from syscall
+  push 1                      ; SYS_exit
+  pop eax
   int 0x80
 
 ; ==============================================================================
