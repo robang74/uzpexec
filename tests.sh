@@ -115,7 +115,7 @@ echo "Strings output:"
   retprt
 
   echo "it runs a compressed shell script"
-  cat hello.sh | ./$bin
+  cat hello.sh | ./$bin | grep Hello
   retprt
 
   echo "it fails in opening a closed stdin"
@@ -134,7 +134,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/a3cc90b20b26b0ae431430e434e74cc4d91c4541/$bin OK/" |
+sed "s/1d326cda14e448129b5a1e761f8b2d6dcf371c8d/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################

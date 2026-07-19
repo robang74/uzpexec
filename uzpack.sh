@@ -29,6 +29,7 @@ ret=0
 rpl=0
 emb=0
 old=0
+opt=nc
 
 nme="uzpexec"
 cpy='(c) github/'"robang74/$nme v[^ ]* "
@@ -48,7 +49,7 @@ EsBEKdrQAZ1XcwgAAgAA
 " # END_OF_UZPAYLOAD ##################################################
 
 b64=$(command -v base64)
-gzc=$(command -v pigz gzip | head -n1)
+gzc=$(command -v pigz zopfli gzip | head -n1)
 
 grp() { strings | command grep --color=none "$@"; }
 get_copy() { grp -E "robang74|$nme" | tr '\n' ' ' | grp "$cpy"; }
@@ -65,7 +66,7 @@ gt_plbody() { dd if="${1:-$bin}" count=1 status=none; }
 dd_zcarry() { dd if="${1:-$bin}"  skip=1 status=none; }
 dd_gtcopy() { gt_plbody ${1:-$bin} | get_copy ; }
 dd_gtpack() { dd_gtcopy ${1:-$bin} | grep -q .; }
-dd_gtuzip() { dd_zcarry ${1:-$bin} | $gzc -dc ; }
+dd_gtuzip() { dd_zcarry ${1:-$bin} | $gzc -dc; }
 
 # ==============================================================================
 # SHELL SCRIPT COMMANDS EXECUTION -- ABOVE ONLY DEFINITIONS
@@ -130,9 +131,15 @@ case "${1:-}" in
   -u|--update)
       echo "WARNING: option '-u' updates the script payload (dev onnly)" >&2
       shift
+      lvl=-11
       upd=1
       ;;
 esac
+
+# The standard gzip hasn't -11 but pigz
+echo "$gzc$lvl" | grep -q "gzip-1[0-9]" && lvl=-9
+# Zopli doesn't support nor need '-n'
+echo "$gzc-$opt" | grep -q "zopfli-nc" && opt=c
 
 while [ $ext -eq 0 ]; do
     {
@@ -146,7 +153,7 @@ while [ $ext -eq 0 ]; do
         echo "ERROR: neither pigz nor gzip is available in path." >&2
         ret=1; break
     fi
-    printf "Notice: using '%s' compression level" "$(basename "$gzc")"  >&2
+    printf "Notice: using '%s -%s' compression level" "$(basename "$gzc")" $opt >&2
     printf "set to '$lvl' (default: '${GZIPLVL:-}')\n"  >&2
 
     if [ $upd -ne 0 ]; then
@@ -161,7 +168,7 @@ while [ $ext -eq 0 ]; do
         hf1=$(cat "$0" | head -n  $srt)
         end=$((end-1))
         hf2=$(tac "$0" | head -n -$end | tac)
-        pld=$(pigz -11nmOc $bin | base64 -w 71)
+        pld=$($gzc -$opt $bin | base64 -w 71)
         printf "%s\n%s\n%s\n" "$hf1" "$pld" "$hf2" >"$0".tmp
         trap "mv -f '$0'.tmp '$0'" EXIT
         echo "Successfully updated: $bin --> $0"
@@ -234,7 +241,7 @@ while [ $ext -eq 0 ]; do
     fi
 
     # Append the compressed payload onto the newly built self-extracting file
-    _l1_cmd() { $gzc -c "$@"; }
+    _l1_cmd() { $gzc -$opt "$@"; }
     if [ $rpl -eq 0 ]; then
         _l2_cmd() { _l1_cmd ${lvl:-${GZIPLVL:-}} "$@"; }
     elif [ -n "$lvl" ]; then

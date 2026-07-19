@@ -150,7 +150,7 @@ Using `sed` to change the interpreter from `/bin/sh` to every other available in
 rm -f uzpexec; make uzpexec
 bin="hello.py"; export WORLD="Wonderful"
 sed -e "s,bin/sh\x00\{5\},bin/python3," uzpexec > ${bin}z
-gzip -11c $bin >>${bin}z && chmod +x ${bin}z && ./${bin}z Nice
+gzip -9c $bin >> ${bin}z && chmod +x ${bin}z && ./${bin}z Nice
 
   Hello Nice World!
   lsfd: 0 1 2 3 9
@@ -160,7 +160,7 @@ gzip -11c $bin >>${bin}z && chmod +x ${bin}z && ./${bin}z Nice
 
 du -b hello.py*
   1370	hello.py
-  1235	hello.pyz <-- the output is smaller than original
+  1247	hello.pyz <-- the output is smaller than original
 ```
 
 While before v0.95, supporting phython scripts was possible ony by system changes like configuring the `/bin/sh` or Linux `binfmt` to properly routing properly shebang-ed scripts to their own interpreter.
