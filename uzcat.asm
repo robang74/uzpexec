@@ -164,6 +164,7 @@ main_start:
 
 .str_create:
   lea edi, [cmdstr + 5]       ; EDI points after "/bin/"
+  mov dword ebx, [edi]        ; EBX saves "cat\0"
 
 .copy_loop:
   lodsb                       ; AL = [ESI], ESI++
@@ -172,7 +173,7 @@ main_start:
   jnz .copy_loop              ; continue until '\0'
 
   dec edi
-  mov dword [edi], 0x00746163 ; append 'cat\0'
+  mov dword [edi], ebx        ; append 'cat\0'
 ; ------------------------------------------------------------------------------
   jmp .store_cmd
 
