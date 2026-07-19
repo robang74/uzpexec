@@ -98,7 +98,7 @@ magics:
   dw 0x8b1f, 0x37fd, 0x5a4c, 0x5a42, 0x4d18, 0x4c89, 0x7a6c, 0xb528
 magic_count equ 8
 
-; Vettore stringhe (9 × 14 byte), padding con 0
+; Vettore stringhe (8 × 14 byte), padding con 0
 paths:
   db "/bin/zcat", 0, 0, 0, 0
   db "/bin/xzcat", 0, 0, 0
@@ -139,9 +139,25 @@ main_start:
   cmp eax, 4
   jl .use_cat                 ; less than 4 bytes, use cat
 
-  ; Determine decompressor from magic
+; ------------------------------------------------------------------------------
+; Determine decompressor from magic
+; Input : EAX = magic number (first 4 bytes of file, little-endian)
+; Output: EAX = pointer to decompressor command string (cat, if no match)
+; ------------------------------------------------------------------------------
   mov eax, [buf]
-  call find_decompressor      ; returns EAX = pointer to decompressor string
+.find_cmd:
+  mov ecx, magic_count
+  mov edx, magics
+  mov esi, paths
+.loop_cmd:
+  cmp ax, [edx]       ; it compares the first 2 bytes
+  je .found_cmd
+  add edx, 2          ; move forward on magics
+  add esi, 14         ; move forward on commands
+  loop .loop_cmd
+.found_cmd:           ; cat_cmd is set at the end of loop of strings 
+  mov eax, esi
+; ------------------------------------------------------------------------------
   jmp .store_cmd
 
 .use_cat:
@@ -289,39 +305,6 @@ do_exit:
   push 1                      ; SYS_exit
   pop eax
   int 0x80
-
-; ==============================================================================
-; FIND DECOMPRESSOR
-; Input: EAX = magic number (first 4 bytes of file, little-endian)
-; Output: EAX = pointer to decompressor command string (cat, if no match)
-; ==============================================================================
-find_decompressor:
-  push ecx
-  push edx
-  mov ecx, magic_count
-  mov edx, magics
-  mov esi, paths
-  
-.loop:
-  cmp ax, [edx]       ; confronta solo i primi 2 byte
-  je .found
-  add edx, 2          ; salta di 2 byte (dword)
-  add esi, 14
-  loop .loop
-
-%if 0                 ; useless, cat_cmd is set at the end of loop of strings 
-  push 0
-  pop eax
-  jmp .done
-%endif
-
-.found:
-  mov eax, esi
-  
-.done:
-  pop edx
-  pop ecx
-  ret
 
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes
