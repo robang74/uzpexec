@@ -108,7 +108,6 @@ paths:
   db "/bin/lzopcat", 0
   db "/bin/lzfscat", 0
   db "/bin/zstdcat", 0
-
 catcmd:
   db "/bin/cat", 0, 0
 
@@ -146,7 +145,9 @@ main_start:
   jmp .store_cmd
 
 .use_cat:
-  mov eax, catcmd
+  push dword 1
+  push dword 0
+  jmp parent.do_cat
 
 .store_cmd:
   mov edi, eax                ; store BEFORE fork (child inherits via COW)
@@ -158,7 +159,7 @@ main_start:
   pop eax
   int 0x80
   test eax, eax
-  js exit_error
+  js do_exit
 
   ; Fork
   push 2                      ; SYS_fork
@@ -179,6 +180,8 @@ parent:
   int 0x80
 %endif
 
+.do_cat:                      ; cat *.iso | ./uzcat -f  | dd bs=1M of=/dev/null
+                              ; dd: 93 MB (88 MiB) copied, 0.0638537s, 1.5 GB/s
   ; Write first 4 bytes (already in buf) to pipe
   push 4                      ; bytes already read, to write
   pop eax
@@ -208,10 +211,14 @@ parent:
   cmp eax, -4                 ; check for -EINTR (if any, ever)
   je .pump_loop               ; continue
 %endif
-  js exit_error
+  js do_exit
   jmp .pump_loop              ; continue
   
 .done:
+  mov eax, [esp]
+  test eax, eax
+  jz do_exit                  ; after do_cat, do_exit
+
   ; Close the writing pipe to send EOF to the child
   push 6                      ; SYS_close
   pop eax
@@ -277,7 +284,7 @@ child:
 ; ==============================================================================
 ; ERROR HANDLING
 ; ==============================================================================
-exit_error:
+do_exit:
   mov ebx, eax                ; error from syscall
   push 1                      ; SYS_exit
   pop eax
@@ -286,7 +293,7 @@ exit_error:
 ; ==============================================================================
 ; FIND DECOMPRESSOR
 ; Input: EAX = magic number (first 4 bytes of file, little-endian)
-; Output: EAX = pointer to decompressor command string (catcmd if no match)
+; Output: EAX = pointer to decompressor command string (cat, if no match)
 ; ==============================================================================
 find_decompressor:
   push ecx
@@ -301,10 +308,13 @@ find_decompressor:
   add edx, 2          ; salta di 2 byte (dword)
   add esi, 14
   loop .loop
-  
-  mov eax, catcmd
+
+%if 0                 ; useless, cat_cmd is set at the end of loop of strings 
+  push 0
+  pop eax
   jmp .done
-  
+%endif
+
 .found:
   mov eax, esi
   
@@ -322,6 +332,7 @@ file_end:                       ; Physical end of the binary file!
 ; ==============================================================================
 ; BSS SECTION (RAM only, aligned to 512 bytes)
 ; ==============================================================================
+section .bss align=8
 bss_start equ $$ + 512
 
 buf       equ bss_start         ; Only variable needed besides the buffer
