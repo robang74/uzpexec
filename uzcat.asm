@@ -89,27 +89,29 @@ phdr:
   ; WRX is the least of your troubles, but uzpexec as obscenely-powerful tool.
 
 ; ==============================================================================
-; PREDEFINED VALUE
+; VECTORS DEFINITION
 ; ==============================================================================
 
-; Vettore magic numbers (8 × 2 byte)
+; Size of the vectors
+vect_size equ 8
+
+; The magics vector (8 × 2 byte)
 magics:
 ;      gzip,     xz,   lzip,  bzip2,    lz4,   lzop,   lzfs,   zstd
   dw 0x8b1f, 0x37fd, 0x5a4c, 0x5a42, 0x4d18, 0x4c89, 0x7a6c, 0xb528
-magic_count equ 8
 
-; Vettore stringhe (8 × 14 byte), padding con 0
+; The strings vector (8 × 8 byte)
 paths:
-  db "/bin/zcat", 0, 0, 0, 0
-  db "/bin/xzcat", 0, 0, 0
-  db "/bin/lzcat", 0, 0, 0
-  db "/bin/bzcat", 0, 0, 0
-  db "/bin/lz4cat", 0, 0
-  db "/bin/lzopcat", 0
-  db "/bin/lzfscat", 0
-  db "/bin/zstdcat", 0
-catcmd:
-  db "/bin/cat", 0, 0
+  db "zcat", 0,0,0,0
+  db "xzcat", 0,0,0
+  db "lzcat", 0,0,0
+  db "bzcat", 0,0,0
+  db "lz4cat", 0,0
+  db "lzopcat", 0
+  db "lzfscat", 0
+  db "zstdcat", 0
+cmdstr:
+  db "/bin/cat", 0, 0,0,0,0, 0,0,0
 
 ; ==============================================================================
 ; CODE
@@ -145,18 +147,29 @@ main_start:
 ; Output: EAX = pointer to decompressor command string (cat, if no match)
 ; ------------------------------------------------------------------------------
   mov eax, [buf]
+
 .find_cmd:
-  mov ecx, magic_count
+  mov ecx, vect_size
   mov edx, magics
   mov esi, paths
+
 .loop_cmd:
-  cmp ax, [edx]       ; it compares the first 2 bytes
-  je .found_cmd
-  add edx, 2          ; move forward on magics
-  add esi, 14         ; move forward on commands
+  cmp ax, [edx]               ; it compares the first 2 bytes
+  je .str_create
+  add edx, 2                  ; move forward on magics
+  add esi, 14                 ; move forward on commands
   loop .loop_cmd
-.found_cmd:           ; cat_cmd is set at the end of loop of strings 
-  mov eax, esi
+                              ; cmdstr is at the end of loop of strings,
+  jmp .use_cat                ; but it is not used, instead do_cat I/O
+
+.str_create:
+  lea edi, [cmdstr + 5]       ; EDI points after "/bin/"
+
+.copy_loop:
+  lodsb                       ; AL = [ESI], ESI++
+  stosb                       ; [EDI] = AL, EDI++
+  test al, al
+  jnz .copy_loop              ; continue until '\0'
 ; ------------------------------------------------------------------------------
   jmp .store_cmd
 
@@ -166,7 +179,7 @@ main_start:
   jmp parent.do_cat
 
 .store_cmd:
-  mov edi, eax                ; store BEFORE fork (child inherits via COW)
+; mov edi, eax                ; store BEFORE fork (child inherits via COW)
 
   ; Create pipe: pipefd[2] on stack
   sub esp, 8
@@ -198,7 +211,7 @@ parent:
 
 .do_cat:                      ; cat *.iso | ./uzcat -f  | dd bs=1M of=/dev/null
                               ; dd: 93 MB (88 MiB) copied, 0.0638537s, 1.5 GB/s
-  ; Write first 4 bytes (already in buf) to pipe
+  ; Write first 4 bytes, already read in buf, to pipe
   push 4                      ; bytes already read, to write
   pop eax
 
@@ -283,7 +296,7 @@ child:
 %endif
 
   ; Get selected decompressor
-  mov ebx, edi
+  mov ebx, cmdstr
 
 .exec_it:
   ; Execve the decompressor
