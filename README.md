@@ -149,15 +149,16 @@ It works as a single block 512-bytes self-inflating executable payload replacing
 Using `sed` to change the interpreter from `/bin/sh` to every other available interpreter, the `uzpexec` can inflate and execute also non-shell scripts. Packaging a `.pyz` is a trivial procedure:
 
 ```sh
-bin=hello.py
+rm -f uzpexec; make uzpexec
+bin="hello.py"; export WORLD="Wonderful"
 sed -e "s,bin/sh\x00\{5\},bin/python3," uzpexec > ${bin}z
-gzip -11c $bin >>${bin}z && chmod +x ${bin}z && ./${bin}z
+gzip -11c $bin >>${bin}z && chmod +x ${bin}z && ./${bin}z Nice
 
-    Hello World!
-    lsfd: 0 1 2 3 4 9
-    args: ''
-    HOME: '/home/roberto'
-    WORLD: ''
+  Hello Nice World!
+  lsfd: 0 1 2 3 9
+  args: 'Nice'
+  HOME: '/home/roberto'
+  WORLD: 'Wonderful'
 
 du -b hello.py*
   1370	hello.py
@@ -215,7 +216,7 @@ The alternatives that are natively compatible with `-f -` are fully supported.
 ; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
 ; in do_script mode the 2 paths shrink to 20 chars + ending \0
 ;                                                                  LN | XE |  SH
-copy_vers:  db "(c) github/robang74/uzpexec v0.95 "             ;  34 | 34 |  34
+copy_vers:  db "(c) github/robang74/uzpexec v0.96 "             ;  34 | 34 |  34
 provider :  db      "12345678", 0x0a, 0                         ;  10 | 10 |  10
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0 ;  21 | 42 |  21
 ; following fields are conditionally overwritable, do unions    :  ---------  65
