@@ -154,7 +154,7 @@ main_start:
   mov eax, 2                  ; SYS_fork
   int 0x80
   test eax, eax
-  jz child
+  jz near child               ; FORCE near jump, child has EAX=0
 
 ; ==============================================================================
 ; PARENT PROCESS
@@ -199,7 +199,8 @@ parent:
   mov eax, 7                  ; SYS_waitpid
   xor ebx, ebx
   dec ebx                     ; -1 = any child
-  xor ecx, ecx
+  xor ecx, ecx                ; status = NULL
+  xor edx, edx                ; options = 0  <-- FIXED: reset EDX!
   int 0x80
 
   ; Exit with child's status
@@ -231,7 +232,11 @@ child:
 
   ; Get selected decompressor (inherited from parent via COW)
   mov ebx, [selected_cmd]
+  test ebx, ebx
+  jnz .exec_it
+  mov ebx, catcmd             ; fallback if somehow zero
 
+.exec_it:
   ; Execve the decompressor
   mov eax, 11                 ; SYS_execve
   ; ebx = command path already
@@ -269,17 +274,19 @@ find_decompressor:
   add esi, 16
   loop .loop
 
-  mov eax, catcmd
+  mov eax, catcmd             ; no match, return cat
   jmp .done
 
 .found:
-  mov eax, esi
+  mov eax, esi                ; return pointer to path string
 
 .done:
   pop edx
   pop ecx
   ret
 
+; ==============================================================================
+; DATA SECTION
 ; ==============================================================================
 section .data
 
