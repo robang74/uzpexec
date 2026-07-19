@@ -100,19 +100,19 @@ magics:
 ;      gzip,     xz,   lzip,  bzip2,    lz4,   lzop,   lzfs,   zstd
   dw 0x8b1f, 0x37fd, 0x5a4c, 0x5a42, 0x4d18, 0x4c89, 0x7a6c, 0xb528
 
-; The strings vector (8 × 8 byte)
+; The strings vector (8 × 5 byte)
 paths:
-  db "zcat", 0,0,0,0
-  db "xzcat", 0,0,0
-  db "lzcat", 0,0,0
-  db "bzcat", 0,0,0
-  db "lz4cat", 0,0
-  db "lzopcat", 0
-  db "lzfscat", 0
-  db "zstdcat", 0
+  db "z", 0,0,0,0
+  db "xz", 0,0,0
+  db "lz", 0,0,0
+  db "bz", 0,0,0
+  db "lz4", 0,0
+  db "lzop", 0
+  db "lzfs", 0
+  db "zstd", 0
 cmdstr:
-  db "/bin/cat", 0, 0,0,0,0, 0,0,0
-
+  db "/bin/cat", 0, 0,0,0,0   ; "/bin/cat" + "zstd" + '\0' = 13 bytes
+ 
 ; ==============================================================================
 ; CODE
 ; ==============================================================================
@@ -170,6 +170,9 @@ main_start:
   stosb                       ; [EDI] = AL, EDI++
   test al, al
   jnz .copy_loop              ; continue until '\0'
+
+  dec edi
+  mov dword [edi], 0x00746163 ; append 'cat\0'
 ; ------------------------------------------------------------------------------
   jmp .store_cmd
 
