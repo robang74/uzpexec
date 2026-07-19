@@ -261,20 +261,20 @@ find_decompressor:
   mov ecx, magic_count
   mov edx, magics
   mov esi, paths
-
+  
 .loop:
-  cmp eax, [edx]
+  cmp ax, [edx]       ; confronta solo i primi 2 byte
   je .found
-  add edx, 4
+  add edx, 4          ; salta di 4 byte (dword allineata)
   add esi, 16
   loop .loop
-
-  mov eax, catcmd             ; no match, return cat
+  
+  mov eax, catcmd
   jmp .done
-
+  
 .found:
-  mov eax, esi                ; return pointer to path string
-
+  mov eax, esi
+  
 .done:
   pop edx
   pop ecx
@@ -287,15 +287,15 @@ section .data
 
 ; Vettore magic numbers (9 × 4 byte)
 magics:
-    dd 0x1f8b0800       ; [0] gzip
-    dd 0xfd377a58       ; [1] xz
-    dd 0x4c5a4950       ; [2] lzip
-    dd 0x425a6839       ; [3] bzip2
-    dd 0x184d2204       ; [4] lz4
-    dd 0x894c5a4f       ; [5] lzop
-    dd 0x6c7a6673       ; [6] lzfs
-    dd 0x28b52ffd       ; [7] zstd
-    dd 0x4c525a49       ; [8] lrzip
+    dw 0x8b1f       ; gzip
+    dw 0x37fd       ; xz
+    dw 0x5a4c       ; lzip
+    dw 0x5a42       ; bzip2
+    dw 0x4d18       ; lz4
+    dw 0x4c89       ; lzop
+    dw 0x7a6c       ; lzfs
+    dw 0xb528       ; zstd
+    dw 0x524c       ; lrzip
 magic_count equ 9
 
 ; Vettore stringhe (9 × 16 byte), padding con 0
