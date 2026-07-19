@@ -106,16 +106,19 @@ echo "Strings output:"
     retprt; rm -f $fnm
   fi
 
-  echo "====== TESTS TO FAIL (x3) ======"
+  echo "====== TESTS FOR STDIN (X3) ======"
+  echo
 
+  echo "it runs a plain elf"
   cat $bin $LS | DD of=ls.elf &&
-  chmod +x ls.elf && ./ls.elf -1 ls.elf
+  chmod +x ls.elf && ./ls.elf -1 ls*
   retprt
 
-  echo try to run a compressed shell script
-  HI | ./$bin
+  echo "it runs a compressed shell script"
+  cat hello.sh | ./$bin
   retprt
 
+  echo "it fails in opening a closed stdin"
   ./$bin <&-
   retprt
 
@@ -131,7 +134,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/44da0f0109e5e6f9d154807b374ef848b0405d01/$bin OK/" |
+sed "s/a3cc90b20b26b0ae431430e434e74cc4d91c4541/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################

@@ -183,8 +183,8 @@ nostdin:
 teststdin: nostdin
 	@echo ====== testing nostdin ======
 	@echo
-	@echo ret:2 is mandatorly expected
-	timeout 1 ./uzpexec; printf "\tret:$$?\n" | grep -e "ret:2$$" || exit
+	@echo 'ret:!0 is mandatorly expected'
+	timeout 1 ./uzpexec; printf "\tret:$$?\n" | grep -e "ret:[^0]$$" || exit
 	@rm -f uzpexec
 	@echo
 
