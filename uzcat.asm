@@ -103,25 +103,10 @@ phdr:
 ; CODE
 ; ==============================================================================
 main_start:
-  ; Parse argv to check for -f flag (ignore it, we always behave like zcat -f)
-  pop eax                     ; argc
-  pop ebx                     ; argv[0] = program name
-  dec eax
-  jz .read_magic              ; no args, proceed to read magic
 
-  ; Check if argv[1] is "-f"
-  pop ecx                     ; argv[1]
-  cmp word [ecx], 0x662d      ; "-f" little-endian
-  jne .push_back
-  dec eax
-  jz .read_magic
-
-.push_back:
-  push ecx
-
-.read_magic:
   ; Read first 4 bytes from stdin for magic detection
   ; MUST happen BEFORE fork so child inherits correct file position
+.read_magic:
   mov eax, 3                  ; SYS_read
   xor ebx, ebx                ; stdin = 0
   mov ecx, buf
@@ -140,7 +125,7 @@ main_start:
   mov eax, catcmd
 
 .store_cmd:
-  mov [selected_cmd], eax     ; store BEFORE fork (child inherits via COW)
+  mov edi, eax     ; store BEFORE fork (child inherits via COW)
 
   ; Create pipe: pipefd[2] on stack
   sub esp, 8
@@ -154,7 +139,7 @@ main_start:
   mov eax, 2                  ; SYS_fork
   int 0x80
   test eax, eax
-  jz near child               ; FORCE near jump, child has EAX=0
+  jz child               ; FORCE near jump, child has EAX=0
 
 ; ==============================================================================
 ; PARENT PROCESS
@@ -163,13 +148,14 @@ parent:
   ; Close read end of pipe
   mov eax, 6                  ; SYS_close
   mov ebx, [esp]              ; pipefd[0]
-  int 0x80
+; int 0x80
 
   ; Write first 4 bytes (already in buf) to pipe
+  push  4                     ; SYS_write
+  pop eax
   mov ebx, [esp+4]            ; pipefd[1]
   mov ecx, buf
   mov edx, 4
-  mov eax, 4                  ; SYS_write
   int 0x80
 
 .pump_loop:
@@ -193,7 +179,7 @@ parent:
   ; Close write end of pipe
   mov eax, 6                  ; SYS_close
   mov ebx, [esp+4]            ; pipefd[1]
-  int 0x80
+; int 0x80
 
   ; Wait for child
   mov eax, 7                  ; SYS_waitpid
@@ -214,10 +200,19 @@ parent:
 ; CHILD PROCESS
 ; ==============================================================================
 child:
+  mov ecx, edi
+  push 16
+  pop edx
+  push  4                       ; SYS_write
+  pop eax
+  push  2                       ; stderr
+  pop ebx
+  int 0x80
+
   ; Close write end of pipe
   mov eax, 6                  ; SYS_close
   mov ebx, [esp+4]            ; pipefd[1]
-  int 0x80
+; int 0x80
 
   ; Dup2 read end to stdin
   mov eax, 63                 ; SYS_dup2
@@ -228,7 +223,7 @@ child:
   ; Close original read end
   mov eax, 6                  ; SYS_close
   mov ebx, [esp]              ; pipefd[0]
-  int 0x80
+; int 0x80
 
   ; Get selected decompressor (inherited from parent via COW)
   mov ebx, [selected_cmd]
