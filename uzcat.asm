@@ -3,39 +3,23 @@
 ;         ZF = 1 se trovata, 0 se fallback
 
 find_decompressor:
-    mov ecx, magic_count        ; 9 iterazioni
-    mov esi, magics             ; ESI = vettore magic
-    mov edi, paths              ; EDI = vettore stringhe
+    mov ecx, magic_count
+    mov esi, magics
+    mov edi, paths
 
 .loop:
-    cmp eax, [esi]              ; confronta magic
+    cmp eax, [esi]
     je .found
-    add esi, 4                  ; prossimo magic
-    add edi, 16                 ; prossima stringa
+    add esi, 4
+    add edi, 16
     loop .loop
 
-.fallback
-    sub esp, 16                 ; riserva spazio
-    push catcmd
-    jmp .dowork
+    mov eax, catcmd         ; fallback
+    ret
 
 .found:
-    mov esi, edi                ; ESI = puntatore a stringa trovata
-
-    ; copia stringa da ESI su stack
-    mov edi, esp
-    sub esp, 16                 ; riserva spazio
-    
-    push esi
-    push edi
-    mov ecx, 16
-
-.dowork
-    rep movsb                   ; copia 16 byte (inclusi padding 0)
-    pop edi
-    pop esi
-    
-    ; ora [esp] contiene il path, EDI punta al byte dopo
+    mov eax, edi            ; EAX = stringa trovata o fallback
+    ret
 
 ; ------------------------------------------------------------------------------
 section .data
