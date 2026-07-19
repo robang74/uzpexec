@@ -74,9 +74,9 @@ phdr:
 
   ; Security-by-Design VS Security-by-Subtraction
 
-  ; Because uzpexec contains no input parsing logic that could be corrupted and
-  ; its fixed 512-byte read loop cannot be overflowed, the writeable-executable
-  ; segment offers no exploitable attack vector. They are 1024 in aarm64 binary.
+  ; Because uzcat contains no input parsing logic that could be corrupted and
+  ; its fixed size read loop cannot be overflowed, the writeable-executable
+  ; segment offers no exploitable attack vector.
 
   ; Since the loader immediately forfeits control through atomic fork() / exec()
   ; or execveat() transitions that never return, an attacker cannot redirect
@@ -87,6 +87,30 @@ phdr:
   ; which means the R+W+X flag introduces zero additional risk.
 
   ; WRX is the least of your troubles, but uzpexec as obscenely-powerful tool.
+
+; ==============================================================================
+; PREDEFINED VALUE
+; ==============================================================================
+
+; Vettore magic numbers (8 × 2 byte)
+magics:
+;      gzip,     xz,   lzip,  bzip2,    lz4,   lzop,   lzfs,   zstd
+  dw 0x8b1f, 0x37fd, 0x5a4c, 0x5a42, 0x4d18, 0x4c89, 0x7a6c, 0xb528
+magic_count equ 8
+
+; Vettore stringhe (9 × 14 byte), padding con 0
+paths:
+  db "/bin/zcat", 0, 0, 0, 0
+  db "/bin/xzcat", 0, 0, 0
+  db "/bin/lzcat", 0, 0, 0
+  db "/bin/bzcat", 0, 0, 0
+  db "/bin/lz4cat", 0, 0
+  db "/bin/lzopcat", 0
+  db "/bin/lzfscat", 0
+  db "/bin/zstdcat", 0
+
+catcmd:
+  db "/bin/cat", 0, 0
 
 ; ==============================================================================
 ; CODE
@@ -172,7 +196,7 @@ parent:
 
   ; Read from stdin
   xor ebx, ebx                ; stdin
-  mov edx, 512                ; buffer size
+  mov edx, 3584               ; buffer size
 
   push 3                      ; SYS_read
   pop eax
@@ -290,41 +314,16 @@ find_decompressor:
   ret
 
 ; ==============================================================================
-; DATA SECTION
+; PADDING: Aligned exactly to 512 bytes
 ; ==============================================================================
-section .data
-
-; Vettore magic numbers (8 × 2 byte)
-magics:
-;        gzip,     xz,   lzip,  bzip2,    lz4,   lzop,   lzfs,   zstd
-    dw 0x8b1f, 0x37fd, 0x5a4c, 0x5a42, 0x4d18, 0x4c89, 0x7a6c, 0xb528
-magic_count equ 8
-
-; Vettore stringhe (9 × 14 byte), padding con 0
-paths:
-    db "/bin/zcat", 0, 0, 0, 0
-    db "/bin/xzcat", 0, 0, 0
-    db "/bin/lzcat", 0, 0, 0
-    db "/bin/bzcat", 0, 0, 0
-    db "/bin/lz4cat", 0, 0
-    db "/bin/lzopcat", 0
-    db "/bin/lzfscat", 0
-    db "/bin/zstdcat", 0
-
-catcmd:
-    db "/bin/cat", 0
+file_end:                       ; Physical end of the binary file!
+;times (512 - ($ - $$)) db 0    ; Padding for 512 bytes alignement
 
 ; ==============================================================================
-; FILE END
+; BSS SECTION (RAM only, aligned to 512 bytes)
 ; ==============================================================================
-file_end:
+bss_start equ $$ + 512
 
-; ==============================================================================
-; BSS SECTION (RAM only)
-; ==============================================================================
-section .bss
+buf       equ bss_start         ; Only variable needed besides the buffer
+bss_end   equ buf + 3584        ; buffer and binary in the same 4Kb memory page
 
-buf:
-  resb 516              ; 512 byte buffer + 4 bytes for magic
-
-bss_end:
