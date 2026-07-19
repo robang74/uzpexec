@@ -112,17 +112,14 @@ main_start:
   ; Check if argv[1] is "-f"
   pop ecx                     ; argv[1]
   cmp word [ecx], 0x662d      ; "-f" little-endian
-  jne .push_back
-  dec eax
-  jz .read_magic
-
-.push_back:
-  push ecx
+  je .read_magic
+  push ecx                    ; --> m::stack { "-f", 0 }
 
 .read_magic:
   ; Read first 4 bytes from stdin for magic detection
   ; MUST happen BEFORE fork so child inherits correct file position
-  mov eax, 3                  ; SYS_read
+  push 3                      ; SYS_read
+  pop eax
   xor ebx, ebx                ; stdin = 0
   mov ecx, buf
   mov edx, 4
@@ -140,43 +137,47 @@ main_start:
   mov eax, catcmd
 
 .store_cmd:
-  mov [selected_cmd], eax     ; store BEFORE fork (child inherits via COW)
+  mov edi, eax                ; store BEFORE fork (child inherits via COW)
 
   ; Create pipe: pipefd[2] on stack
   sub esp, 8
   mov ebx, esp                ; ebx = pipefd array
-  mov eax, 42                 ; SYS_pipe
+  push 42                     ; SYS_pipe
+  pop eax
   int 0x80
   test eax, eax
   js exit_error
 
   ; Fork
-  mov eax, 2                  ; SYS_fork
+  push 2                      ; SYS_fork
+  pop eax
   int 0x80
   test eax, eax
-  jz near child               ; FORCE near jump, child has EAX=0
+  jz child                    ; FORCE near jump, child has EAX=0
 
 ; ==============================================================================
 ; PARENT PROCESS
 ; ==============================================================================
 parent:
   ; Close read end of pipe
-  mov eax, 6                  ; SYS_close
+  push 6                      ; SYS_close
+  pop eax
   mov ebx, [esp]              ; pipefd[0]
   int 0x80
 
   ; Write first 4 bytes (already in buf) to pipe
+  push 4                      ; SYS_write
+  pop eax
+  mov edx, eax                ; = 4
   mov ebx, [esp+4]            ; pipefd[1]
   mov ecx, buf
-  mov edx, 4
-  mov eax, 4                  ; SYS_write
   int 0x80
 
 .pump_loop:
   ; Read from stdin
   mov eax, 3                  ; SYS_read
   xor ebx, ebx                ; stdin
-  mov ecx, buf
+; mov ecx, buf                ; already set
   mov edx, 512                ; buffer size
   int 0x80
   test eax, eax
@@ -184,30 +185,34 @@ parent:
 
   ; Write to pipe
   mov edx, eax                ; bytes read
-  mov eax, 4                  ; SYS_write
+  push 4                      ; SYS_write
+  pop eax
   mov ebx, [esp+4]            ; pipefd[1]
   int 0x80
   jmp .pump_loop
 
 .done:
   ; Close write end of pipe
-  mov eax, 6                  ; SYS_close
+  push 6                      ; SYS_close
+  pop eax
   mov ebx, [esp+4]            ; pipefd[1]
   int 0x80
 
   ; Wait for child
-  mov eax, 7                  ; SYS_waitpid
+  push 7                      ; SYS_waitpid
+  pop eax
   xor ebx, ebx
   dec ebx                     ; -1 = any child
   xor ecx, ecx                ; status = NULL
-  xor edx, edx                ; options = 0  <-- FIXED: reset EDX!
+  xor edx, edx                ; options = 0
   int 0x80
 
   ; Exit with child's status
   mov ebx, eax
   and ebx, 0xFF00
   shr ebx, 8                  ; extract exit status
-  mov eax, 1                  ; SYS_exit
+  push 1                      ; SYS_exit
+  pop eax
   int 0x80
 
 ; ==============================================================================
@@ -215,30 +220,33 @@ parent:
 ; ==============================================================================
 child:
   ; Close write end of pipe
-  mov eax, 6                  ; SYS_close
+  mov al, 6                   ; SYS_close
   mov ebx, [esp+4]            ; pipefd[1]
   int 0x80
 
   ; Dup2 read end to stdin
-  mov eax, 63                 ; SYS_dup2
+  push 63                     ; SYS_dup2
+  pop eax
   mov ebx, [esp]              ; pipefd[0]
   xor ecx, ecx                ; stdin = 0
   int 0x80
 
   ; Close original read end
-  mov eax, 6                  ; SYS_close
-  mov ebx, [esp]              ; pipefd[0]
+  push 6                      ; SYS_close
+  pop eax
+; mov ebx, [esp]              ; pipefd[0]
   int 0x80
 
   ; Get selected decompressor (inherited from parent via COW)
-  mov ebx, [selected_cmd]
+  mov ebx, edi
   test ebx, ebx
   jnz .exec_it
   mov ebx, catcmd             ; fallback if somehow zero
 
 .exec_it:
   ; Execve the decompressor
-  mov eax, 11                 ; SYS_execve
+  push 11                     ; SYS_execve
+  pop eax
   ; ebx = command path already
   push 0
   mov ecx, esp                ; argv = [NULL]
@@ -252,7 +260,7 @@ child:
 ; ==============================================================================
 exit_error:
   mov eax, 1                  ; SYS_exit
-  mov ebx, 1                  ; exit code 1
+; mov ebx, 1                  ; exit code 1
   int 0x80
 
 ; ==============================================================================
@@ -270,8 +278,8 @@ find_decompressor:
 .loop:
   cmp ax, [edx]       ; confronta solo i primi 2 byte
   je .found
-  add edx, 4          ; salta di 4 byte (dword allineata)
-  add esi, 16
+  add edx, 2          ; salta di 2 byte (dword)
+  add esi, 14
   loop .loop
   
   mov eax, catcmd
@@ -290,37 +298,25 @@ find_decompressor:
 ; ==============================================================================
 section .data
 
-; Vettore magic numbers (9 × 4 byte)
+; Vettore magic numbers (8 × 2 byte)
 magics:
-    dw 0x8b1f       ; gzip
-    dw 0x37fd       ; xz
-    dw 0x5a4c       ; lzip
-    dw 0x5a42       ; bzip2
-    dw 0x4d18       ; lz4
-    dw 0x4c89       ; lzop
-    dw 0x7a6c       ; lzfs
-    dw 0xb528       ; zstd
-    dw 0x524c       ; lrzip
-magic_count equ 9
+;        gzip,     xz,   lzip,  bzip2,    lz4,   lzop,   lzfs,   zstd
+    dw 0x8b1f, 0x37fd, 0x5a4c, 0x5a42, 0x4d18, 0x4c89, 0x7a6c, 0xb528
+magic_count equ 8
 
-; Vettore stringhe (9 × 16 byte), padding con 0
+; Vettore stringhe (9 × 14 byte), padding con 0
 paths:
-    db "/bin/zcat", 0, 0, 0, 0, 0, 0    ; 16 byte
-    db "/bin/xzcat", 0, 0, 0, 0, 0       ; 16 byte
-    db "/bin/lzcat", 0, 0, 0, 0, 0       ; 16 byte
-    db "/bin/bzcat", 0, 0, 0, 0, 0       ; 16 byte
-    db "/bin/lz4cat", 0, 0, 0, 0         ; 16 byte
-    db "/bin/lzopcat", 0, 0, 0           ; 16 byte
-    db "/bin/lzfscat", 0, 0, 0           ; 16 byte
-    db "/bin/zstdcat", 0, 0, 0           ; 16 byte
-    db "/bin/lrzipcat", 0, 0             ; 16 byte
+    db "/bin/zcat", 0, 0, 0, 0
+    db "/bin/xzcat", 0, 0, 0
+    db "/bin/lzcat", 0, 0, 0
+    db "/bin/bzcat", 0, 0, 0
+    db "/bin/lz4cat", 0, 0
+    db "/bin/lzopcat", 0
+    db "/bin/lzfscat", 0
+    db "/bin/zstdcat", 0
 
 catcmd:
     db "/bin/cat", 0
-
-; Selected decompressor pointer (set by parent before fork, read by child)
-selected_cmd:
-  dd 0
 
 ; ==============================================================================
 ; FILE END
