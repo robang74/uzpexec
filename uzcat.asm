@@ -148,39 +148,47 @@ main_start:
 ; ==============================================================================
 parent:
   ; Close read end of pipe
+%ifdef _DO_CLOSE
   push 6                      ; SYS_close
   pop eax
   mov ebx, [esp]              ; pipefd[0]
   int 0x80
+%endif
 
   ; Write first 4 bytes (already in buf) to pipe
-  push 4                      ; SYS_write
+  push 4                      ; bytes already read, to write
   pop eax
-  mov edx, eax                ; = 4
-  mov ebx, [esp+4]            ; pipefd[1]
-  mov ecx, buf
-  int 0x80
+
+  mov ecx, buf                ; set once and keep untouched
 
 .pump_loop:
-  ; Read from stdin
-  mov eax, 3                  ; SYS_read
-  xor ebx, ebx                ; stdin
-; mov ecx, buf                ; already set
-  mov edx, 512                ; buffer size
-  int 0x80
-  test eax, eax
-  jle .done                   ; EOF or error
-
   ; Write to pipe
-  mov edx, eax                ; bytes read
+  mov ebx, [esp+4]            ; pipefd[1]
+  mov edx, eax                ; bytes already read, to write
+
   push 4                      ; SYS_write
   pop eax
-  mov ebx, [esp+4]            ; pipefd[1]
   int 0x80
-  jmp .pump_loop
 
+  ; Read from stdin
+  xor ebx, ebx                ; stdin
+  mov edx, 512                ; buffer size
+
+  push 3                      ; SYS_read
+  pop eax
+  int 0x80
+
+  test eax, eax
+  jz .done                    ; check for EOF
+%ifdef _DO_EINTR
+  cmp eax, -4                 ; check for -EINTR (if any, ever)
+  je .pump_loop               ; continue
+%endif
+  js exit_error
+  jmp .pump_loop              ; continue
+  
 .done:
-  ; Close write end of pipe
+  ; Close the writing pipe to send EOF to the child
   push 6                      ; SYS_close
   pop eax
   mov ebx, [esp+4]            ; pipefd[1]
