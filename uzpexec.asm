@@ -216,7 +216,7 @@ main_start:
 %else                          ; to check about %-branch size balance (/!\)
   xor edi, edi                 ; EDI = 0 (STDIN)
 %endif
-  jmp .fork
+; jmp .fork                    ; not necessary, .rewind simply fails
 
 .rewind:                       ; EDI = fd at +516 bytes (**)
   ; 4a. File pointer set
@@ -402,7 +402,7 @@ parent:
   jmp exit_error               ; unless it fails
 
 ; ============================================================================
-; CHILD PROCESS ( c::stack { [memfd], buf, 0 } )
+; CHILD PROCESS ( c::stack [memfd], buf, commd_exe, 0 )
 ; ============================================================================
 child:
   ; 1c. 1st dup2: connect input (EDI) to STDIN (0) for both modes
