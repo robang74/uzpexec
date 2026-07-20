@@ -82,6 +82,8 @@ Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.96** on
 
 Next release aims to keep the `uzpexec` fix and relies on system standards like `binfmt_script`, zutils `zcat` and busybox `zcat` seamless decompression, offering lightweight alternatives for system customisation.
 
+- `Tests final result: 155544c51d92c28d6bac80e918261e69c29bd7d0`, is ok
+
 ### Notes
 
 #### 0. use the source
