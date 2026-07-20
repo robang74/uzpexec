@@ -63,7 +63,7 @@ define git_relevant_log
 endef
 
 define grep_and_tab
-	eval $1 2>&1| grep $2 | sed -e "s,^,\t,"
+	@eval $1 2>&1| grep $2 | sed -e "s,^,\t," -e "s,0x[0-9a-f]\+,,"
 endef
 
 # -----------------------------------------------------------------------------
