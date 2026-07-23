@@ -75,14 +75,7 @@ In a standalone mode, it can convert itself in `uzpack` and it becomes self-host
 
 ### Current release
 
-Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.96** on the `master` branch.
-
-- It executes in a `pgrep`-friendly way, using `argv[0]` as process name.
-- Last release supporting rarest system cases by `uzpexec` customisation.
-
-Next release aims to keep the `uzpexec` fix and relies on system standards like `binfmt_script`, zutils `zcat` and busybox `zcat` seamless decompression, offering lightweight alternatives for system customisation.
-
-- `Tests final result: 155544c51d92c28d6bac80e918261e69c29bd7d0`, is ok
+Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.97** on the `master` branch. This release aims to keep the `uzpexec` fix and relies on system standards like `binfmt_script`, zutils `zcat` and busybox `zcat` seamless decompression, offering lightweight alternatives for system customisation.
 
 ### Notes
 
@@ -215,19 +208,18 @@ The alternatives that are natively compatible with `-f -` are fully supported.
 ; /bin/zcat can be changed by sed up to 41 chars + ending \0
 ; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
 ; in do_script mode the 2 paths shrink to 20 chars + ending \0
-;                                                                  LN | XE |  SH
-copy_vers:  db "(c) github/robang74/uzpexec v0.96 "             ;  34 | 34 |  34
-provider :  db      "12345678", 0x0a, 0                         ;  10 | 10 |  10
-zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0 ;  21 | 42 |  21
-; following fields are conditionally overwritable, do unions    :  ---------  65
-do_script:  db "/bin/sh", 0, 0, 0,0,0, 0,0,0,0   ; for shell    :  16 |  - |  21
-eof_tests:  db "U238", 0                         ; for tests    :   5 |  - |   -
-; This introduces the need of having the /proc mounted, granted after the /init
+;                                                                  LN | XE
+copy_vers:  db "(c) github/robang74/uzpexec v0.97 "             ;  34 | 34
+provider :  db      "12345678", 0x0a, 0                         ;  10 | 10
+zcat_path:  db "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0         ;  21 | 26
+; following fields are conditionally overwritable, do unions
+eof_tests:  db "U238", 0                         ; for tests    :   5 |  -
+; This introduces the need of having the /proc mounted,granted after the /init
 ; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
-commd_exe:  db "/proc/self/exe", 0,0                            ;  16 | 16 |  16
-force_arg:  db "-f", 0                           ; for zcat     :   3 |  3 |   3
-;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  40
-;                                                               : 105 (tot.) 105
+commd_exe:  db "/proc/self/exe", 0,0                            ;  16 | 16
+force_arg:  db "-f", 0                           ; for zcat     :   3 |  3
+                                                                ; ----------
+                                                                ;  89  tot.
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
 ; ==============================================================================

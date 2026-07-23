@@ -408,18 +408,18 @@ exit_error:
 ; /bin/zcat can be changed by sed up to 41 chars + ending \0
 ; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
 ; in do_script mode the 2 paths shrink to 20 chars + ending \0
-;                                                                  LN | XE |  SH
-copy_vers:  db "(c) github/robang74/uzpexec v0.96 "             ;  34 | 34 |  34
-provider :  db      "12345678", 0x0a, 0                         ;  10 | 10 |  10
-zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0 ;  21 | 42 |  21
-; following fields are conditionally overwritable, do unions    :  65 ------  76
-eof_tests:  db "U238", 0                         ; for tests    :   5 |  - |   -
-; This introduces the need of having the /proc mounted, granted after the /init
+;                                                                  LN | XE
+copy_vers:  db "(c) github/robang74/uzpexec v0.97 "             ;  34 | 34
+provider :  db      "12345678", 0x0a, 0                         ;  10 | 10
+zcat_path:  db "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0         ;  21 | 26
+; following fields are conditionally overwritable, do unions
+eof_tests:  db "U238", 0                         ; for tests    :   5 |  -
+; This introduces the need of having the /proc mounted,granted after the /init
 ; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
-commd_exe:  db "/proc/self/exe", 0,0                            ;  16 | 16 |  16
-force_arg:  db "-f", 0                           ; for zcat     :   3 |  3 |   3
-;              |<-- 8 chars -->|<- +8c ->|                      :  ---------  40
-;                                                               :  89 (tot.) 105
+commd_exe:  db "/proc/self/exe", 0,0                            ;  16 | 16
+force_arg:  db "-f", 0                           ; for zcat     :   3 |  3
+                                                                ; ----------
+                                                                ;  89  tot.
 
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
