@@ -152,10 +152,7 @@ main_start:
   int 0x80
 
   ; Organising the stack in the proper order (inverse order of popping)
-  mov ecx, buf
-  push ecx                     ; --> m::stack { buf, commd_exe, 0 }
-  push eax                     ; --> m::stack { [memfd], buf, commd_exe, 0 }
-
+  push eax                     ; --> m::stack { [memfd], commd_exe, 0 }
 
   ; 3. Try to read from the file the 1st block + 4 bytes to check the carryload
   mov dh, 2                    ; read size (512+4), 32-bit aligned
@@ -192,6 +189,7 @@ main_start:
 ; ------------------------------------------------------------------------------
   mov al, 3                    ; SYS_read
   mov ebx, edi                 ; input fd
+  mov ecx, buf
   int 0x80
 ; ------------------------------------------------------------------------------
 ; THE BENEFIT OF A SHORT JUMP (and its implications)
@@ -236,7 +234,7 @@ main_start:
   jz child                     ; the child jump to its routine
 
   ; ============================================================================
-  ; PARENT PROCESS ( p::stack { [memfd], buf, commd_exe, 0 } )
+  ; PARENT PROCESS ( p::stack { [memfd], commd_exe, ... } )
   ; ============================================================================
 parent:
   ; 1p. Rewind memfd at the starting point to check for the shebang script
@@ -282,8 +280,6 @@ parent:
   ; F_SEAL_WRITE | F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL = 15 (0x0f)
   mov dl, 15                   ; EDX = 0x0f, sealed in full
   int 0x80                     ; ELF hardening provided in best effort
-
-  pop ecx                      ; buf <-- p::stack { commd_exe, 0 }
 
   ; ----------------------------------------------------------------------------
   ; BINFMT MODE
@@ -373,7 +369,6 @@ child:
   push 11                      ; SYS_execve
   pop eax
 
-  pop ecx                      ; buf <-- c::stack { commd_exe, 0 }
   pop ebx                      ; commd_exe <-- c::stack { 0 }
   sub ebx, commd_exe-zcat_path ; = zcat_path
 
