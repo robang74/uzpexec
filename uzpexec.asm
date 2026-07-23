@@ -428,7 +428,7 @@ child:
   sub ebx, commd_exe-zcat_path ; = zcat_path
 
   push 0                       ; end of envp/argv
-
+%if 0 ; ------------------------------------------------------------------------
   ; 3c. allowing '-f' only when strictly necessary grants the running
   ;     because inflating is equivalent to check a hash on the output
   cmp  word [ecx], 0x2123      ; match shebang
@@ -441,7 +441,7 @@ child:
 %else
   jnz .no_force                ; zcat reading from STDIN can be relaxed (-f)
 %endif
-
+%endif ; -----------------------------------------------------------------------
 .ok_force:
   push force_arg               ; "-f"
 
