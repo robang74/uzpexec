@@ -72,12 +72,10 @@ endef
 .PHONY: all blkln tests clean install uninstall deb rpm
 
 JE_STDIN ?= _DO_STDIN
-JE_FORCE ?= _DO_FORCE
 JE_EXTRA ?= _NO_EXTRA
 JE_EXCVE ?= _N_EXECVE
-JE_SCRPT ?= _N_SCRIPT
 
-nasm_opts := -d$(JE_STDIN) -d$(JE_FORCE) -d$(JE_EXTRA) -d$(JE_EXCVE) -d$(JE_SCRPT)
+nasm_opts := -d$(JE_STDIN) -d$(JE_EXTRA) -d$(JE_EXCVE)
 
 all: $(BINS)
 
@@ -252,9 +250,7 @@ version: distclean
 armcross := aarch64-linux-gnu
 armuqemu := qemu-aarch64-static
 armloadr := $(shell which $(armuqemu))
-armflags := --defsym $(JE_STDIN)=1 --defsym $(JE_FORCE)=1
-armflags += --defsym $(JE_EXTRA)=1 --defsym $(JE_EXCVE)=1
-armflags += --defsym $(JE_SCRPT)=1
+armflags := --defsym $(JE_STDIN)=1 --defsym $(JE_EXTRA)=1 --defsym $(JE_EXCVE)=1
 
 hix86gz: uzprm64 hello
 	rm -f $@

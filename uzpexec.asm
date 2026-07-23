@@ -247,18 +247,6 @@ parent:
   xor edx, edx                 ; SEEK_SET = 0
   int 0x80
 
-  ; 2p. Closing the real file once read in full, also for safety,
-  ;     but fd is RD_ONLY so we can save bytes here, avoiding it.
-  ;     Expecially because with O_CLOEXEC, it lasts just a little
-%if 0; def _DO_CLOSE           ; proved to be useless
-  test edi, edi
-  jz .skip_close
-  mov al, 6                     ; SYS_close
-  mov ebx, edi
-  int 0x80
-.skip_close:
-%endif
-
   ; 3p. The parent waits for the child completes zcat writing in memfd
 .do_loop:
   push 7                       ; SYS_waitpid
@@ -296,35 +284,12 @@ parent:
   int 0x80                     ; ELF hardening provided in best effort
 
   pop ecx                      ; buf <-- p::stack { commd_exe, 0 }
-%if 0
-  ; The memfd content is cached in RAM, thus read() is atomic: 4 or -ERRNO
-  ; 4p. Read the first uncompressed 4 bytes (just two for the shebang)
-  mov al, 3                    ; SYS_read
-  mov dl, 4                    ; count = 4, EDX
-  int 0x80
 
-  ; 5p. Check about ELF magic chars sequence (\x7FELF)
-  ;     A 32-bit comparison is shorter, safer and faster
-  ;     compared with checking for the shebang (optional)
-  cmp dword [ecx], 0x464c457f  ; match Little-Endian
-  jz .execute_elf              ; if ELF, do execve()
-
-  ; ----------------------------------------------------------------------------
-  ; SCRIPT MODE
-  ; ----------------------------------------------------------------------------
-  ; 1s. Rewind memfd at the starting point to pass it to the shell
-  mov al, 19                   ; SYS_lseek
-; mov ebx, [memfd]             ; already set
-  xor ecx, ecx                 ; offset = 0
-  xor edx, edx                 ; SEEK_SET = 0
-  int 0x80
-%else
   ; ----------------------------------------------------------------------------
   ; BINFMT MODE
   ; ----------------------------------------------------------------------------
   ; 1s. leverage the kernel/syste binfmt_script to exec scripts directly
   jmp .execute_elf
-%endif
 
   ; 2s. Duplicate the memfd on the FD n.9, an arbitrary high id-number.
   ;     Initially, !noclosing FD=5 from the parent and run on it as-is
@@ -345,12 +310,6 @@ parent:
   pop ecx
   int 0x80
 
-%if 0; def _DO_CLOSE           ; proved to be useless
-  mov al, 6                    ; SYS_close
-; mov ebx, [memfd]             ; already set
-  int 0x80
-%endif
-
   ; 3s. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
   mov al, 11                     ; SYS_execve
 
@@ -360,16 +319,7 @@ parent:
   mov dword [ebx+11], 0x392f6466 ; writes "fd/9" at the end of commd_exe
   mov dword [esp], ebx           ; replace argv[1] with "/proc/self/fd/9"
   mov edx, ebp                   ; envp (intact from main_start)
-%if 0
-  shr di, 8                      ; branch selector: di=0x1000 (execveat path)
-  jnz .backfall                  ; di=fd (normal path), continue with script
-  add ebx, do_script-commd_exe
-  push dword ebx                 ; argv[0] = "/bin/sh"
-  lea ecx, [esp]
-  push dword ebx                 ; spacer: aligns argv[1] with commd_exe
-%else
   jmp .backfall
-%endif
 
 .here:
   ; basic operations for calling the execve()
@@ -428,20 +378,7 @@ child:
   sub ebx, commd_exe-zcat_path ; = zcat_path
 
   push 0                       ; end of envp/argv
-%if 0 ; ------------------------------------------------------------------------
-  ; 3c. allowing '-f' only when strictly necessary grants the running
-  ;     because inflating is equivalent to check a hash on the output
-  cmp  word [ecx], 0x2123      ; match shebang
-  jz .ok_force                 ; if '!#' use the '-f'
-  cmp dword [ecx], 0x464c457f  ; match ELF magic
-  jz .ok_force                 ; if ELF use the '-f'
-  test edi, edi
-%ifdef _NO_FORCE
-  jnz exit_error               ; the -f option could be completely excluded
-%else
-  jnz .no_force                ; zcat reading from STDIN can be relaxed (-f)
-%endif
-%endif ; -----------------------------------------------------------------------
+
 .ok_force:
   push force_arg               ; "-f"
 
@@ -484,9 +421,6 @@ exit_error:
 copy_vers:  db "(c) github/robang74/uzpexec v0.96 "             ;  34 | 34 |  34
 provider :  db      "12345678", 0x0a, 0                         ;  10 | 10 |  10
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0 ;  21 | 42 |  21
-%if 0
-do_script:  db "/bin/sh", 0, 0, 0,0,0, 0,0,0,0   ; for shell    :   - |  - |  21
-%endif
 ; following fields are conditionally overwritable, do unions    :  65 ------  76
 eof_tests:  db "U238", 0                         ; for tests    :   5 |  - |   -
 ; This introduces the need of having the /proc mounted, granted after the /init
