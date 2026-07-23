@@ -98,7 +98,7 @@ main_start:
   lea ebp, [esi+eax*4+4]       ; EBP = envp (callee-saved or SIGSEGV on [esi])
                                ; CVE-2021-4034, pre-5.18, can't cover LK bugs
 ; mov ebx, [esi]               ; Let SIGSEGV do the work and/or syscalls fail
-; push ebx                     ; --> m::stack { argv[0], 0 }
+; push ebx                     ; --> m::stack { argv[0], ... }
 
   ; ----------------------------------------------------------------------------
   ; HARDENING: NO_NEW_PRIVS & ANTI-CORE-DUMP
@@ -135,7 +135,7 @@ main_start:
   push 5                       ; SYS_open
   pop eax
   mov ebx, commd_exe
-  push ebx                     ; --> m::stack { commd_exe, 0 }
+  push ebx                     ; --> m::stack { commd_exe, ... }
   mov ecx, 0x00080000          ; O_RDONLY | O_CLOEXEC
   int 0x80
   mov edi, eax                 ; save FD in EDI for later
@@ -277,7 +277,7 @@ parent:
 ; 4p. Sealing the memfd/ELF in RO mode, for security and integrity
   push 92                      ; SYS_fcntl (security, set eax in full)
   pop eax
-  pop ebx                      ; [memfd] <-- p::stack { buf, commd_exe, 0 }
+  pop ebx                      ; [memfd] <-- p::stack { commd_exe, ... }
   mov ecx, 1033                ; ECX = F_ADD_SEALS (0x0409)
   ; F_SEAL_WRITE | F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL = 15 (0x0f)
   mov dl, 15                   ; EDX = 0x0f, sealed in full
@@ -315,7 +315,7 @@ parent:
 
   ; In-place stack manipulation using ESP (argv is at [esp]):
   ; ["/bin/sh", "/proc/self/fd/9", original_args ...]
-  pop ebx                        ; commd_exe <-- p::stack { 0 }
+  pop ebx                        ; commd_exe <-- p::stack { ... }
   mov dword [ebx+11], 0x392f6466 ; writes "fd/9" at the end of commd_exe
   mov dword [esp], ebx           ; replace argv[1] with "/proc/self/fd/9"
   mov edx, ebp                   ; envp (intact from main_start)
@@ -352,7 +352,7 @@ parent:
   jmp exit_error               ; unless it fails
 
 ; ============================================================================
-; CHILD PROCESS ( c::stack [memfd], buf, commd_exe, 0 )
+; CHILD PROCESS ( c::stack [memfd], commd_exe, ... )
 ; ============================================================================
 child:
   ; 1c. 1st dup2: connect input (EDI) to STDIN (0) for both modes
@@ -363,7 +363,7 @@ child:
 
   ; 2c. 2nd dup2: connect output to STDOUT (1) of the child which is MEMFD
   mov al, 63                   ; SYS_dup2
-  pop ebx                      ; [memfd] <-- c::stack { buf, commd_exe, 0 }
+  pop ebx                      ; [memfd] <-- c::stack { commd_exe, ... }
   inc ecx                      ; 1 = stdout
   int 0x80
   test eax, eax
@@ -378,11 +378,7 @@ child:
   sub ebx, commd_exe-zcat_path ; = zcat_path
 
   push 0                       ; end of envp/argv
-
-.ok_force:
   push force_arg               ; "-f"
-
-.no_force:
   push ebx                     ; zcat_path --> argv[0]
   mov ecx, esp                 ; argv[1...]
   xor edx, edx                 ; envp null
