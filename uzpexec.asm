@@ -296,7 +296,7 @@ parent:
   int 0x80                     ; ELF hardening provided in best effort
 
   pop ecx                      ; buf <-- p::stack { commd_exe, 0 }
-%ifdef _DO_SCRIPT
+%if 0
   ; The memfd content is cached in RAM, thus read() is atomic: 4 or -ERRNO
   ; 4p. Read the first uncompressed 4 bytes (just two for the shebang)
   mov al, 3                    ; SYS_read
@@ -360,7 +360,7 @@ parent:
   mov dword [ebx+11], 0x392f6466 ; writes "fd/9" at the end of commd_exe
   mov dword [esp], ebx           ; replace argv[1] with "/proc/self/fd/9"
   mov edx, ebp                   ; envp (intact from main_start)
-%ifdef _DO_SCRIPT
+%if 0
   shr di, 8                      ; branch selector: di=0x1000 (execveat path)
   jnz .backfall                  ; di=fd (normal path), continue with script
   add ebx, do_script-commd_exe
@@ -484,7 +484,7 @@ exit_error:
 copy_vers:  db "(c) github/robang74/uzpexec v0.96 "             ;  34 | 34 |  34
 provider :  db      "12345678", 0x0a, 0                         ;  10 | 10 |  10
 zcat_path:  db         "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0 ;  21 | 42 |  21
-%ifdef _DO_SCRIPT
+%if 0
 do_script:  db "/bin/sh", 0, 0, 0,0,0, 0,0,0,0   ; for shell    :   - |  - |  21
 %endif
 ; following fields are conditionally overwritable, do unions    :  65 ------  76
