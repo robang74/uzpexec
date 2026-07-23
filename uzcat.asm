@@ -128,7 +128,7 @@ copy_vers:  db "(c) github/robang74/uzpexec", 0
 provider :  db "12345678", 0x0a, 0
 end_copy :
 
- 
+
 ; ==============================================================================
 ; CODE
 ; ==============================================================================
@@ -139,11 +139,13 @@ main_start:
   dec eax
   jz .read_magic              ; no args, proceed to read magic
 
+%if 0 ; actually the uzpexec always uses '-f', ignoring it
   ; Check if argv[1] is "-f"
   pop ecx                     ; argv[1]
   push ecx                    ; put it back in the stack
   cmp word [ecx], 0x662d      ; compare with "-f"
   je .use_cat                 ; uzpexec uses "-f" in a specific manner
+%endif
 
 .read_magic:
   ; Read first 4 bytes from stdin for magic detection
@@ -259,7 +261,7 @@ parent:
 %endif
   js do_exit
   jmp .pump_loop              ; continue
-  
+
 .done:
   mov eax, [esp]
   test eax, eax
