@@ -237,7 +237,7 @@ main_start:
   ; PARENT PROCESS ( p::stack { [memfd], commd_exe, ... } )
   ; ============================================================================
 parent:
-  ; 1p. Rewind memfd at the starting point to check for the shebang script
+  ; 1p. Rewind memfd at the starting point
   push 19                      ; SYS_lseek
   pop eax
 ; mov ebx, [memfd]             ; EBX = memfd, already
@@ -245,7 +245,7 @@ parent:
   xor edx, edx                 ; SEEK_SET = 0
   int 0x80
 
-  ; 3p. The parent waits for the child completes zcat writing in memfd
+  ; 1p. The parent waits for the child completes zcat writing in memfd
 .do_loop:
   push 7                       ; SYS_waitpid
   pop eax
@@ -272,7 +272,7 @@ parent:
   ;   files, meaning write-restricted seals could break compatibility.
   ; ----------------------------------------------------------------------------
 .fail:
-; 4p. Sealing the memfd/ELF in RO mode, for security and integrity
+; 2p. Sealing the memfd/ELF in RO mode, for security and integrity
   push 92                      ; SYS_fcntl (security, set eax in full)
   pop eax
   pop ebx                      ; [memfd] <-- p::stack { commd_exe, ... }
@@ -284,10 +284,10 @@ parent:
   ; ----------------------------------------------------------------------------
   ; BINFMT MODE
   ; ----------------------------------------------------------------------------
-  ; 1s. leverage the kernel/syste binfmt_script to exec scripts directly
+  ; 3p. leverage the kernel/syste binfmt_script to exec scripts directly
   jmp .execute_elf
 
-  ; 2s. Duplicate the memfd on the FD n.9, an arbitrary high id-number.
+  ; 4p. Duplicate the memfd on the FD n.9, an arbitrary high id-number.
   ;     Initially, !noclosing FD=5 from the parent and run on it as-is
   ;     because avoiding FD duplication reduces the binary size by 8 bytes
   ;     but creates potentially security concerns and sub-proc pollution.
@@ -306,7 +306,7 @@ parent:
   pop ecx
   int 0x80
 
-  ; 3s. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
+  ; 5p. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
   mov al, 11                     ; SYS_execve
 
   ; In-place stack manipulation using ESP (argv is at [esp]):
