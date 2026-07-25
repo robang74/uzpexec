@@ -203,7 +203,6 @@ main:
 ; of binary code and reach the exit(). The problem here is considering -EINTR an
 ; unrecoverable error because we stop reading and we do an useless loop (solved).
 ; ------------------------------------------------------------------------------
-  xor ecx, ecx                 ; reset here instead of two places
   test eax, eax
   js short parent.here         ; read fails --> error (bugfix)
   sub edx, eax
@@ -215,15 +214,53 @@ main:
 %else                          ; to check about %-branch size balance (/!\)
   xor edi, edi                 ; EDI = 0 (STDIN)
 %endif
-; jmp .fork                    ; not necessary, .rewind simply fails
+  xor eax, eax
+  jmp .skip_four
 
-.rewind:                       ; EDI = fd at +516 bytes (**)
-  ; 4a. File pointer set
+; ------------------------------------------------------------------------------
+.do_cat:                      ; cat *.iso | ./uzcat -f  | dd bs=1M of=/dev/null
+                              ; dd: 93 MB (88 MiB) copied, 0.0638537s, 1.5 GB/s
+  ; Write first 4 bytes, already read in buf, to pipe
+  push 4                      ; bytes already read, to write
+  pop eax
+
+.skip_four:
+  mov ebx, [esp]              ; memfd
+  mov ecx, buf                ; set once and keep untouched
+
+.pump_loop:
+  ; Write to pipe
+  mov edx, eax                ; bytes already read, to write
+  push 4                      ; SYS_write
+  pop eax
+  int 0x80
+
+  ; Read from stdin
+  xor ebx, edi                ; input fd
+  mov edx, 512                ; buffer size
+  push 3                      ; SYS_read
+  pop eax
+  int 0x80
+
+  mov ebx, [esp]              ; memfd
+  test eax, eax
+  jz .rewind                  ; check for EOF
+
+%ifdef _DO_EINTR
+  cmp eax, -4                 ; check for -EINTR (if any, ever)
+  je .pump_loop               ; continue
+%endif
+  js parent.here              ; single point of detour to exit_error
+  jmp .pump_loop              ; continue
+; ------------------------------------------------------------------------------
+
+  ; 4a. File pointer set in ebx previously
+.rewind:
   push 19                      ; SYS_lseek
   pop eax
-; mov ebx, edi                 ; EBX = input fd, already
-; xor ecx, ecx                 ; = 0, already reset above
-  mov  ch, 2                   ; offset = 512
+; mov ebx, ...                 ; fd, already set
+  mov ecx, edx
+  xor ch, 2                    ; ECX = 0 for STDIN or 512
   xor edx, edx                 ; SEEK_SET = 0, already
   int 0x80
 
