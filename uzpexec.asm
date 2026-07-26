@@ -220,9 +220,10 @@ main_start:
   ; 4a. File pointer set
   push 19                      ; SYS_lseek
   pop eax
+; mov ebx, edi                 ; EBX = input fd, already
 ; xor ecx, ecx                 ; = 0, already reset above
   mov  ch, 2                   ; offset = 512
-; xor edx, edx                 ; SEEK_SET = 0, already
+  xor edx, edx                 ; SEEK_SET = 0, already
   int 0x80
 
 .fork:
@@ -237,13 +238,15 @@ main_start:
   ; PARENT PROCESS ( p::stack { [memfd], commd_exe, ... } )
   ; ============================================================================
 parent:
+%if 0
   ; 1p. Rewind memfd at the starting point
   push 19                      ; SYS_lseek
   pop eax
-; mov ebx, [memfd]             ; EBX = memfd, already
+; mov ebx, edi                 ; EBX = input fd, already
 ; xor ecx, ecx                 ; offset = 0
-  xor edx, edx                 ; SEEK_SET = 0
+; xor edx, edx                 ; SEEK_SET = 0
   int 0x80
+%endif
 
   ; 1p. The parent waits for the child completes zcat writing in memfd
 .do_loop:
@@ -251,8 +254,8 @@ parent:
   pop eax
   xor ebx, ebx
   dec ebx                      ; = -1, every child
-; xor ecx, ecx                 ; =  0, already reset above
-; xor edx, edx                 ; =  0, already? no when from stdin
+; xor ecx, ecx                 ; =  0, already, reset above
+; xor edx, edx                 ; =  0, already, reset above
   int 0x80
   cmp eax, -4
   je .do_loop                  ; -EINTR, try again
