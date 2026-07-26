@@ -133,13 +133,13 @@ end_copy :
 ; CODE
 ; ==============================================================================
 main_start:
+%if 0 ; actually the uzpexec always uses '-f', ignoring it
   ; Parse argv to check for -f flag (ignore it, we always behave like zcat -f)
   pop eax                     ; argc
   pop ebx                     ; argv[0] = program name
   dec eax
   jz .read_magic              ; no args, proceed to read magic
 
-%if 0 ; actually the uzpexec always uses '-f', ignoring it
   ; Check if argv[1] is "-f"
   pop ecx                     ; argv[1]
   push ecx                    ; put it back in the stack
