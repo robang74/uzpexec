@@ -200,9 +200,9 @@ main_start:
 ; ------------------------------------------------------------------------------
 ; THE BENEFIT OF A SHORT JUMP (and its implications)
 ;
-; A short jump, parent.here instead of exit_error, saves 4 bytes and this jump
+; A short jump, parent.here instead of do_exit, saves 4 bytes and this jump
 ; lands with an EAX < 0, then sets an EDX to a value that an attacker can choose
-; and .do_int: int_0x80(-N, EDX,...) which always fails and jumps to exit_error.
+; and .do_int: int_0x80(-N, EDX,...) which always fails and jumps to do_exit.
 ;
 ; In conclusion, this short jump is a deterministic and safe way to save 4 bytes
 ; of binary code and reach the exit(). The problem here is considering -EINTR an
@@ -215,7 +215,7 @@ main_start:
 
  .stdin:
 %ifdef _NO_STDIN
-  jmp parent.here             ; single point of detour to exit_error
+  jmp parent.here             ; single point of detour to do_exit
 %else                         ; to check about %-branch size balance (/!\)
   xor edi, edi                ; EDI = 0 (STDIN)
 %endif
@@ -259,7 +259,7 @@ main_start:
   cmp eax, -4                 ; check for -EINTR (if any, ever)
   je .pump_loop               ; continue
 %endif
-  js parent.here              ; single point of detour to exit_error
+  js parent.here              ; single point of detour to do_exit
   jmp .pump_loop              ; continue
 ; ------------------------------------------------------------------------------
 
@@ -396,7 +396,7 @@ parent:
 
 .do_int:
   int 0x80                     ; this system call never returns
-  jmp exit_error               ; unless it fails
+  jmp do_exit                  ; unless it fails
 
 ; ============================================================================
 ; CHILD PROCESS ( c::stack [memfd1], commd_exe, ... )
@@ -415,7 +415,7 @@ child:
   int 0x80
 
   test eax, eax
-  js exit_error
+  js do_exit
 
   ; 3c. Execute zcat passing "-f" when detecting a gzip input
   push 11                      ; SYS_execve
@@ -431,8 +431,13 @@ child:
   xor edx, edx                 ; envp null
   int 0x80
 
-  ; ============================================================================
-exit_error:
+; ==============================================================================
+; ERROR HANDLING
+; ==============================================================================
+do_exit:
+; test al, al
+; jz .no_error
+
   ; Print copyright notice, version and internal name
   mov ecx, copy_vers
 %ifdef _DO_EXTRA
@@ -443,13 +448,15 @@ exit_error:
   mov byte [ecx + provider - copy_vers - 1], 10 ; line feed
 %endif
   pop edx
-  push  4                       ; SYS_write
+  push  4                     ; SYS_write
   pop eax
-  push  1                       ; stdout
+  push  1                     ; stdout
   pop ebx
   int 0x80
 
-  push  1                       ; SYS_exit
+.no_error:
+; mov ebx, eax                ; error from syscall
+  push 1                      ; SYS_exit
   pop eax
   int 0x80
 
