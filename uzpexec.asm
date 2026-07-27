@@ -50,7 +50,7 @@ elf_header:
   ; Many Linux kernel ELF parsers completely ignore these 6
   ; bytes when section offset e_shoff = 0, as in this case.
   ;
-; dw 0, 0, 0                   ; Section info (zeroed out, reclamable)
+  dw 0, 0, 0                   ; Section info (zeroed out, reclamable)
   ;
   ; ASSUMPTIONS CHECK
   ;
@@ -149,11 +149,8 @@ main:
 
   ; Organising the stack in the proper order (inverse order of popping)
   push eax                     ; --> m::stack { [memfd1], commd_exe, ... }
-
   mov eax, 356                 ; SYS_memfd_create
   int 0x80
-
-  ; Organising the stack in the proper order (inverse order of popping)
   push eax                     ; --> m::stack { [memfd2], [memfd1], commd_exe, }
 
   push 19                      ; SYS_lseek
@@ -164,8 +161,8 @@ main:
 ; xor edx, edx                 ; SEEK_SET = 0, already set
   int 0x80
 %if 0
-  test eax, eax
-  jnz .do_exit                 ; this should never happen
+  cmp eax, ecx
+  jne .do_exit                 ; this should never happen
 %endif
 
 ; ------------------------------------------------------------------------------
@@ -252,7 +249,8 @@ main:
 
 .pump_loop:
   ; Write to memfd2
-  mov ebx, [esp]              ; memfd2
+  pop ebx                     ; memfd2
+  push ebx
 ; mov ecx, buf                ; already set
   mov edx, eax                ; bytes already read, to write
   push 4                      ; SYS_write
@@ -295,12 +293,10 @@ main:
   ; 4. Rewind of the memfd2, set it to be ready to read as (EDI) source
 .rewind:
   mov al, 19                   ; SYS_lseek
-  mov ebx, [esp]               ; memfd2
+  pop ebx                      ; [memfd2] <-- p::stack { [memfd1], commd_exe, }
   xor ecx, ecx                 ; SEEK_PNT = 0
   xor edx, edx                 ; SEEK_SET = 0
-  int 0x80
-
-  pop edi                      ; [memfd2] <-- p::stack { [memfd1], commd_exe, }
+  int 0x80                  
 
 .fork:
   ; 4b. Fork the process
@@ -315,7 +311,7 @@ main:
 parent:
   ; 0p. closing the source memfd2 granting the same risk with/out I/O
   mov al, 6                     ; SYS_close
-  mov ebx, edi
+; mov ebx, edi                  ; already set
   int 0x80
 
   ; 1p. The parent waits for the child completes zcat writing in memfd
@@ -327,8 +323,8 @@ parent:
 ; xor ecx, ecx                 ; =  0, already, reset above
 ; xor edx, edx                 ; =  0, already, reset above
   int 0x80
-  cmp eax, -4
-  je .do_loop                  ; -EINTR, try again
+  add eax, 4
+  jz .do_loop                  ; -EINTR, try again
 
   ; ----------------------------------------------------------------------------
   ; HARDENING: F_ADD_SEALS TO MEMFD
@@ -454,9 +450,13 @@ do_final_int:
 ; ERROR HANDLING
 ; ==============================================================================
 do_exit:
-; test al, al
+; test eax, eax
 ; jz .no_error
 
+  push  4                     ; SYS_write
+  pop eax
+  push  1                     ; stdout
+  pop ebx
   ; Print copyright notice, version and internal name
   mov ecx, copy_vers
 %ifdef _DO_EXTRA
@@ -467,16 +467,11 @@ do_exit:
   mov byte [ecx + provider - copy_vers - 1], 10 ; line feed
 %endif
   pop edx
-  push  4                     ; SYS_write
-  pop eax
-  push  1                     ; stdout
-  pop ebx
   int 0x80
 
-.no_error:
+;.no_error:
 ; mov ebx, eax                ; error from syscall
-  push 1                      ; SYS_exit
-  pop eax
+  mov al, 1                   ; SYS_exit
   int 0x80                    ; exit never fail
 
 ; ==============================================================================
