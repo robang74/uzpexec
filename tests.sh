@@ -134,7 +134,7 @@ echo "Strings output:"
   cat hello        | strace -f ./$bin 2>&1 | grep "cat., .-f.]," | cut -d\] -f2
   retprt
 
-  echo "it fails in opening a closed stdin"
+  echo "it FAILS in opening a closed stdin"
   ./$bin <&-
   retprt
 
@@ -150,7 +150,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/9f6aac3a2eec8311f8cff9583a46313868f63fe7/$bin OK/" |
+sed "s/452c97f7db4bc2efd236f5264dcccaad5eb43d11/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
