@@ -213,7 +213,7 @@ main_start:
   sub edx, eax
   jz .do_cat                   ; read ok, there is a carryload
 
- .stdin:
+.stdin:
 %ifdef _NO_STDIN
   jmp parent.here             ; single point of detour to do_exit
 %else                         ; to check about %-branch size balance (/!\)
@@ -225,15 +225,15 @@ main_start:
 ; ------------------------------------------------------------------------------
 .do_cat:                      ; cat *.iso | ./uzcat -f  | dd bs=1M of=/dev/null
                               ; dd: 93 MB (88 MiB) copied, 0.0638537s, 1.5 GB/s
+; mov ecx, buf                ; already set
+
   ; Write first 4 bytes, already read in buf, to pipe
   mov dword edx, [ecx+512]    ; = [buf+512] (dword)
   mov dword [ecx], edx        ; the last 4 bytes --> [buf]
   push 4                      ; bytes already read, to write
   pop eax                     ; soon --> edx, size to write
-; xor eax, 512                ; the same but with xor, intead
 
 .skip_four:
-  mov ecx, buf                ; set once and keep untouched
   mov ebx, [esp]              ; memfd2
 
 .pump_loop:
@@ -286,16 +286,6 @@ main_start:
   ; PARENT PROCESS ( p::stack { [memfd1], commd_exe, ... } )
   ; ============================================================================
 parent:
-%if 0
-  ; 1p. Rewind memfd at the starting point
-  push 19                      ; SYS_lseek
-  pop eax
-; mov ebx, edi                 ; EBX = input fd, already
-; xor ecx, ecx                 ; offset = 0
-; xor edx, edx                 ; SEEK_SET = 0
-  int 0x80
-%endif
-
   ; 1p. The parent waits for the child completes zcat writing in memfd
 .do_loop:
   push 7                       ; SYS_waitpid
