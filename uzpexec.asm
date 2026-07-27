@@ -211,7 +211,7 @@ main:
 ; ------------------------------------------------------------------------------
   test eax, eax
   js .do_exit                  ; read fails --> error (bugfix)
-  sub edx, eax
+  xor edx, eax
   jz .do_cat                   ; read ok, there is a carryload
 
 .stdin:
@@ -224,7 +224,7 @@ main:
   pop eax
   xor ebx, ebx                ; EBX = 0 (STDIN)
 ; mov ecx, buf                ; already set
-; mov edx, 4                  ; alreadt set (516 - 512 = 4)
+; mov edx, 4                  ; alreadt set (516 ^ 512 = 4)
   int 0x80
   jmp .do_mgk_chk
 
@@ -281,8 +281,7 @@ main:
 
   ; 4. File pointer set in ebx previously
 .rewind:
-  push 19                      ; SYS_lseek
-  pop eax
+  mov al, 19                   ; SYS_lseek
   mov ebx, [esp]               ; memfd2
   xor ecx, ecx                 ; SEEK_PNT = 0
   xor edx, edx                 ; SEEK_SET = 0
@@ -302,6 +301,10 @@ main:
   ; PARENT PROCESS ( p::stack { [memfd1], commd_exe, ... } )
   ; ============================================================================
 parent:
+  mov al, 6                     ; SYS_close
+  mov ebx, edi
+  int 0x80
+
   ; 1p. The parent waits for the child completes zcat writing in memfd
 .do_loop:
   push 7                       ; SYS_waitpid
@@ -420,9 +423,7 @@ child:
   js short do_final_int
 
   ; 3c. Execute zcat passing "-f" when detecting a gzip input
-  push 11                      ; SYS_execve
-  pop eax
-
+  mov al, 11                   ; SYS_execve
   pop ebx                      ; commd_exe <-- c::stack { 0 }
   sub ebx, commd_exe-zcat_path ; = zcat_path
 
