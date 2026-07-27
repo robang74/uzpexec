@@ -50,7 +50,7 @@ elf_header:
   ; Many Linux kernel ELF parsers completely ignore these 6
   ; bytes when section offset e_shoff = 0, as in this case.
   ;
-  dw 0, 0, 0                   ; Section info (zeroed out, reclamable)
+; dw 0, 0, 0                   ; Section info (zeroed out, reclamable)
   ;
   ; ASSUMPTIONS CHECK
   ;
@@ -232,17 +232,23 @@ main:
 .do_copy:
   ; at this point [ecx] contains the magic number to check
   cmp word [ecx], 0x2123      ; match shebang
-  je .write_four
+  je .use_zcat
   cmp word [ecx], 0x457f      ; match elf bin
-  je .write_four
+  je .use_zcat
 
 .no_force:
-  mov byte [force_arg+1], 0
+  mov byte [force_ltr], 0
+  cmp word [ecx], 0xb528      ; match zstd
+  je .write_four
+
+.use_zcat:
+  mov dword edx, [zcat_cat] ; save "cat\0"
+  mov dword [zcat_cmd], edx ; write back
 
 .write_four:
   ; Write first 4 bytes, already read in buf
-; push 4                      ; bytes already read, to write
-; pop eax                     ; soon --> edx, size to write
+; push 4                      ; bytes already read, to write, already set
+; pop eax                     ; soon --> edx, size to write , already set
 
 .pump_loop:
   ; Write to memfd2
@@ -476,22 +482,21 @@ do_exit:
 ; ==============================================================================
 ; COMPACT DATA SECTION (appended to code)
 ; ==============================================================================
-; zcat -f is cat when input isn't gzip, options up to -6c\0
-; /bin/zcat can be changed by sed up to 41 chars + ending \0
-; - for example: /usr/local/bin/xzcat is 20 chars + ending \0
-; in do_script mode the 2 paths shrink to 20 chars + ending \0
 ;                                                                  LN | XE
 copy_vers:  db "(c) github/robang74/uzpexec v0.97 "             ;  34 | 34
 provider :  db      "12345678", 0x0a, 0                         ;  10 | 10
-zcat_path:  db "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0         ;  21 | 25
+zcat_path:  db "/bin/z"
+zcat_cmd :  db "std"
+zcat_cat :  db "cat", 0                                         ;  13 | 18
 ; following fields are conditionally overwritable, do unions
 eof_tests:  db "U238", 0                         ; for tests    :   5 |  -
 ; This introduces the need of having the /proc mounted,granted after the /init
 ; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
 commd_exe:  db "/proc/self/exe", 0,0                            ;  16 | 16
-force_arg:  db "-f", 0                           ; for zcat     :   3 |  3
+force_arg:  db "-"
+force_ltr:  db "f", 0                            ; for zcat     :   3 |  3
                                                                 ; ----------
-                                                                ;  89  tot.
+                                                                ;  81  tot.
 
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
