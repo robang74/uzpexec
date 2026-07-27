@@ -27,30 +27,30 @@
 ; ==============================================================================
 
 BITS 32
-BASE_ADDR equ 0x08048000       ; Loading base definition
+BASE_ADDR equ 0x08048000         ; Loading base definition
 org BASE_ADDR
 
 ; ==============================================================================
 ; ELF32 HEADER (Micro-Loader a 32-bit, Teeny ELF)
 ; ==============================================================================
 elf_header:
-  db 0x7F, 'ELF', 1, 1, 1, 0   ; e_ident (Magic, Class 32bit, Data LSB, Version)
-  times 8 db 0                 ; Padding for e_ident
-  dw 2                         ; e_type (Executable)
-  dw 3                         ; e_machine (Intel 80386)
-  dd 1                         ; e_version
-  dd main.start                ; e_entry (The starting point of our code)
-  dd phdr - elf_header         ; e_phoff (Offset of the Program Header Table)
-  dd 0                         ; e_shoff (No Section Header Table, saving bytes)
-  dd 0                         ; e_flags
-  dw 52                        ; e_ehsize (Size of this header)
-  dw 32                        ; e_phentsize (Size of a Program Header entry)
-  dw 1                         ; e_phnum (Only one segment needed)
+  db 0x7F, 'ELF', 1, 1, 1, 0     ; e_ident (Magic, 32bit, LSB, Version)
+  times 8 db 0                   ; Padding for e_ident
+  dw 2                           ; e_type (Executable)
+  dw 3                           ; e_machine (Intel 80386)
+  dd 1                           ; e_version
+  dd main.start                  ; e_entry (The starting point of our code)
+  dd phdr - elf_header           ; e_phoff (Offset of the Program Header Table)
+  dd 0                           ; e_shoff (No Section Header Table)
+  dd 0                           ; e_flags
+  dw 52                          ; e_ehsize (Size of this header)
+  dw 32                          ; e_phentsize (Size of a Program Header entry)
+  dw 1                           ; e_phnum (Only one segment needed)
   ; ----------------------------------------------------------------------------
   ; Many Linux kernel ELF parsers completely ignore these 6
   ; bytes when section offset e_shoff = 0, as in this case.
   ;
-  dw 0, 0, 0                   ; Section info (zeroed out, reclamable)
+  dw 0, 0, 0                     ; Section info (zeroed out, reclamable)
   ;
   ; ASSUMPTIONS CHECK
   ;
@@ -59,16 +59,16 @@ elf_header:
   ; ----------------------------------------------------------------------------
 
 phdr:
-  dd 1                         ; p_type (PT_LOAD - Segment to load)
-  dd 0                         ; p_offset
-  dd BASE_ADDR                 ; p_vaddr (Virtual address in memory)
-  dd BASE_ADDR                 ; p_paddr
-  dd file_end - elf_header     ; p_filesz (Size of the code within the file)
-  dd  bss_end - elf_header     ; p_memsz (Size of the code within memory)
+  dd 1                           ; p_type (PT_LOAD - Segment to load)
+  dd 0                           ; p_offset
+  dd BASE_ADDR                   ; p_vaddr (Virtual address in memory)
+  dd BASE_ADDR                   ; p_paddr
+  dd file_end - elf_header       ; p_filesz (Size of the code within the file)
+  dd  bss_end - elf_header       ; p_memsz (Size of the code within memory)
 
   ; ----------------------------------------------------------------------------
-  dd 7                         ; p_flags (R+W+X - Read, Write, and Execute)
-  dd 0x1000                    ; p_align (Standard page alignment)
+  dd 7                           ; p_flags (R+W+X - Read, Write, and Execute)
+  dd 0x1000                      ; p_align (Standard page alignment)
 
   ; Security-by-Design VS Security-by-Subtraction
 
@@ -94,9 +94,9 @@ main:
   ; Save original argv and calculate envp from the initial stack layout
   ; Stack: [argc] [argv[0]] ... [argv[N]] [NULL] [envp...]
 .start:
-  pop eax                      ; argc (was [esp])
-  mov esi, esp                 ; ESI = argv
-  lea ebp, [esi+eax*4+4]       ; EBP = envp (callee-saved or SIGSEGV on [esi])
+  pop eax                        ; argc (was [esp])
+  mov esi, esp                   ; ESI = argv
+  lea ebp, [esi+eax*4+4]         ; EBP = envp (callee-saved or SIGSEGV on [esi])
 
   ; ----------------------------------------------------------------------------
   ; HARDENING: NO_NEW_PRIVS & ANTI-CORE-DUMP
@@ -110,59 +110,59 @@ main:
   ; ----------------------------------------------------------------------------
 
   ; prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)
-  push 172                      ; SYS_prctl
+  push 172                       ; SYS_prctl
   pop eax
   ; Sterilize the priviledge escalation from CVE-2021-4034, pre-5.18
-  push 38                       ; EBX = PR_SET_NO_NEW_PRIVS
+  push 38                        ; EBX = PR_SET_NO_NEW_PRIVS
   pop ebx
-  push 1                        ; ECX = 1 (enable)
+  push 1                         ; ECX = 1 (enable)
   pop ecx
-  xor edx, edx                  ; EDX = 0
-  int 0x80                      ; prctl() in best-effort
+  xor edx, edx                   ; EDX = 0
+  int 0x80                       ; prctl() in best-effort
 
   ; prctl(PR_SET_DUMPABLE, 0, 0, 0, 0)
-  mov al, 172                   ; SYS_prctl
-  mov bl, 4                     ; EBX = PR_SET_DUMPABLE
-                                ; EDX = 0, already
-  dec ecx                       ; ECX = 0 (RAM !coredump)
-  int 0x80                      ; prctl() in best-effort
+  mov al, 172                    ; SYS_prctl
+  mov bl, 4                      ; EBX = PR_SET_DUMPABLE
+                                 ; EDX = 0, already
+  dec ecx                        ; ECX = 0 (RAM !coredump)
+  int 0x80                       ; prctl() in best-effort
 
   ; ============================================================================
 
   ; 1. Try to open itself file by /proc/self/exe
-  push 5                       ; SYS_open
+  push 5                         ; SYS_open
   pop eax
   mov ebx, commd_exe
-  push ebx                     ; --> m::stack { commd_exe, ... }
-  mov ecx, 0x00080000          ; O_RDONLY | O_CLOEXEC
+  push ebx                       ; --> m::stack { commd_exe, ... }
+  mov ecx, 0x00080000            ; O_RDONLY | O_CLOEXEC
   int 0x80
-  mov edi, eax                 ; save FD in EDI for later
+  mov edi, eax                   ; save FD in EDI for later
 
   ; 2. Try to open the memfd, as first operation
-  mov eax, 356                 ; SYS_memfd_create
-  test esi, esi                ; CVE-2021-4034, pre-5.18, can't cover LK bugs
-  jz short .do_exit            ; just exit or SIGSEGV later
-  mov ebx, [esi]               ; argv[0]
-  push 3                       ; MFD_ALLOW_SEALING | MFD_CLOEXEC
+  mov eax, 356                   ; SYS_memfd_create
+  test esi, esi                  ; CVE-2021-4034, pre-5.18, can't cover LK bugs
+  jz short .do_exit              ; just exit or SIGSEGV later
+  mov ebx, [esi]                 ; argv[0]
+  push 3                         ; MFD_ALLOW_SEALING | MFD_CLOEXEC
   pop ecx
   int 0x80
 
   ; Organising the stack in the proper order (inverse order of popping)
-  push eax                     ; --> m::stack { [memfd1], commd_exe, ... }
-  mov eax, 356                 ; SYS_memfd_create
+  push eax                       ; --> m::stack { [memfd1], commd_exe, ... }
+  mov eax, 356                   ; SYS_memfd_create
   int 0x80
-  push eax                     ; --> m::stack { [memfd2], [memfd1], commd_exe, }
+  push eax                       ; --> m::stack { [memfd2], [memfd1], commd_exe, }
 
-  push 19                      ; SYS_lseek
+  push 19                        ; SYS_lseek
   pop eax
-  mov ebx, edi                 ; itself
-  mov ch, 2                    ; skip size, 32-bit aligned
-  mov cl, 0                    ; ECX = 512
-; xor edx, edx                 ; SEEK_SET = 0, already set
+  mov ebx, edi                   ; itself
+  mov ch, 2                      ; skip size, 32-bit aligned
+  mov cl, 0                      ; ECX = 512
+; xor edx, edx                   ; SEEK_SET = 0, already set
   int 0x80
 %if 0
   cmp eax, ecx
-  jne .do_exit                 ; this should never happen
+  jne .do_exit                   ; this should never happen
 %endif
 
 ; ------------------------------------------------------------------------------
@@ -197,23 +197,23 @@ main:
 ; ------------------------------------------------------------------------------
   ; 3. Try to read from the file the 1st block + 4 bytes to check the carryload
 .read_four:
-  push 3                       ; SYS_read
+  push 3                         ; SYS_read
   pop eax
-  mov ebx, edi                 ; input fd
+  mov ebx, edi                   ; input fd
   mov ecx, buf
-  mov  dl, 4                   ; EDX = 4
+  mov  dl, 4                     ; EDX = 4
   int 0x80
 
   cmp eax, 4
-  je .do_copy                  ; read ok, there is a carryload
+  je .do_copy                    ; read ok, there is a carryload
   test edi, edi
   jz .do_exit
 
 .stdin:
 %ifdef _NO_STDIN
-  jmp short .do_exit          ; single point of detour to do_exit
-%else                         ; to check about %-branch size balance (/!\)
-  xor edi, edi                ; EDI = 0 (STDIN)
+  jmp short .do_exit             ; single point of detour to do_exit
+%else                            ; to check about %-branch size balance (/!\)
+  xor edi, edi                   ; EDI = 0 (STDIN)
 %endif
   jmp .read_four
 
@@ -228,52 +228,52 @@ main:
 ; ------------------------------------------------------------------------------
 .do_copy:
   ; at this point [ecx] contains the magic number to check
-  cmp word [ecx], 0x2123      ; match shebang
+  cmp word [ecx], 0x2123         ; match shebang
   je .use_zcat
-  cmp word [ecx], 0x457f      ; match elf bin
+  cmp word [ecx], 0x457f         ; match elf bin
   je .use_zcat
 
 .no_force:
   mov byte [force_ltr], 0
-  cmp word [ecx], 0xb528      ; match zstd
+  cmp word [ecx], 0xb528         ; match zstd
   je .write_four
 
 .use_zcat:
-  mov dword edx, [zcat_cat] ; save "cat\0"
-  mov dword [zcat_cmd], edx ; write back
+  mov dword edx, [zcat_cat]      ; save "cat\0"
+  mov dword [zcat_cmd], edx      ; write back
 
 .write_four:
   ; Write first 4 bytes, already read in buf
-; push 4                      ; bytes already read, to write, already set
-; pop eax                     ; soon --> edx, size to write , already set
+; push 4                         ; bytes already read, to write, already set
+; pop eax                        ; soon --> edx, size to write , already set
 
 .pump_loop:
   ; Write to memfd2
-  pop ebx                     ; memfd2
+  pop ebx                        ; memfd2
   push ebx
-; mov ecx, buf                ; already set
-  mov edx, eax                ; bytes already read, to write
-  push 4                      ; SYS_write
+; mov ecx, buf                   ; already set
+  mov edx, eax                   ; bytes already read, to write
+  push 4                         ; SYS_write
   pop eax
   int 0x80
 
   ; Read from input
-  mov ebx, edi                ; input fd
-; mov ecx, buf                ; already set
-  mov dh, 2                   ; EDX = 512, buffer size
+  mov ebx, edi                   ; input fd
+; mov ecx, buf                   ; already set
+  mov dh, 2                      ; EDX = 512, buffer size
   mov dl, 0
-  push 3                      ; SYS_read
+  push 3                         ; SYS_read
   pop eax
   int 0x80
 
 %ifdef _DO_EINTR
-  cmp eax, -4                 ; check for -EINTR (if any, ever)
-  je .pump_loop               ; continue
+  cmp eax, -4                    ; check for -EINTR (if any, ever)
+  je .pump_loop                  ; continue
 %endif
   test eax, eax
-  jz .rewind                  ; check for EOF
-  js .do_exit                 ; single point of detour to do_exit
-  jmp .pump_loop              ; continue
+  jz .rewind                     ; check for EOF
+  js .do_exit                    ; single point of detour to do_exit
+  jmp .pump_loop                 ; continue
 ; ------------------------------------------------------------------------------
 
 ; ------------------------------------------------------------------------------
@@ -292,39 +292,39 @@ main:
 
   ; 4. Rewind of the memfd2, set it to be ready to read as (EDI) source
 .rewind:
-  mov al, 19                   ; SYS_lseek
-  pop ebx                      ; [memfd2] <-- p::stack { [memfd1], commd_exe, }
-  xor ecx, ecx                 ; SEEK_PNT = 0
-  xor edx, edx                 ; SEEK_SET = 0
-  int 0x80                  
+  mov al, 19                     ; SYS_lseek
+  pop ebx                        ; [memfd2] <-- p::stack { [memfd1], commd_exe, }
+  xor ecx, ecx                   ; SEEK_PNT = 0
+  xor edx, edx                   ; SEEK_SET = 0
+  int 0x80
 
 .fork:
   ; 4b. Fork the process
-  mov al, 2                    ; SYS_fork
+  mov al, 2                      ; SYS_fork
   int 0x80
   test eax, eax
-  jz child                     ; the child jump to its routine
+  jz child                       ; the child jump to its routine
 
   ; ============================================================================
   ; PARENT PROCESS ( p::stack { [memfd1], commd_exe, ... } )
   ; ============================================================================
 parent:
   ; 0p. closing the source memfd2 granting the same risk with/out I/O
-  mov al, 6                     ; SYS_close
-; mov ebx, edi                  ; already set
+  mov al, 6                      ; SYS_close
+; mov ebx, edi                   ; already set
   int 0x80
 
   ; 1p. The parent waits for the child completes zcat writing in memfd
 .do_loop:
-  push 7                       ; SYS_waitpid
+  push 7                         ; SYS_waitpid
   pop eax
   xor ebx, ebx
-  dec ebx                      ; = -1, every child
-; xor ecx, ecx                 ; =  0, already, reset above
-; xor edx, edx                 ; =  0, already, reset above
+  dec ebx                        ; = -1, every child
+; xor ecx, ecx                   ; =  0, already, reset above
+; xor edx, edx                   ; =  0, already, reset above
   int 0x80
   add eax, 4
-  jz .do_loop                  ; -EINTR, try again
+  jz .do_loop                    ; -EINTR, try again
 
   ; ----------------------------------------------------------------------------
   ; HARDENING: F_ADD_SEALS TO MEMFD
@@ -341,13 +341,13 @@ parent:
   ;   files, meaning write-restricted seals could break compatibility.
   ; ----------------------------------------------------------------------------
 ; 2p. Sealing the memfd/ELF in RO mode, for security and integrity
-  push 92                      ; SYS_fcntl (security, set eax in full)
+  push 92                        ; SYS_fcntl (security, set eax in full)
   pop eax
-  pop ebx                      ; [memfd1] <-- p::stack { commd_exe, ... }
-  mov ecx, 1033                ; ECX = F_ADD_SEALS (0x0409)
+  pop ebx                        ; [memfd1] <-- p::stack { commd_exe, ... }
+  mov ecx, 1033                  ; ECX = F_ADD_SEALS (0x0409)
   ; F_SEAL_WRITE | F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL = 15 (0x0f)
-  mov dl, 15                   ; EDX = 0x0f, sealed in full
-  int 0x80                     ; ELF hardening provided in best effort
+  mov dl, 15                     ; EDX = 0x0f, sealed in full
+  int 0x80                       ; ELF hardening provided in best effort
 
   ; ----------------------------------------------------------------------------
   ; BINFMT MODE
@@ -368,9 +368,9 @@ parent:
   ; which is used by scripts while FD=9 is the single-char highest.
   ; ----------------------------------------------------------------------------
 .fallback:
-  mov al, 63                   ; SYS_dup2
-; mov ebx, [memfd]             ; memfd1, already set
-  push 9                       ; file descriptor
+  mov al, 63                     ; SYS_dup2
+; mov ebx, [memfd]               ; memfd1, already set
+  push 9                         ; file descriptor
   pop ecx
   int 0x80
 
@@ -394,19 +394,19 @@ parent:
   ; ----------------------------------------------------------------------------
 .execute_elf:
   ; Execute the ELF binary using a Linux specific syscall
-  mov eax, 358                 ; SYS_execveat
-; mov ebx, [memfd]             ; EBX = memfd1, already
-  push 0                       ; "" on the stack
-  mov ecx, esp                 ; ECX points to ""
+  mov eax, 358                   ; SYS_execveat
+; mov ebx, [memfd]               ; EBX = memfd1, already
+  push 0                         ; "" on the stack
+  mov ecx, esp                   ; ECX points to ""
   ; Passing to the execution the original argv[] and envp[]
-  mov edx, esi                 ; EDX = argv (original)
-  mov esi, ebp                 ; ESI = envp (original)
-  mov di, 0x1000               ; EDI = AT_EMPTY_PATH
+  mov edx, esi                   ; EDX = argv (original)
+  mov esi, ebp                   ; ESI = envp (original)
+  mov di, 0x1000                 ; EDI = AT_EMPTY_PATH
 %ifndef _USE_EXECVE
-  int 0x80                     ; never returns unless it fails
+  int 0x80                       ; never returns unless it fails
 %endif
 
-  pop eax                      ; execveat() failed, reset EAX for fallback
+  pop eax                        ; execveat() failed, reset EAX for fallback
   jmp .fallback
 .backfall:
   lea ecx, [esp]
@@ -417,34 +417,34 @@ parent:
 ; ==============================================================================
 child:
   ; 1c. dup2: connect memfd2 to *cat stdin
-  mov al, 63                   ; SYS_dup2
-; mov ebx, edi                 ; already set
-  xor ecx, ecx                 ; = 0, stdin
+  mov al, 63                     ; SYS_dup2
+; mov ebx, edi                   ; already set
+  xor ecx, ecx                   ; = 0, stdin
   int 0x80
 
   ; 2c. dup2: connect memfd1 to *cat stdout
-  mov al, 63                   ; SYS_dup2
-  pop ebx                      ; [memfd1] <-- c::stack { commd_exe, ... }
-  inc ecx                      ; = 1, stdout
+  mov al, 63                     ; SYS_dup2
+  pop ebx                        ; [memfd1] <-- c::stack { commd_exe, ... }
+  inc ecx                        ; = 1, stdout
   int 0x80
 
   test eax, eax
   js short do_final_int
 
   ; 3c. Execute zcat passing "-f" when detecting a gzip input
-  mov al, 11                   ; SYS_execve
-  pop ebx                      ; commd_exe <-- c::stack { 0 }
-  sub ebx, commd_exe-zcat_path ; = zcat_path
+  mov al, 11                     ; SYS_execve
+  pop ebx                        ; commd_exe <-- c::stack { 0 }
+  sub ebx, commd_exe-zcat_path   ; = zcat_path
 
-  push 0                       ; end of envp/argv
-  push force_arg               ; "-f" or "-"
-  push ebx                     ; zcat_path --> argv[0]
-  mov ecx, esp                 ; argv[1...]
-  xor edx, edx                 ; envp null
+  push 0                         ; end of envp/argv
+  push force_arg                 ; "-f" or "-"
+  push ebx                       ; zcat_path --> argv[0]
+  mov ecx, esp                   ; argv[1...]
+  xor edx, edx                   ; envp null
 
 ; ==============================================================================
 do_final_int:
-  int 0x80                     ; it never returns, unless it fails
+  int 0x80                       ; it never returns, unless it fails
 
 ; ==============================================================================
 ; ERROR HANDLING
@@ -453,9 +453,9 @@ do_exit:
 ; test eax, eax
 ; jz .no_error
 
-  push  4                     ; SYS_write
+  push  4                        ; SYS_write
   pop eax
-  push  1                     ; stdout
+  push  1                        ; stdout
   pop ebx
   ; Print copyright notice, version and internal name
   mov ecx, copy_vers
@@ -470,9 +470,9 @@ do_exit:
   int 0x80
 
 ;.no_error:
-; mov ebx, eax                ; error from syscall
-  mov al, 1                   ; SYS_exit
-  int 0x80                    ; exit never fail
+; mov ebx, eax                   ; error from syscall
+  mov al, 1                      ; SYS_exit
+  int 0x80                       ; exit never fail
 
 ; ==============================================================================
 ; COMPACT DATA SECTION (appended to code)
@@ -496,14 +496,14 @@ force_ltr:  db "f", 0                            ; for zcat     :   3 |  3
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
 ; ==============================================================================
-file_end:                       ; Physical end of the binary file!
-times (512 - ($ - $$)) db 0     ; Padding to 512 bytes for skip=1
+file_end:                        ; Physical end of the binary file!
+times (512 - ($ - $$)) db 0      ; Padding to 512 bytes for skip=1
 
 ; ==============================================================================
 ; BSS SECTION (RAM only, aligned to 512 bytes)
 ; ==============================================================================
 bss_start equ $$ + 512
 
-buf:      equ bss_start         ; Only variable needed besides the buffer
-bss_end:  equ buf + 516         ; Reserve 512 + 4 bytes for the buffer
+buf:      equ bss_start          ; Only variable needed besides the buffer
+bss_end:  equ buf + 516          ; Reserve 512 + 4 bytes for the buffer
 
