@@ -198,25 +198,15 @@ main:
   mov ebx, edi                 ; input fd
   mov ecx, buf
   int 0x80
-; ------------------------------------------------------------------------------
-; THE BENEFIT OF A SHORT JUMP (and its implications)
-;
-; A short jump, parent.here instead of do_exit, saves 4 bytes and this jump
-; lands with an EAX < 0, then sets an EDX to a value that an attacker can choose
-; and .do_int: int_0x80(-N, EDX,...) which always fails and jumps to do_exit.
-;
-; In conclusion, this short jump is a deterministic and safe way to save 4 bytes
-; of binary code and reach the exit(). The problem here is considering -EINTR an
-; unrecoverable error because we stop reading and we do an useless loop (solved).
-; ------------------------------------------------------------------------------
+
   test eax, eax
   js .do_exit                  ; read fails --> error (bugfix)
   xor edx, eax
-  jz .do_cat                   ; read ok, there is a carryload
+  jz .do_copy                  ; read ok, there is a carryload
 
 .stdin:
 %ifdef _NO_STDIN
-  jmp .do_exit                ; single point of detour to do_exit
+  jmp short .do_exit          ; single point of detour to do_exit
 %else                         ; to check about %-branch size balance (/!\)
   xor edi, edi                ; EDI = 0 (STDIN)
 %endif
@@ -229,10 +219,16 @@ main:
   jmp .do_mgk_chk
 
 ; ------------------------------------------------------------------------------
-.do_cat:                      ; cat *.iso | ./uzcat -f  | dd bs=1M of=/dev/null
-                              ; dd: 93 MB (88 MiB) copied, 0.0638537s, 1.5 GB/s
-
-  ; Write first 4 bytes, already read in buf, to pipe
+; DO COPY BY READ / WRITE LOOP
+;
+; test: { echo '!#'; dd if=93mb.iso bs=1M; } | time -p ./uzpexec
+; fast: 93 MB (88 MiB) copied, 0.28882 s, 321 MB/s
+; time: real 0.30, user 0.03, sys 0.25
+;
+; The values above are comphrensive of all syscalls including exec(zcat -f)
+; ------------------------------------------------------------------------------
+.do_copy:
+  ; Write first 4 bytes, already read in buf
   mov dword edx, [ecx+512]    ; = [buf+512] (dword)
   mov dword [ecx], edx        ; the last 4 bytes --> [buf]
 
@@ -251,7 +247,7 @@ main:
   pop eax                     ; soon --> edx, size to write
 
 .pump_loop:
-  ; Write to pipe
+  ; Write to memfd2
   mov ebx, [esp]              ; memfd2
   mov edx, eax                ; bytes already read, to write
   push 4                      ; SYS_write
@@ -276,10 +272,21 @@ main:
   jmp .pump_loop              ; continue
 ; ------------------------------------------------------------------------------
 
+; ------------------------------------------------------------------------------
+; THE BENEFIT OF A SHORT JUMP (and its implications)
+;
+; A short jump, parent.here instead of do_exit, saves 4 bytes and this jump
+; lands with an EAX < 0, then sets an EDX to a value that an attacker can choose
+; and .do_int: int_0x80(-N, EDX,...) which always fails and jumps to do_exit.
+;
+; In conclusion, this short jump is a deterministic and safe way to save 4 bytes
+; of binary code and reach the exit(). The problem here is considering -EINTR an
+; unrecoverable error because we stop reading and we do an useless loop (solved).
+; ------------------------------------------------------------------------------
 .do_exit:
   jmp short parent.here
 
-  ; 4. File pointer set in ebx previously
+  ; 4. Rewind of the memfd2, set it to be ready to read as (EDI) source
 .rewind:
   mov al, 19                   ; SYS_lseek
   mov ebx, [esp]               ; memfd2
@@ -291,8 +298,7 @@ main:
 
 .fork:
   ; 4b. Fork the process
-  push 2                       ; SYS_fork
-  pop eax
+  mov al, 2                    ; SYS_fork
   int 0x80
   test eax, eax
   jz child                     ; the child jump to its routine
@@ -301,6 +307,7 @@ main:
   ; PARENT PROCESS ( p::stack { [memfd1], commd_exe, ... } )
   ; ============================================================================
 parent:
+  ; 0p. closing the source memfd2 granting the same risk with/out I/O
   mov al, 6                     ; SYS_close
   mov ebx, edi
   int 0x80
@@ -407,13 +414,13 @@ parent:
 ; CHILD PROCESS ( c::stack [memfd1], commd_exe, ... )
 ; ==============================================================================
 child:
-  ; 1c. dup2: connect memfd new to *cat stdout
+  ; 1c. dup2: connect memfd2 to *cat stdin
   mov al, 63                   ; SYS_dup2
 ; mov ebx, edi                 ; already set
   xor ecx, ecx                 ; = 0, stdin
   int 0x80
 
-  ; 2c. dup2: connect memfd old to *cat stdin
+  ; 2c. dup2: connect memfd1 to *cat stdout
   mov al, 63                   ; SYS_dup2
   pop ebx                      ; [memfd1] <-- c::stack { commd_exe, ... }
   inc ecx                      ; = 1, stdout
@@ -435,7 +442,7 @@ child:
 
 ; ==============================================================================
 do_final_int:
-  int 0x80                     ; this system call never returns
+  int 0x80                     ; it never returns, unless it fails
 
 ; ==============================================================================
 ; ERROR HANDLING
