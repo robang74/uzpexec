@@ -50,7 +50,9 @@ elf_header:
   ; Many Linux kernel ELF parsers completely ignore these 6
   ; bytes when section offset e_shoff = 0, as in this case.
   ;
+%ifndef _DO_CLOSE
   dw 0, 0, 0                     ; Section info (zeroed out, reclamable)
+%endif
   ;
   ; ASSUMPTIONS CHECK
   ;
@@ -229,18 +231,22 @@ main:
 .do_copy:
   ; at this point [ecx] contains the magic number to check
   cmp word [ecx], 0x2123         ; match shebang
-  je .use_zcat
+  je .use_cat
   cmp word [ecx], 0x457f         ; match elf bin
-  je .use_zcat
-
-.no_force:
-  mov byte [force_ltr], 0
+  je .use_cat
   cmp word [ecx], 0xb528         ; match zstd
   je .write_four
 
 .use_zcat:
   mov dword edx, [zcat_cat]      ; save "cat\0"
   mov dword [zcat_cmd], edx      ; write back
+  jmp .write_four
+
+.use_cat:
+  pop ebx                        ; memfd2
+  pop edx                        ; memfd1
+  push ebx
+  push ebx
 
 .write_four:
   ; Write first 4 bytes, already read in buf
@@ -298,6 +304,11 @@ main:
   xor edx, edx                   ; SEEK_SET = 0
   int 0x80
 
+  cmp ebx, [esp]
+  jne .fork
+  dec ebx
+  jmp parent
+
 .fork:
   ; 4b. Fork the process
   mov al, 2                      ; SYS_fork
@@ -309,10 +320,15 @@ main:
   ; PARENT PROCESS ( p::stack { [memfd1], commd_exe, ... } )
   ; ============================================================================
 parent:
+%ifdef _DO_CLOSE
   ; 0p. closing the source memfd2 granting the same risk with/out I/O
   mov al, 6                      ; SYS_close
 ; mov ebx, edi                   ; already set
   int 0x80
+  mov al, 6                      ; SYS_close
+  dec ebx
+  int 0x80
+%endif
 
   ; 1p. The parent waits for the child completes zcat writing in memfd
 .do_loop:
@@ -373,6 +389,12 @@ parent:
   push 9                         ; file descriptor
   pop ecx
   int 0x80
+
+%ifdef _DO_CLOSE
+  mov al, 6                      ; SYS_close
+; mov ebx, edi                   ; already set
+  int 0x80
+%endif
 
   ; 5p. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
   mov al, 11                     ; SYS_execve
@@ -437,7 +459,6 @@ child:
   sub ebx, commd_exe-zcat_path   ; = zcat_path
 
   push 0                         ; end of envp/argv
-  push force_arg                 ; "-f" or "-"
   push ebx                       ; zcat_path --> argv[0]
   mov ecx, esp                   ; argv[1...]
   xor edx, edx                   ; envp null
@@ -488,10 +509,8 @@ eof_tests:  db "U238", 0                         ; for tests    :   5 |  -
 ; This introduces the need of having the /proc mounted,granted after the /init
 ; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
 commd_exe:  db "/proc/self/exe", 0,0                            ;  16 | 16
-force_arg:  db "-"
-force_ltr:  db "f", 0                            ; for zcat     :   3 |  3
                                                                 ; ----------
-                                                                ;  81  tot.
+                                                                ;  78  tot.
 
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)

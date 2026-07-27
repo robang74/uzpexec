@@ -7,7 +7,7 @@
 bin=uzpexec
 LS=$(command -v ls)
 S='Hello ($0) World!'
-eof_str="U238./proc/self/exe..-f"
+eof_str="U238./proc/self/exe."
 eof_len=$(echo "$eof_str" | wc -c)
 DD() { dd status=none "$@"; }
 retprt() { printf "\tret:${1:-$?}\n\n"; }
@@ -115,23 +115,29 @@ echo "Strings output:"
   retprt
 
   echo "it runs a compressed shell script"
-  cat hello.sh | ./$bin | grep Hello
+  cat hello.sh | ./$bin | grep -E "Hello|ls/fd"
   retprt
 
-  echo "it should USE 'zstdcat'"
-  zstd -c hello.sh | strace -f ./$bin 2>&1 | grep "zstdcat., "  | cut -d\] -f2
+  echo "it should USE 'zstdcat' with zstd stuff"
+  zstd -c hello.sh | strace -f ./$bin 2>&1 |
+    cut -d\] -f2 | grep "execve.*zstdcat."
   retprt
 
-  echo "it should NOT use '-f'"
-  pigz -c hello.sh | strace -f ./$bin 2>&1 | grep "cat., .-.]," | cut -d\] -f2
+  echo "it should NOT use '-f' with gzip stuff"
+  pigz -c hello.sh | strace -f ./$bin 2>&1 |
+    cut -d\] -f2 | grep "execve.*cat."
   retprt
 
-  echo "it should USE 'zcat -f' with scripts"
-  cat hello.sh     | strace -f ./$bin 2>&1 | grep "cat., .-f.]," | cut -d\] -f2
+  echo "it should NOT use 'zcat -f' with scripts"
+  cat hello.sh     | strace -f ./$bin 2>&1 |
+    cut -d\] -f2 | grep "execve.*cat."
+  test $? -eq 1 && echo '  no execve *cat found: ok'
   retprt
 
-  echo "it should USE 'zcat -f' with ELF bin"
-  cat hello        | strace -f ./$bin 2>&1 | grep "cat., .-f.]," | cut -d\] -f2
+  echo "it should NOT use 'zcat -f' with ELF bin"
+  cat hello        | strace -f ./$bin 2>&1 |
+    cut -d\] -f2 | grep "execve.*cat."
+  test $? -eq 1 && echo '  no execve *cat found: ok'
   retprt
 
   echo "it FAILS in opening a closed stdin"
@@ -150,7 +156,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/452c97f7db4bc2efd236f5264dcccaad5eb43d11/$bin OK/" |
+sed "s/5168111a2764b5980fd2f1819fbdba312768c7b6/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
