@@ -226,7 +226,7 @@ main:
 ; mov ecx, buf                ; already set
 ; mov edx, 4                  ; alreadt set (516 - 512 = 4)
   int 0x80
-  jmp .write_four
+  jmp .do_mgk_chk
 
 ; ------------------------------------------------------------------------------
 .do_cat:                      ; cat *.iso | ./uzcat -f  | dd bs=1M of=/dev/null
@@ -236,8 +236,17 @@ main:
   mov dword edx, [ecx+512]    ; = [buf+512] (dword)
   mov dword [ecx], edx        ; the last 4 bytes --> [buf]
 
-.write_four:
+.do_mgk_chk:
   ; at this point [ecx] contains the magic number to check
+  cmp word [ecx], 0x2123      ; match shebang
+  je .write_four
+  cmp word [ecx], 0x457f      ; match elf bin
+  je .write_four
+
+.no_force:
+  mov byte [force_arg+1], 0
+
+.write_four:
   push 4                      ; bytes already read, to write
   pop eax                     ; soon --> edx, size to write
 
@@ -418,7 +427,7 @@ child:
   sub ebx, commd_exe-zcat_path ; = zcat_path
 
   push 0                       ; end of envp/argv
-  push force_arg               ; "-f"
+  push force_arg               ; "-f" or "-"
   push ebx                     ; zcat_path --> argv[0]
   mov ecx, esp                 ; argv[1...]
   xor edx, edx                 ; envp null

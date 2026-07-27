@@ -106,7 +106,7 @@ echo "Strings output:"
     retprt; rm -f $fnm
   fi
 
-  echo "====== TESTS FOR STDIN (X3) ======"
+  echo "====== TESTS FOR STDIN (x6) ======"
   echo
 
   echo "it runs a plain elf"
@@ -116,6 +116,18 @@ echo "Strings output:"
 
   echo "it runs a compressed shell script"
   cat hello.sh | ./$bin | grep Hello
+  retprt
+
+  echo "it should NOT use '-f'"
+  pigz -c hello.sh | strace -f ./$bin 2>&1 | grep "zcat., .-.]," | cut -d\] -f2
+  retprt
+
+  echo "it should USE 'zcat -f' with scripts"
+  cat hello.sh     | strace -f ./$bin 2>&1 | grep "zcat., .-f.]," | cut -d\] -f2
+  retprt
+
+  echo "it should USE 'zcat -f' with ELF bin"
+  cat hello        | strace -f ./$bin 2>&1 | grep "zcat., .-f.]," | cut -d\] -f2
   retprt
 
   echo "it fails in opening a closed stdin"
@@ -134,7 +146,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/88762ffbf973627508236e8f341261ca3376d342/$bin OK/" |
+sed "s/9e15fd14e1406ab38a2a212a30729640ce3ca311/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
