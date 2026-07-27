@@ -97,9 +97,6 @@ main:
   pop eax                      ; argc (was [esp])
   mov esi, esp                 ; ESI = argv
   lea ebp, [esi+eax*4+4]       ; EBP = envp (callee-saved or SIGSEGV on [esi])
-                               ; CVE-2021-4034, pre-5.18, can't cover LK bugs
-; mov ebx, [esi]               ; Let SIGSEGV do the work and/or syscalls fail
-; push ebx                     ; --> m::stack { argv[0], ... }
 
   ; ----------------------------------------------------------------------------
   ; HARDENING: NO_NEW_PRIVS & ANTI-CORE-DUMP
@@ -143,11 +140,9 @@ main:
 
   ; 2. Try to open the memfd, as first operation
   mov eax, 356                 ; SYS_memfd_create
-                               ; Linux requires a name here, using argv[0]
-                               ; CVE-2021-4034, pre-5.18, can't cover LK bugs
-  test esi, esi
-  jz .do_exit
-  mov ebx, [esi]               ; Let SIGSEGV do the work and/or syscalls fail
+  test esi, esi                ; CVE-2021-4034, pre-5.18, can't cover LK bugs
+  jz short .do_exit            ; just exit or SIGSEGV later
+  mov ebx, [esi]               ; argv[0]
   push 3                       ; MFD_ALLOW_SEALING | MFD_CLOEXEC
   pop ecx
   int 0x80
@@ -161,9 +156,18 @@ main:
   ; Organising the stack in the proper order (inverse order of popping)
   push eax                     ; --> m::stack { [memfd2], [memfd1], commd_exe, }
 
-  ; 3. Try to read from the file the 1st block + 4 bytes to check the carryload
-  mov dh, 2                    ; read size (512+4), 32-bit aligned
-  mov dl, 4                    ; EDX
+  push 19                      ; SYS_lseek
+  pop eax
+  mov ebx, edi                 ; itself
+  mov ch, 2                    ; skip size, 32-bit aligned
+  mov cl, 0                    ; ECX = 512
+; xor edx, edx                 ; SEEK_SET = 0, already set
+  int 0x80
+%if 0
+  test eax, eax
+  jnz .do_exit                 ; this should never happen
+%endif
+
 ; ------------------------------------------------------------------------------
 ; WHY -EINTR ISN'T AN ISSUE HERE (and it wasn't correctly addressed anyway)
 ;
@@ -194,15 +198,19 @@ main:
 ; https://github.com/robang74/uzpexec/blob/devel/
 ;                                    /doc/the-x86-asm-eintr-dilemma-question.txt
 ; ------------------------------------------------------------------------------
-  mov al, 3                    ; SYS_read
+  ; 3. Try to read from the file the 1st block + 4 bytes to check the carryload
+.read_four:
+  push 3                       ; SYS_read
+  pop eax
   mov ebx, edi                 ; input fd
   mov ecx, buf
+  mov  dl, 4                   ; EDX = 4
   int 0x80
 
-  test eax, eax
-  js .do_exit                  ; read fails --> error (bugfix)
-  xor edx, eax
-  jz .do_copy                  ; read ok, there is a carryload
+  cmp eax, 4
+  je .do_copy                  ; read ok, there is a carryload
+  test edi, edi
+  jz .do_exit
 
 .stdin:
 %ifdef _NO_STDIN
@@ -210,13 +218,7 @@ main:
 %else                         ; to check about %-branch size balance (/!\)
   xor edi, edi                ; EDI = 0 (STDIN)
 %endif
-  push 3                      ; SYS_read
-  pop eax
-  xor ebx, ebx                ; EBX = 0 (STDIN)
-; mov ecx, buf                ; already set
-; mov edx, 4                  ; alreadt set (516 ^ 512 = 4)
-  int 0x80
-  jmp .do_mgk_chk
+  jmp .read_four
 
 ; ------------------------------------------------------------------------------
 ; DO COPY BY READ / WRITE LOOP
@@ -228,11 +230,6 @@ main:
 ; The values above are comphrensive of all syscalls including exec(zcat -f)
 ; ------------------------------------------------------------------------------
 .do_copy:
-  ; Write first 4 bytes, already read in buf
-  mov dword edx, [ecx+512]    ; = [buf+512] (dword)
-  mov dword [ecx], edx        ; the last 4 bytes --> [buf]
-
-.do_mgk_chk:
   ; at this point [ecx] contains the magic number to check
   cmp word [ecx], 0x2123      ; match shebang
   je .write_four
@@ -243,12 +240,14 @@ main:
   mov byte [force_arg+1], 0
 
 .write_four:
-  push 4                      ; bytes already read, to write
-  pop eax                     ; soon --> edx, size to write
+  ; Write first 4 bytes, already read in buf
+; push 4                      ; bytes already read, to write
+; pop eax                     ; soon --> edx, size to write
 
 .pump_loop:
   ; Write to memfd2
   mov ebx, [esp]              ; memfd2
+; mov ecx, buf                ; already set
   mov edx, eax                ; bytes already read, to write
   push 4                      ; SYS_write
   pop eax
@@ -256,6 +255,7 @@ main:
 
   ; Read from input
   mov ebx, edi                ; input fd
+; mov ecx, buf                ; already set
   mov dh, 2                   ; EDX = 512, buffer size
   mov dl, 0
   push 3                      ; SYS_read
@@ -483,7 +483,7 @@ do_exit:
 ;                                                                  LN | XE
 copy_vers:  db "(c) github/robang74/uzpexec v0.97 "             ;  34 | 34
 provider :  db      "12345678", 0x0a, 0                         ;  10 | 10
-zcat_path:  db "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0         ;  21 | 26
+zcat_path:  db "/bin/zcat",  0,0,0, 0,0,0,0, 0,0,0,0, 0         ;  21 | 25
 ; following fields are conditionally overwritable, do unions
 eof_tests:  db "U238", 0                         ; for tests    :   5 |  -
 ; This introduces the need of having the /proc mounted,granted after the /init
