@@ -41,6 +41,7 @@
 ; Testing:
 ;   for cmd in gzip xz bzip2 lz4 zstd; do echo $cmd:
 ;       $cmd -c uzcat.asm | ./uzcat | file -; done
+;   gzip -c uzcat.asm | ./uzcat -f  | file -
 ;   echo info:; ./uzcat <&-
 ;   nasm -O2 -f bin -d_DO_EXTRA uzcat.asm -o uzcat
 ;   echo provider:; ./uzcat <&-
@@ -133,7 +134,7 @@ end_copy :
 ; CODE
 ; ==============================================================================
 main_start:
-%if 0 ; actually the uzpexec always uses '-f', ignoring it
+%if 1 ; actually the uzpexec uses '-f' correctly
   ; Parse argv to check for -f flag (ignore it, we always behave like zcat -f)
   pop eax                     ; argc
   pop ebx                     ; argv[0] = program name
@@ -141,10 +142,11 @@ main_start:
   jz .read_magic              ; no args, proceed to read magic
 
   ; Check if argv[1] is "-f"
+  xor eax, eax                ; EAX = 0
   pop ecx                     ; argv[1]
-  push ecx                    ; put it back in the stack
   cmp word [ecx], 0x662d      ; compare with "-f"
   je .use_cat                 ; uzpexec uses "-f" in a specific manner
+  push ecx                    ; put it back in the stack
 %endif
 
 .read_magic:
@@ -156,8 +158,9 @@ main_start:
   mov ecx, buf
   mov edx, 4
   int 0x80
+
   cmp eax, 4
-  jl .use_cat                 ; less than 4 bytes, use cat
+  jne do_exit                 ; not 4 bytes, exit //TODO: not a short jump
 
 ; ------------------------------------------------------------------------------
 ; Determine decompressor from magic
@@ -228,12 +231,17 @@ parent:
   int 0x80
 %endif
 
-.do_cat:                      ; cat *.iso | ./uzcat -f  | dd bs=1M of=/dev/null
-                              ; dd: 93 MB (88 MiB) copied, 0.0638537s, 1.5 GB/s
+; ------------------------------------------------------------------------------
+; DO COPY BY READ / WRITE LOOP
+;
+; test: cat *.iso | ./uzcat -f  | dd bs=1M of=/dev/null
+; slow: 93 MB (88 MiB) copied, 0.0919112 s, 1.0 GB/s (min)
+; fast: 93 MB (88 MiB) copied, 0.0638537 s, 1.5 GB/s (max)
+; ------------------------------------------------------------------------------
   ; Write first 4 bytes, already read in buf, to pipe
-  push 4                      ; bytes already read, to write
-  pop eax
+  mov al, 4                   ; bytes already read, to write
 
+.do_cat:
   mov ecx, buf                ; set once and keep untouched
 
 .pump_loop:
@@ -370,7 +378,7 @@ do_exit:
 ; PADDING: Aligned exactly to 512 bytes
 ; ==============================================================================
 file_end:                       ; Physical end of the binary file!
-;times (512 - ($ - $$)) db 0    ; Padding for 512 bytes alignement
+times (512 - ($ - $$)) db 0     ; Padding for 512 bytes alignement
 
 ; ==============================================================================
 ; BSS SECTION (RAM only, aligned to 512 bytes)
