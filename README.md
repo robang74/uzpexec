@@ -27,7 +27,7 @@ A 512-byte polymorphic stub/payload ([uzpexec](uzpexec.asm)) written in Assemble
 
 ### Presentation
 
-The `uzpexec` is an utility for executing a compressed `ELF` binary or a script from `STDIN` or alternatively from a carryload appended to it, and the two are indipendent and complementary ways of working.
+The `uzpexec` is an utility for executing a compressed `ELF` binary or a script from `STDIN` or alternatively from a carryload appended to it, and the two are independent and complementary ways of working.
 
 - it extracts and executes
 - it adds a **just 512-bytes** stub
@@ -90,13 +90,13 @@ Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.98** on
 
 #### 1. deploy responsibly
 
-- Those who are planning to deploy this tool in their devops/build pipelines are **strongly** suggest to recompile with `make JE_STDIN=_NO_STDIN` to avoid converted apps would activate the exec-by-stdin mode when their file name includes `pexe` 2 chars before its end.
+- Those who are planning to deploy&thinsp;/&thinsp;distribute self-extracting binaries, may consider to recompile `uzpexec` as loader with `make JE_STDIN=_NO_STDIN` to avoid users extract it with `dd count=1` for lazy&thinsp;/&thinsp;unsafe pipeline executions.
 
-- Instead, embedded system architects/engineers more probably appreciate this feature since they have a stricter control about file naming. Adopting `.uzp` extension mitigates risks-by-mistake.
+- Instead, embedded system architects&thinsp;/&thinsp;engineers are going to appreciate this feature in `uzpexec` as command-line tool because they have a stricter control about users&thinsp;/&thinsp;accesses, thus over the pipeline executions.
 
 #### 2. awareness of power
 
-- Since the project didn't reach yet the v1.0, I strongly suggest to consult the documentation, the man page, the design choices in the Assembler [source](uzpexec.asm) code comments, the coverage of [tests.sh](tests.sh) in the [Makefile](Makefile).
+- Since the project didn't reach yet the v1.0, it is suggest to consult the documentation, the man page, the design choices in the Assembly [source](uzpexec.asm) code and the comments, the coverage of [tests.sh](tests.sh) by `make tests` in [Makefile](Makefile).
 
 - Last but not least the [licensing](#licensing-terms) terms, which allows everyone to change the code (also at running time) but not to remove the authorship note, not even from the binary executable form. A powerful tool requires awareness about how to use it.
 
