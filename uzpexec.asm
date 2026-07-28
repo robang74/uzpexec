@@ -51,6 +51,7 @@ elf_header:
   ; bytes when section offset e_shoff = 0, as in this case.
   ;
 %ifndef _DO_CLOSE
+elf_infosix:
   dw 0, 0, 0                     ; Section info (zeroed out, reclamable)
 %endif
   ;
@@ -143,7 +144,7 @@ main:
   ; 2. Try to open the memfd, as first operation
   mov eax, 356                   ; SYS_memfd_create
   test esi, esi                  ; CVE-2021-4034, pre-5.18, can't cover LK bugs
-  jz short .do_exit              ; just exit or SIGSEGV later
+  jz short .jz_do_exit           ; just exit or SIGSEGV later
   mov ebx, [esi]                 ; argv[0]
   push 3                         ; MFD_ALLOW_SEALING | MFD_CLOEXEC
   pop ecx
@@ -209,6 +210,7 @@ main:
   cmp eax, 4
   je .do_copy                    ; read ok, there is a carryload
   test edi, edi
+.jz_do_exit:
   jz .do_exit
 
 .stdin:
@@ -236,6 +238,8 @@ main:
   je .use_cat
   cmp word [ecx], 0xb528         ; match zstd
   je .write_four
+  cmp byte [eof_tests], 'U'      ; check for customisation
+  jne .write_four
 
 .use_zcat:
   mov dword edx, [zcat_cat]      ; save "cat\0"
