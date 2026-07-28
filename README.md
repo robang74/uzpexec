@@ -12,11 +12,11 @@ A 512-byte polymorphic stub/payload ([uzpexec](uzpexec.asm)) written in Assemble
 - Development happens in [devel](https://github.com/robang74/uzpexec/tree/devel) branch, testing on [devsrc](https://github.com/robang74/uzpexec/releases/tag/devsrc) tag.
 
 > [!NOTE]
->
+> 
 > Only the stub, which executes the compressed binary or script, runs as ELF32 and it makes perfect sense since its role is to deal with few system calls and runs everywhere (x86 all arches, because the Assembler is a machine specific language). Obviously the ELF32 nature of the launcher doesn't affect in any manner what is executed which runs by its own kind. Cfr. [Examples](#example-1).
 
 > [!WARNING]
->
+> 
 > Since the release **v0.93** packages contain [uzpexec.arm](uzpexec.arm) source file for **ARM64** versioned as v0.33. That source compiles but it is still experimental and reasonably affected by bugs because for a full validation it is a required a complete aarch64 system. However, testing with `qemu-aarch64-static` 10.2.3 in its original and customised form helped a lot to improve the x86 version.
 
 ### Index
@@ -27,18 +27,19 @@ A 512-byte polymorphic stub/payload ([uzpexec](uzpexec.asm)) written in Assemble
 
 ### Presentation
 
-The `uzpexec` is an utility for executing an ELF binary directly from stdin pipe:
+The `uzpexec` is an utility for executing a compressed `ELF` binary or a script from `STDIN` or alternatively from a carryload appended to it, and the two are indipendent and complementary ways of working.
 
-- it self-extracts and executes
+- it extracts and executes
 - it adds a **just 512-bytes** stub
 - trivial to inflate by `dd skip=1`
 - it runs binary via `ssh` or `wget`
 - it runs in **RAM only**, no disk write
 - it converts **ELF and shell scripts**, both
 - it works with `dash`, `bash`, and busybox `ash`
-- reserved `provider` BSS field for customisation
+- it executes from `STDIN` by internal `read`/`write`
+- reserved `provider` field for customisations
 
-Using `uzpexec` to launch `uzpack.sh` generates a tool that can convert executables.
+Using `uzpexec` to convert `uzpack.sh` generates a tool that can convert executables.
 
 Soon after `uzpack.sh` incorporates `uzpexec` as payload, it can work in standalone mode.
 
@@ -46,21 +47,25 @@ In a standalone mode, it can convert itself in `uzpack` and it becomes self-host
 
 - `stub + script --> script w/ payload --> self-hosted ELF32 executable converter tool`
 
+It supports natively the `gzip` (legacy) and `zstd` (fastest) carryload formats extraction.
+
 #### Requirements
 
-- `/bin/sh`, `/bin/zcat` (gunzip), `/proc` mounted, Linux kernel 3.19 or later
+- `/bin/sh`, `/bin/zcat` (gunzip), `/proc` mounted, Linux kernel 3.19 or later.
 
-#### Short notes
+- `/bin/zstd` for creation, and `/bin/zstdcat` for 1GB/s in memory extraction.
 
-- Support extentions: from `dash`-only to every shell in v0.92, [python](#python-support) scripts since v0.95.
+#### Features log
 
-- RAM-only, without writing on the remote/local systems storage because `memfd_create()`.
+- Support extentions: from `dash`-only to every shell in v0.92, [python](#python-support) scripts since v0.95, `zutils` + `binfmt_script` since v0.97, `zstdcat` internal support since v0.98.
 
-- Obviously when RAM-only is a benefit otherwise [gzcmd.sh](#gzcmdsh) writes on disk&thinsp;/&thinsp;tmpfs.
+- In v0.98 the `sed` customisation returns fully available for running a `uzpexec` self-extracting binary on a system&thinsp;/&thinsp;container with `/usr/local` from a `make install` installation.
+
+- RAM-only, without writing on the remote&thinsp;/&thinsp;local systems storage because `memfd_create()`. Obviously when RAM-only is a benefit otherwise [gzcmd.sh](#gzcmdsh) writes on disk&thinsp;/&thinsp;tmpfs.
 
 #### For providers
 
-- Customisations are [allowed](#quick-customisation) strictly within the [licensing](#licensing-terms) terms and 8 chars are dedicated for the provider identifier&thinsp;/&thinsp;nickname.
+- Customisations are [allowed](#quick-customisation) strictly within the [licensing](#licensing-terms) terms and the dedicated 8-char field for the provider identifier&thinsp;/&thinsp;nickname.
 
 - Providers who will disclose their changes with the author will (on their request) be listed here with their chosen identifier&thinsp;/&thinsp;nickname.
 
@@ -75,7 +80,7 @@ In a standalone mode, it can convert itself in `uzpack` and it becomes self-host
 
 ### Current release
 
-Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.97** on the `master` branch. This release aims to keep the `uzpexec` fix and relies on system standards like `binfmt_script`, zutils `zcat` and busybox `zcat` seamless decompression, offering lightweight alternatives for system customisation.
+Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.98** on the `master` branch. Since v0.97, it aims to keep the `uzpexec` uncustomised as much as possible and, instead, relies on system standards like `binfmt_script`, zutils `zcat` and busybox `zcat` seamless decompression, offering [`uzcat`](uzcat.asm) as a lightweight alternatives for system customisation. This release moves forward integrating the `zstd` support and being self-sufficient in executing from `STDIN` plain inputs, and it is freed from `zcat -f` potentially insecure option.
 
 ### Notes
 
@@ -130,7 +135,7 @@ make tests
 
 Test by yourself and then decide how to deploy.
 
-- `{ cat uzpexec; gzip -7c $elf; }    > $elf.uzp`
+- `{ cat uzpexec; zstd -19c $elf; }   > $elf.uzp`
 - `cp uzpexec $elf.uzp; gzip -c $elf >> $elf.uzp`
 - `wget $url/$elf[.gz] -O- | uzpexec [args]`
 - `uzpexec <&-||echo` # for the version + github
@@ -143,9 +148,8 @@ Using `sed` to change the interpreter from `/bin/sh` to every other available in
 
 ```sh
 rm -f uzpexec; make uzpexec
-bin="hello.py"; export WORLD="Wonderful"
-sed -e "s,bin/sh\x00\{5\},bin/python3," uzpexec > ${bin}z
-gzip -9c $bin >> ${bin}z && chmod +x ${bin}z && ./${bin}z Nice
+export WORLD="Wonderful"; bin="hello.py"; cp -f uzpexec ${bin}z
+pigz -11c $bin >> ${bin}z && chmod +x ${bin}z && ./${bin}z Nice
 
   Hello Nice World!
   lsfd: 0 1 2 3 9
@@ -155,10 +159,10 @@ gzip -9c $bin >> ${bin}z && chmod +x ${bin}z && ./${bin}z Nice
 
 du -b hello.py*
   1370	hello.py
-  1247	hello.pyz <-- the output is smaller than original
+  1235	hello.pyz <-- the output is smaller than original !!!
 ```
 
-While before v0.95, supporting phython scripts was possible ony by system changes like configuring the `/bin/sh` or Linux `binfmt` to properly routing properly shebang-ed scripts to their own interpreter.
+In v0.95 or before, supporting phython scripts was possible only by properly customising `uzpexec`. After, by system changes like configuring the `/bin/sh` or Linux `binfmt` to properly routing shebang-ed scripts to their own interpreter. Which is the standard configuration in desktop and servers and some less-than-minimal embedded systems.
 
 ### BusyBox support
 
@@ -173,7 +177,7 @@ Moreover, by the integration of the `/bin/uxsh` applet (0.4Kb) in BusyBox, the `
 An example of use is related to this [project](https://github.com/robang74/uchaosys/blob/v074/qemu/README.md) about QEMU footprint reduction which uses `uzpexec` to deliver the executable binary in `UZP` format which can be downloaded from [here](https://github.com/robang74/working-in-progress/tree/main/uchaosys.qemu)
 
 > [!NOTE]
->
+> 
 > The `qemu-system-x86_64`, provided in `UZP` self-inflate executable, appears to be an x86 ELF 32-bit LSB executable. That type file refers to the extractor. While qemu is expanded in RAM and execute in its original ELF 64-bit format.
 
 ### Example #2
@@ -185,27 +189,29 @@ Obviously, it is possible to convert an already converted binary. Which fails to
 A different result can be obtained by double converting and executing a binary (bigger is better) because it creates a "*fork bomb*" which will eventually trigger an OOM `kill` by the kernel itself... a show to enjoy with a `htop` view. ;-)
 
 > [!NOTE]
->
+> 
 > Performance report: this little guy in "fork bomb" mode or better said in "fork loop" mode, is capable of sucking 2 core power from my i5-8365. Two! And this number can correctly taken as an index of its performance: no any lags but pure execution.
 
 ---
 
 ### Quick customisation
 
-Quick customisation by `sed` and other stings-based editor is supported:
+Quick customisation by coreutil `sed`, or any other stings-based editor (or commands line combination like `xxd` or `base64` with busybox `sed` or `awk`) which can deal with binary data containing '\0', is straightforward supported:
 
-- `{ cat uzpexec | sed 's/zcat\x00/xzcat/'; xz -7c $elf; } > $elf.uxp`
+```sh
+rm -f uzpexec hello; make distclean uzpexec hello; elf=hello
+sed -e 's/zstdcat/xzcat\x00_/' -e 's/U238/x238/' uzpexec > $elf.uxp
+xz -9c $elf >>$elf.uxp && chmod +x $elf.uxp && strace -f ./$elf.uxp 2>&-
+```
 
-Alternative to `zcat` are `xzcat` for XZ compression, or `lzcat` for LZMA.
-
-The alternatives that are natively compatible with `-f -` are fully supported.
+Alternatives to `/bin/zstdcat` are every equivalent executable for which its full pathname would fit into a 18 chars string terminated by a `\0`. When the `provider` string can be reduced to `\n\0`, the full pathname can be up to 26 chars long.
 
 ```asm
 ; ==============================================================================
 ; COMPACT DATA SECTION (appended to code)
 ; ==============================================================================
 ;                                                                  LN | XE
-copy_vers:  db "(c) github/robang74/uzpexec v0.97 "             ;  34 | 34
+copy_vers:  db "(c) github/robang74/uzpexec v0.98 "             ;  34 | 34
 provider :  db      "12345678", 0x0a, 0                         ;  10 | 10
 zcat_path:  db "/bin/z"
 zcat_cmd :  db "std"
@@ -224,10 +230,10 @@ file_end:                       ; Physical end of the binary file!
 times (512 - ($ - $$)) db 0     ; Padding to 512 bytes for skip=1
 ```
 
-Since `zcat` can be a shell script, it can be changed to pair the input with the proper decompressing tool. While a tiny `xcat` binary in ASM would be much faster in properly pairing the matches.
+Since `/path/name` can point to a shell script, it can be changed to pair the input with the proper decompressing tool. While a tiny `xcat` binary in ASM would be much faster in properly pairing the matches.
 
 > [!WARNING]
->
+> 
 > The following script is provided **untested** AS-IS, just for the concept:
 
 ```sh
@@ -427,21 +433,11 @@ A couple more of constraints strengthen the overall security policy:
 
 #### Script to ELF32
 
-**This section is obsolete with v0.92 and later**
-
-- every shell is supported without script change
-
-> [!WARNING]
->
-> Shell scripts requiring user inputs need to use `</dev/tty` on each specific input request or run exclusively on `/bin/dash` (tested) because `bash` resets the `STDIN` in doing `exec </dev/tty` and this stops the script. Until an universal approach would be found, scripts conversion may requires some levels of customisation of the script and/or the payload.
-
-A shell script may have a shebang (`#!`), while `uzpexec` expects the shebang as a minimum requirement and a kind of template / wrapper for the script to convert in order to deal with the input from the users. Moreover, at the writing time only `dash` works smoothly.
+- every script is supported when provided by its own shebang
+- the related interpreter is registered with `binfmt_scripts`
 
 ```sh
 #!/bin/sh
-# ------------------------------------------------------------------------------
-if [ ${BASHPID:-0} -eq 0 ] && [ -t 0 -o -c /dev/tty ]; then exec < /dev/tty; fi
-# RAF, TODO: for testing the console ## read -p "proceed with '$-' ? " xp  #<&3
 # ------------------------------------------------------------------------------
 
             # ############################################### #
@@ -453,12 +449,10 @@ exit $ret
 ```
 
 Since `/bin/dash` is far faster than `/bin/bash` is usually the default shell on most
-Linux desktop installations and almost always available. For this reason the `uzpexec`
-calls `/bin/dash` explicitly. Clearly this creates another issue known as bashisms.
+Linux desktop installations and almost always available.
 
-However, [gzcmd.sh](#gzcmdsh) is designed to create self-extracting executable scripts.
-Therefore, when the script is complex, implements bashisms unsupported by `/bin/dash` or
-performs peculiar activity with the console, the [gzcmd.sh](gzcmd.sh) remains a solid way to go.
+By contrast, [gzcmd.sh](#gzcmdsh) is designed to create self-extracting executable scripts.
+Therefore, when the script is complex, implements bashisms, or performs peculiar activity with/by the console, or requires to be self-finding or self-editing as standard file by its executable path then [gzcmd.sh](gzcmd.sh) is a solid way to go.
 
 ---
 
