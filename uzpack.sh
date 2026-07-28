@@ -50,7 +50,7 @@ W
 " # END_OF_UZPAYLOAD ##################################################
 
 b64=$(command -v base64)
-gzc=$(command -v zstd pigz zopfli gzip | head -n1)
+gzc=$(command -v ${UZCMD:-} zstd pigz zopfli gzip | head -n1)
 
 grp() { strings | command grep --color=none "$@"; }
 get_copy() { grp -E "robang74|$nme" | tr '\n' ' ' | grp "$cpy"; }

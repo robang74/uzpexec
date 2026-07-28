@@ -26,7 +26,7 @@ MAINTAINER = Roberto A. Foglietta <roberto.foglietta@gmail.com>
 # Files
 # -----------------------------------------------------------------------------
 BINS       = uzpexec uzpack gzcmd.gz.sh
-CLEN       = uzpexec hello hellz uzpeck uzpeck.uzp
+CLEN       = uzpexec hello hellz uzpeck uzpeck.uzp uzcat
 MANPAGES   = uzpack.1 uzpexec.1
 DOCFILES   = README.md uzpack.md
 DEVFILES   = uzpack.sh uzpexec.asm uzpexec.arm hello.c hello.sh hello.py

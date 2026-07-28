@@ -322,7 +322,8 @@ main:
 parent:
 %ifdef _DO_CLOSE
   ; 0p. closing the source memfd2 granting the same risk with/out I/O
-  mov al, 6                      ; SYS_close
+  push 6                         ; SYS_close
+  pop eax
 ; mov ebx, edi                   ; already set
   int 0x80
   mov al, 6                      ; SYS_close

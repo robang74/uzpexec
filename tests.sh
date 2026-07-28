@@ -44,6 +44,20 @@ echo "Strings output:"
   printf "\t%s\n" "$(du -b $bin)"
 
   echo
+  echo "====== UZCAT TESTS (x6) ======"
+  echo
+
+  nasm -O2 -f bin uzcat.asm -o uzcat && chmod +x uzcat
+  printf "%6s: %d %s\n" "size" $(du -b uzcat)
+  for cmd in gzip xz bzip2 lz4 zstd; do
+    printf "%6s: %s\n" "$cmd" "$($cmd -c uzcat.asm | ./uzcat     | file -)"
+  done
+  printf "%6s: %s \n" "use-f" "$(gzip -c uzcat.asm | ./uzcat -f  | file -)"
+  printf "%6s: %s \n" "info" "$(./uzcat <&- 2>&1)"
+  nasm -O2 -f bin -d_DO_EXTRA uzcat.asm -o uzcat
+  printf "%6s: %s \n" "prov." "$(./uzcat <&- 2>&1)"
+
+  echo
   echo "====== TESTS TO PASS (x6) ======"
   echo
 
@@ -156,7 +170,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/5168111a2764b5980fd2f1819fbdba312768c7b6/$bin OK/" |
+sed "s/dd8ff777bfa2eb44e5eb336548030cb6d3e9a203/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################

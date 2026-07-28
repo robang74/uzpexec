@@ -134,7 +134,7 @@ end_copy :
 ; CODE
 ; ==============================================================================
 main_start:
-%if 1 ; actually the uzpexec uses '-f' correctly
+%ifdef _USE_F_SPECIAL ; actually the uzpexec uses '-f' correctly
   ; Parse argv to check for -f flag (ignore it, we always behave like zcat -f)
   pop eax                     ; argc
   pop ebx                     ; argv[0] = program name
@@ -239,7 +239,8 @@ parent:
 ; fast: 93 MB (88 MiB) copied, 0.0638537 s, 1.5 GB/s (max)
 ; ------------------------------------------------------------------------------
   ; Write first 4 bytes, already read in buf, to pipe
-  mov al, 4                   ; bytes already read, to write
+  push 4                      ; bytes already read, to write
+  pop eax
 
 .do_cat:
   mov ecx, buf                ; set once and keep untouched
