@@ -33,11 +33,11 @@ A 512-byte polymorphic stub/payload ([uzpexec](uzpexec.asm)) written in Assemble
 
 ### RELEASE
 
-Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.98** on the `master` branch.
+Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.98.1** on the `master` branch.
 
 - Since v0.96, it aims to keep the `uzpexec` uncustomised as much as possible and, instead, relies on system standards like `binfmt_script`, zutils `zcat` and busybox `zcat` with seamless decompression, and offering [`uzcat`](uzcat.asm) as a lightweight alternatives for system customisation.
 
-- This release v0.98, moves forward integrating the `zstd` support and being self-sufficient in executing from `STDIN` plain inputs, and it is freed from `zcat -f` potentially insecure option.
+- This release v0.98, moves forward integrating the `zstd` support and being self-sufficient in executing from `STDIN` plain inputs, and it is freed from `zcat -f` potentially insecure option. In v0.98.1, the `gzip`&thinsp;/&thinsp;`pigz` format returns as default because universally available.
 
 <br>
 
@@ -48,8 +48,8 @@ Running `uzpexec` directly probably isn't your goal, but `uzpack` to create exec
 ```sh
 Usage: uzpack [-h|--help] [-v|--version]
        uzpack origin [destination[.uzp]]
-       uzpack [-x: debug | -1/-19: zstd]
- export UZCMD=[pigz | (any other ztool)]
+       uzpack [-x: debug | -1/-19: pigz]
+ export UZCMD=[zstd | (any other ztool)]
 ```
 
 This tool comes with its `man` page [uzpack.1](uzpack.1) which can be read by github via [uzpack.md](uzpack.md). However, the help from the script is pretty clear, and its development is simplicity-oriented.
