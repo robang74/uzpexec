@@ -178,7 +178,7 @@ nostdin:
 	@echo
 	rm -f uzpexec
 	@echo
-	( make JE_STDIN=_NO_STDIN JE_EXTRA=_DO_EXTRA uzpexec )| grep -ve "^==="
+	( make JE_STDIN=_NO_STDIN JE_EXTRA=_HAS_PROVIDER uzpexec )| grep -ve "^==="
 	@echo
 
 teststdin: nostdin
@@ -191,7 +191,7 @@ teststdin: nostdin
 
 _tests: blkln teststdin testexve distclean utils $(BINS)
 	@echo ====== testing hello ======
-	./hello
+	./hello Nice
 
 	@echo ====== testing zeroenv ======
 	@echo
@@ -209,7 +209,7 @@ _tests: blkln teststdin testexve distclean utils $(BINS)
 	@echo ====== testing gzcmd.gz.sh ======
 	@echo
 	./gzcmd.gz.sh hello
-	./hello.gz.sh
+	./hello.gz.sh Nice
 
 	@echo ====== standalone uzpack.sh, p.1 ======
 	@echo
@@ -292,17 +292,15 @@ _testa: hiarm64 hix86gz
 	@echo "RAF,TODO: argv[0] requires full path in Makefile"
 	@echo "It might fail in Makefile, not in a login console"
 	@echo
-	strace $(armuqemu) \
+	export WORLD=Wonderful && strace $(armuqemu) \
     ./hix86gz $${WORLD:-nice} 2>&1 |\
         grep -E "execv|open\(|Hello" |\
             sed -e "s/, \[/,\n\t[/"
 	@echo
-	export WORLD=Wonderful && \
-    $(armloadr) \
+	export WORLD=Wonderful && $(armloadr) \
       ./hiarm64 $${WORLD:-nice}; printf "\tret: $$?\n"
 	@echo
-	export WORLD=Wonderful &&  \
-    $(armloadr) \
+	export WORLD=Wonderful && $(armloadr) \
       ./hix86gz $${WORLD:-nice}; printf "\tret: $$?\n"
 	@echo
 	{ cat uzprm64; gzip -9c hello.sh; } > hellz
@@ -331,17 +329,15 @@ _testb: hiarm64 hlx86gz
 	@echo "RAF,TODO: argv[0] requires full path in Makefile"
 	@echo "It might fail in Makefile, not in a login console"
 	@echo
-	strace $(armuqemu) \
+	export WORLD=Wonderful && strace $(armuqemu) \
     ./hlx86gz $${WORLD:-nice} 2>&1 |\
         grep -E "execv|open\(|Hello" |\
             sed -e "s/, \[/,\n\t[/"
 	@echo
-	export WORLD=Wonderful && \
-    $(armloadr) \
+	export WORLD=Wonderful && $(armloadr) \
       ./hiarm64 $${WORLD:-nice}; printf "\tret: $$?\n"
 	@echo
-	export WORLD=Wonderful &&  \
-    $(armloadr) \
+	export WORLD=Wonderful && $(armloadr) \
       ./hlx86gz $${WORLD:-nice}; printf "\tret: $$?\n"
 	@echo
 #	cp -af uzarm64 hello.pyz
@@ -351,7 +347,7 @@ _testb: hiarm64 hlx86gz
 	./uzarm64 <&- 2>&- | sed -e "s/^/    /" | grep robang74
 	@echo
 	@rm -f uzarm64
-	@make JE_EXTRA=_DO_EXTRA uzarm64 >/dev/null 2>&1
+	@make JE_EXTRA=_HAS_PROVIDER uzarm64 >/dev/null 2>&1
 	./uzarm64 <&- 2>&- | sed -e "s/^/    /" | grep 12345678
 	@echo
 

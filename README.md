@@ -207,25 +207,38 @@ sed -e 's/zstdcat/xzcat\x00_/' -e 's/U238/x238/' uzpexec > $elf.uxp
 xz -9c $elf >>$elf.uxp && chmod +x $elf.uxp && strace -f ./$elf.uxp 2>&-
 ```
 
-Alternatives to `/bin/zstdcat` are every equivalent executable for which its full pathname would fit into a 18 chars string terminated by a `\0`. When the `provider` string can be reduced to `\n\0`, the full pathname can be up to 26 chars long.
+Alternatives to `/bin/zstdcat` are every equivalent executable for which its full pathname would fit into a 22 chars string plus the trailing `\0`, and it can contain `/usr/local/bin/zstdcat`, for example.
+
+When compiled with `_HAS_PROVIDER` and `_NO_INFOSIX` boolean declarations, the full pathname length remains unchanged. Depending on the compilation, the length can vary between 16 and 28 chars plus the ending `\0`.
 
 ```asm
 ; ==============================================================================
 ; COMPACT DATA SECTION (appended to code)
 ; ==============================================================================
 ;                                                                  LN | XE
-copy_vers:  db "(c) github/robang74/uzpexec v0.98 "             ;  34 | 34
-provider :  db      "12345678", 0x0a, 0                         ;  10 | 10
+copy_vers:  db "(c) github/robang74/uzpexec v0.98"              ;  33 | 33
+%ifdef  _HAS_PROVIDER
+provider :  db  0x20, "12345678", 0x0a                          ;  10 |  -
+%else
+micro_ver:  db  0x20, 0x20, 0x20, 0x0a                          ;   - |  4
+%endif
+; following fields are conditionally overwritable, do unions
 zcat_path:  db "/bin/z"
 zcat_cmd :  db "std"
-zcat_cat :  db "cat", 0                                         ;  13 | 18
-; following fields are conditionally overwritable, do unions
-eof_tests:  db "U238", 0                         ; for tests    :   5 |  -
+zcat_cat :  db "cat", 0                                         ;  13 | 23 (29)
+%ifndef _HAS_PROVIDER
+    times 6 db 0                                                ;   - |  -
+%endif
+%ifdef  _NO_INFOSIX
+    times 6 db 0                                                ;   - |  -
+%endif
+eof_tests:  db "U238"                            ; for tests    :   4 |  -
 ; This introduces the need of having the /proc mounted,granted after the /init
 ; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
 commd_exe:  db "/proc/self/exe", 0,0                            ;  16 | 16
                                                                 ; ----------
-                                                                ;  78  tot.
+                                                                ;  76  tot.
+
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
 ; ==============================================================================

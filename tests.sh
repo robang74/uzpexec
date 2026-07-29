@@ -4,10 +4,11 @@
 #
 ################################################################################
 
+unset WORLD
 bin=uzpexec
 LS=$(command -v ls)
 S='Hello ($0) World!'
-eof_str="U238./proc/self/exe."
+eof_str="U238/proc/self/exe."
 eof_len=$(echo "$eof_str" | wc -c)
 DD() { dd status=none "$@"; }
 retprt() { printf "\tret:${1:-$?}\n\n"; }
@@ -23,14 +24,18 @@ if [ "x${1:-}" = "x" ]; then
 else
   echo
 fi
+nasm -O2 -f bin -d_NO_INFOSIX -d_HAS_PROVIDER $bin.asm -o $bin.ipx
 
 echo "Code size with EOF string:"
-n=$(grep --color=never -abo "$eof_str" $bin | cut -f1 -d:)
-printf "\t%d bytes\n\n" $(( ${n:--$eof_len} + $eof_len ))
+n=$(grep --color=never -abo "$eof_str" $bin     | cut -f1 -d:)
+m=$(grep --color=never -abo "$eof_str" $bin.ipx | cut -f1 -d:)
+printf "    %d bytes (%d)\n\n" $(( ${n:--$eof_len} + $eof_len )) \
+                               $(( ${m:--$eof_len} + $eof_len ))
+rm -f $bin.ipx
 
 echo "Strings output:"
 ( exec 2>&1
-  echo "$(strings $bin)" | sed -e "s/^/  /" | tee /proc/self/fd/2 |
+  echo "$(strings -d $bin)" | sed -e "s/^/  /" | tee /proc/self/fd/2 |
   grep -qe "([cC]) .*robang74/uzpexec v[0-9.]\{4\}" ||{
     printf "\nWARNING:\n"
     printf "\tAuthorship isn't allowed to be changed or removed"
@@ -41,7 +46,8 @@ echo "Strings output:"
 ( exec 2>&1
   echo
   echo Binary size check:
-  printf "\t%s\n" "$(du -b $bin)"
+  printf "    %s\n" "$(du -b $bin)"
+
 
   echo
   echo "====== UZCAT TESTS (x6) ======"
@@ -170,7 +176,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/dd8ff777bfa2eb44e5eb336548030cb6d3e9a203/$bin OK/" |
+sed "s/b5892dc18e1ae186f207622aac12dca7773aa9e5/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################

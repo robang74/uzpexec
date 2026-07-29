@@ -50,7 +50,7 @@ elf_header:
   ; Many Linux kernel ELF parsers completely ignore these 6
   ; bytes when section offset e_shoff = 0, as in this case.
   ;
-%ifndef _DO_CLOSE
+%ifndef _NO_INFOSIX
 elf_infosix:
   dw 0, 0, 0                     ; Section info (zeroed out, reclamable)
 %endif
@@ -485,13 +485,7 @@ do_exit:
   pop ebx
   ; Print copyright notice, version and internal name
   mov ecx, copy_vers
-%ifdef _DO_EXTRA
-  push zcat_path - copy_vers - 1
-  mov byte [ecx + provider - copy_vers - 1], 32 ; space
-%else
-  push provider - copy_vers
-  mov byte [ecx + provider - copy_vers - 1], 10 ; line feed
-%endif
+  push zcat_path - copy_vers
   pop edx
   int 0x80
 
@@ -504,18 +498,28 @@ do_exit:
 ; COMPACT DATA SECTION (appended to code)
 ; ==============================================================================
 ;                                                                  LN | XE
-copy_vers:  db "(c) github/robang74/uzpexec v0.97 "             ;  34 | 34
-provider :  db      "12345678", 0x0a, 0                         ;  10 | 10
+copy_vers:  db "(c) github/robang74/uzpexec v0.98"              ;  33 | 33
+%ifdef  _HAS_PROVIDER
+provider :  db  0x20, "12345678", 0x0a                          ;  10 |  -
+%else
+micro_ver:  db  0x20, 0x20, 0x20, 0x0a                          ;   - |  4
+%endif
+; following fields are conditionally overwritable, do unions
 zcat_path:  db "/bin/z"
 zcat_cmd :  db "std"
-zcat_cat :  db "cat", 0                                         ;  13 | 18
-; following fields are conditionally overwritable, do unions
-eof_tests:  db "U238", 0                         ; for tests    :   5 |  -
+zcat_cat :  db "cat", 0                                         ;  13 | 23 (29)
+%ifndef _HAS_PROVIDER
+    times 6 db 0                                                ;   - |  -
+%endif
+%ifdef  _NO_INFOSIX
+    times 6 db 0                                                ;   - |  -
+%endif
+eof_tests:  db "U238"                            ; for tests    :   4 |  -
 ; This introduces the need of having the /proc mounted,granted after the /init
 ; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
 commd_exe:  db "/proc/self/exe", 0,0                            ;  16 | 16
                                                                 ; ----------
-                                                                ;  78  tot.
+                                                                ;  76  tot.
 
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
