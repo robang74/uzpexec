@@ -37,6 +37,7 @@ The `uzpexec` is an utility for executing a compressed `ELF` binary or a script 
 - it converts **ELF and shell scripts**, both
 - it works with `dash`, `bash`, and busybox `ash`
 - it executes from `STDIN` by internal `read`/`write`
+- qemu-friendly `execveat()` bug fallback to `execve()`
 - reserved `provider` field for customisations
 
 Using `uzpexec` to convert `uzpack.sh` generates a tool that can convert executables.
