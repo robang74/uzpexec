@@ -420,10 +420,6 @@ By a raw estimation a 1GBit/s network call is nearly equivalent to a local call,
 
 - Every sane compressing algorithm is also self-validating in terms of output conformity with the original while executing from a url in pipe is popular but a dangerous action because man-in-the-middle attack.
 
-- The "fork bomb" explained in "Example #2" covers the concept of "*a grenade doesn't debate*", which is also the logic behind triggering a `SIGSEGV` instead of working around a Linux kernel bug fixed in 2022.
-
-- When there is no room to deal with complications we can observe interesting facts. Anyway, the "*fork bomb*" is just an infinite loop of `fork()` from the same initial process, which is annoying but harmless.
-
 - Is `uzpexec` a stub or a payload or a pipexec? All of them, depending on the role it plays. When it gets [embedded](https://github.com/robang74/uzpexec/blob/master/uzpack.sh#L42) in `uzpack.sh` it is a payload, when `uzpack.sh` converts itself, it is a stub. When it is used vanilla is a pipexec.
 
 - Moreover, all these three roles are complementary and necessary. Without pipexec it would not be able to run compressed scripts, hence it would not be able to convert itself. But it does, hence it is also a stub and a payload.
