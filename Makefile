@@ -16,7 +16,7 @@ SRCDIR     = $(DATADIR)/src
 # -----------------------------------------------------------------------------
 # Package metadata
 # -----------------------------------------------------------------------------
-VERSION   ?= 0.97
+VERSION   ?= 0.98
 PKGNAME    = uzpexec
 FILENME    = $(PKGNAME)-$(VERSION)
 ARCH       = $(shell dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null || uname -m)

@@ -9,6 +9,5 @@ sigsegv
 gzcmd.gz.sh
 uzpexec-0.??.deb
 uzpexec-0.??.rpm
-uzpexec-0.??.tar.gz
-uzpexec-0.??.tar.xz
-
+uzpexec-0.??.tgz
+uzpexec-0.??.txz

@@ -3,7 +3,7 @@
 .\"
 .\" Man page for uzpack(1)
 .\"
-.TH UZPACK 1 "2026-07-23" "v0.97" "User Commands"
+.TH UZPACK 1 "2026-07-29" "v0.98" "User Commands"
 .SH NAME
 uzpack \- package binaries or scripts into self-extracting ELF32 executables
 .SH SYNOPSIS
@@ -155,7 +155,6 @@ A universal template recommended for full compatibility is:
 .RS
 .nf
 #!/bin/sh
-if [ \-t 0 ] || [ \-c /dev/tty ]; then exec </dev/tty; fi
 
 # put your shell script code here
 

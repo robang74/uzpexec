@@ -13,24 +13,33 @@ A 512-byte polymorphic stub/payload ([uzpexec](uzpexec.asm)) written in Assemble
 
 > [!NOTE]
 > 
-> Only the stub, which executes the compressed binary or script, runs as ELF32 and it makes perfect sense since its role is to deal with few system calls and runs everywhere (x86 all arches, because the Assembler is a machine specific language). Obviously the ELF32 nature of the launcher doesn't affect in any manner what is executed which runs by its own kind. Cfr. [Examples](#example-1).
+> Only the stub, which executes the compressed binary or script, runs as ELF32 and it makes perfect sense since its role is to deal with few system calls and runs everywhere (x86 all arches, because the Assembler is a machine specific language). Obviously the ELF32 nature of the launcher doesn't affect in any manner what is executed which runs by its own kind (cfr. examples).
 
 > [!WARNING]
 > 
 > Since the release **v0.93** packages contain [uzpexec.arm](uzpexec.arm) source file for **ARM64** versioned as v0.33. That source compiles but it is still experimental and reasonably affected by bugs because for a full validation it is a required a complete aarch64 system. However, testing with `qemu-aarch64-static` 10.2.3 in its original and customised form helped a lot to improve the x86 version.
 
-### Index
-
-- [Release](#current-release) - [Usage](#usage) - [Presentation](#presentation) - [Deploying](#notes-for-deploying) - [Compile](#how-to-compile) - [Python](#python-support) - [BusyBox](#busybox-support)
-- [Examples](#example-1) - [Customisation](#quick-customisation) - [Trivials](#trivial-facts) - [TeenyELF](#wrx-memory) - [Licensing](#licensing-terms) - [gzcmd.sh](#gzcmdsh)
-
 ---
 
-### Current release
+<br>
 
-Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.98** on the `master` branch. Since v0.97, it aims to keep the `uzpexec` uncustomised as much as possible and, instead, relies on system standards like `binfmt_script`, zutils `zcat` and busybox `zcat` seamless decompression, offering [`uzcat`](uzcat.asm) as a lightweight alternatives for system customisation. This release moves forward integrating the `zstd` support and being self-sufficient in executing from `STDIN` plain inputs, and it is freed from `zcat -f` potentially insecure option.
+### INDEX
 
----
+- [Release](#release) ‒ [Usage](#usage) ‒ [License](#license)
+- [Presentation](#presentation) ‒ [Deploying](#notes-for-deploying) ‒ [Compile](#how-to-compile) ‒ [Python](#python-support) ‒ [BusyBox](#busybox-support)
+- [Examples](#example-1) ‒ [Customisation](#quick-customisation) ‒ [Trivials](#trivial-facts) ‒ [TeenyELF](#wrx-memory) ‒ [gzcmd.sh](#gzcmdsh)
+
+<br>
+
+### RELEASE
+
+Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.98** on the `master` branch.
+
+- Since v0.96, it aims to keep the `uzpexec` uncustomised as much as possible and, instead, relies on system standards like `binfmt_script`, zutils `zcat` and busybox `zcat` with seamless decompression, and offering [`uzcat`](uzcat.asm) as a lightweight alternatives for system customisation.
+
+- This release v0.98, moves forward integrating the `zstd` support and being self-sufficient in executing from `STDIN` plain inputs, and it is freed from `zcat -f` potentially insecure option.
+
+<br>
 
 ### USAGE
 
@@ -52,9 +61,47 @@ sh ./uzpack.sh uzpack.sh uzpack
 
 Moreover, the shell script `uzpack.sh` is able to convert itself into an executable converter.
 
----
+### Requirements
 
-### Presentation
+- `/bin/sh`, `/bin/zcat` (gunzip), `/proc` mounted, Linux kernel 3.19 or later.
+
+- `/bin/zstd` for creation, and `/bin/zstdcat` for 1GB/s in memory extraction.
+
+<br>
+
+### LICENSE
+
+**In short**: MIT the source and MIT the binary, because compiling the source we get
+the executable, and by disassembling the binary we get the source (var names apart)
+due its extreme nature and Assembler coding. Hence, the MIT terms apply to both.
+
+```txt
+; (C) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT+1 license
+;
+;     MIT+1: due to the extreme nature of this software, an extra clause is
+;            added to the standard MIT license, which forbids everyone to
+;            remove or change the authorship string also from the binary.
+;            The clause rationale is rooted in security fingerprinting and
+;            due to the strong -- nearly 1:1 -- match between the Assembler
+;            source code and the x86 32-bit executable code (human-machine).
+;
+;  The MIT+1 licensing terms apply to all the previous, current and future
+;  versions, unless the author provides a public legal charter allowing a
+;  designated entity to be exempted from this extra clause. Comply or delete.
+;
+;      Note: coded with the help of Kimi and Gemini for the size reduction,
+;            this aspect deepens the link between the human and the machine.
+;
+;  In this specific case, MIT+1 is not a derivative of the MIT license but
+;  due to the peculiar and extreme nature of this source code, the license
+;  acts as a direct extension to the binary code generated by it (1sc:1bc).
+```
+
+After all, scripts are the sources and the "running code" at the same time.
+
+<br><hr><br>
+
+### PRESENTATION
 
 The `uzpexec` is an utility for executing a compressed `ELF` binary or a script from `STDIN` or alternatively from a carryload appended to it, and the two are independent and complementary ways of working.
 
@@ -78,12 +125,6 @@ In a standalone mode, it can convert itself in `uzpack` and it becomes self-host
 - `stub + script --> script w/ payload --> self-hosted ELF32 executable converter tool`
 
 It supports natively the `gzip` (legacy) and `zstd` (fastest) carryload formats extraction.
-
-#### Requirements
-
-- `/bin/sh`, `/bin/zcat` (gunzip), `/proc` mounted, Linux kernel 3.19 or later.
-
-- `/bin/zstd` for creation, and `/bin/zstdcat` for 1GB/s in memory extraction.
 
 #### Features log
 
@@ -517,38 +558,6 @@ Linux desktop installations and almost always available.
 
 By contrast, [gzcmd.sh](#gzcmdsh) is designed to create self-extracting executable scripts.
 Therefore, when the script is complex, implements bashisms, or performs peculiar activity with/by the console, or requires to be self-finding or self-editing as standard file by its executable path then [gzcmd.sh](gzcmd.sh) is a solid way to go.
-
----
-
-### Licensing terms
-
-After all, scripts are the sources and the "running code" at the same time.
-
-```txt
-; (C) 2026, Roberto A. Foglietta <roberto.foglietta@gmail.com>, MIT+1 license
-;
-;     MIT+1: due to the extreme nature of this software, an extra clause is
-;            added to the standard MIT license, which forbids everyone to
-;            remove or change the authorship string also from the binary.
-;            The clause rationale is rooted in security fingerprinting and
-;            due to the strong -- nearly 1:1 -- match between the Assembler
-;            source code and the x86 32-bit executable code (human-machine).
-;
-;     The MIT+1 licensing terms apply to all the previous, current and future
-;     versions, unless the author provides a public legal charter allowing a
-;     designated entity to be exempted from this extra clause. Comply or delete.
-;
-;     Note : coded with the help of Kimi and Gemini for the size reduction,
-;            this aspect deepens the link between the human and the machine.
-;
-;    In this specific case, MIT+1 is not a derivative of the MIT license but
-;    due to the peculiar and extreme nature of this source code, the license
-;    acts as a direct extension to the binary code generated by it (1sc:1bc).
-```
-
-**In short**: MIT the source and MIT the binary, because compiling the source we get
-the executable, and by disassembling the binary we get the source (var names apart)
-due its extreme nature and Assembler coding. Hence, the MIT terms apply to both.
 
 <br>
 
