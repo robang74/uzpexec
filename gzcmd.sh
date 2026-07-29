@@ -6,7 +6,7 @@
 # Hint    : set blocksize as headersize +2 from gzcmd.sh for min.size
 # Host    : [[export] TMPDIR=path] [shell] elf.gz.sh
 # Install : sudo sh -c "[export] TMPDIR=/usr/local/bin; elf.gz.sh"
-  RVERSION="v0.3.2"
+  RVERSION="v0.3.3"
 #
 # Suggestion for minimal size with musl static compilation of a single file.c:
 #
@@ -361,9 +361,12 @@ BFN=$(echo $BFN:$MD5CKSUM | head -c16)
 ORIGSIZE=$(stat -Lc%s "$gzelf")
 gzelfle="$ORIGNAME.gz.sh"
 BLKSIZE=${3:-32}
-ZCMPLVL=${4:-9}
+ZCMPLVL=${4:-${ZCMPLVL:-9}}
 PAYLDSZ=512
 # md5sum check after gunzip was for debug only, a corrupted archive fails anyway.
+
+
+
 headstr=$(cat <<ZELF
 #!/bin/sh
 # (C) 2026 robang74 l.MIT $RVERSION git.new/ttRvFBu
@@ -377,7 +380,8 @@ F="\$d/\$T"
 rm -f "\$F"
 F=
 done
-dd if=\$0 skip=1 2>&-|\$(command -v pigz gzip gunzip zcat|head -n1) -dc>"\$F"&&{
+dd if=\$0 skip=1 2>&-|\$(command -v \${UZCMD:-pigz} gzip gunzip zcat|
+head -n1) -dc>"\$F"&&{
 grep -qe "tmpfs.*\$d" /proc/mounts&&trap 'rm -f "\$F"_' EXIT INT TERM
 mv -f "\$F" "\$F"_||exit
 }
@@ -396,7 +400,7 @@ ZELF
 
 isgzipfile() { od -h ${1:-} | head -n1 | grep -q "8b1f 0808"; }
 
-md5c() { dd skip=1 status=none if="$1" | $zp -dc | $GZCSUMCK | grep -qe "^$MD5CKSUM"; }
+md5c() { dd skip=1 status=none if="$1" | $zpcat | $GZCSUMCK | grep -qe "^$MD5CKSUM"; }
 phdr() { echo "$headstr" | head -c $((PAYLDSZ-1)); echo; }
 
 gzcmd_main_func() {
@@ -412,8 +416,10 @@ gzcmd_main_func() {
   fi >&2
 
   # select the best-first binary for gzip compression
-  zp=$(command pigz gzip 2>&- | head -n1)
+  zp=$(command -v ${UZCMD:-} pigz zopfli gzip 2>&- | head -n1)
   zp=${zp:-gzip}
+  zpcat="$zp -dc"
+  echo "$zp" | grep -q zopfli && zpcat="zcat"
 
   # top-half script is 64-bit chunked in size, always
   headsze=$(phdr | grep -ve "^#[0-9]_" | wc -c)
@@ -428,17 +434,17 @@ gzcmd_main_func() {
   # self-compressing therefore leave behind the testing stuff
   # to include everything gzip first then gzcmd over the .gz
   nme=$(basename $0); xdo="x--do";
-  zip="$zp -${ZCMPLVL}c"; zpc="$zip \"$gzelf\""
+  zip="$zp -${ZCMPLVL} -c"; zpc="$zip \"$gzelf\""
   if false && [ "$ORIGNAME" = "$nme" -o  "$ORIGNAME.sh" = "$nme" ]; then
     nhd=$(grep -ne " = \"$xdo-tests" "$gzelf" | cut -d: -f1)
     ntl=$(grep -ne "fi # $xdo-tests" "$gzelf" | cut -d: -f1)
     if [ -n "$nhd" -a -n "$ntl" ]; then
       txt1=$(head -n$((nhd-2)) "$gzelf")
       txt2=$(tail -n-$(($(cat "$gzelf" | wc -l)-ntl)) "$gzelf")
-      zpc="printf \"%s\\n%s\\n\" \"\$txt1\" \"\$txt2\" | $zip"
+      zpc="printf \"%s\\n%s\\n\" \"\$txt1\" \"\$txt2\" | $zip -"
     fi
   elif isgzipfile "$gzelf" ; then
-    zpc="$zp -dc \"$gzelf\" | $zip"
+    zpc="$zp -d -c \"$gzelf\" | $zip -"
   fi
   # finalise the target file + an extra check about proper file creation
   eval "$zpc" >>"$wrkfle"
