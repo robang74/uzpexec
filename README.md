@@ -159,13 +159,17 @@ pigz -11c $bin >> ${bin}z && chmod +x ${bin}z && ./${bin}z Nice
   WORLD: 'Wonderful'
 
 du -b hello.py*
-  1370	hello.py
-  1235	hello.pyz <-- the output is smaller than original !!!
+  1370  hello.py
+  1235  hello.pyz <-- the output is smaller than original !!!
 ```
 
 In v0.95 or before, supporting phython scripts was possible only by properly customising `uzpexec`. After, by system changes like configuring the `/bin/sh` or Linux `binfmt` to properly routing shebang-ed scripts to their own interpreter. Which is the standard configuration in desktop and servers and some less-than-minimal embedded systems.
 
 ### BusyBox support
+
+> [!WARNING]
+> 
+> Currently BusyBox `uzcat` alias `zcat` with seamless decompression fully supports **only** few of the available algorithms, and in particular it has not `zstdcat`.
 
 Integrating [#37ab6ac38](https://github.com/robang74/busybox/commit/37ab6ac38ffec8dad72f067d083104a39a99529b) (0.1Kb) to busybox [uchaosys](https://github.com/robang74/busybox) edition, `/bin/uzcat` is created as an applet and its link signals that it can by magic-number auto-detection decompress any supported format by busybox. This allows `uzpexec` as stub to work "seamlessly" with any compression format (gz, bz2, xz, lzma) without further customisation, while the uncompressing algorithms are already included in BusyBox.
 
@@ -354,33 +358,33 @@ The use of `uzpexec` extends every GitHub action from executing whatever is inst
 
 time qemu-system-x86_64 -m4 >/dev/null 2>&1
 
-    real	0m0.021s
-    user	0m0.008s
-    sys	  0m0.013s
+    real 0m0.021s
+    user 0m0.008s
+    sys  0m0.013s
 
 7.5MB musl-static, 2.5MB zstd compressed
 
 time ./qemu-system-x86_64 -m4 >/dev/null 2>&1
 
-    real	0m0.046s
-    user	0m0.028s
-    sys	  0m0.022s
+    real 0m0.046s
+    user 0m0.028s
+    sys  0m0.022s
 
 uzpexec executes a binary which has already uzpexec as loader
 
 time cat ./qemu-system-x86_64 | ./uzpexec -m4 >/dev/null 2>&1
 
-    real	0m0.073s
-    user	0m0.029s
-    sys	  0m0.061s
+    real 0m0.073s
+    user 0m0.029s
+    sys  0m0.061s
 
 uzpexec executes by STDIN pipe a binary which is zstd compressed
 
 time dd skip=1 if=qemu-system-x86_64 2>&- | ./uzpexec -m4 >/dev/null 2>&1
 
-    real	0m0.046s
-    user	0m0.031s
-    sys	  0m0.029s
+    real 0m0.046s
+    user 0m0.031s
+    sys  0m0.029s
 ```
 
 By a raw estimation a 1GBit/s network call is nearly equivalent to a local call, because the 1Gbit/s network transfer time (25 ms) is zeroed by decompression on stream.
