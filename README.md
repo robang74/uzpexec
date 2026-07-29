@@ -21,7 +21,36 @@ A 512-byte polymorphic stub/payload ([uzpexec](uzpexec.asm)) written in Assemble
 
 ### Index
 
-- [Presentation](#presentation) - [Release](#current-release) - [Usage](#usage) - [Compile](#how-to-compile) - [Examples](#example-1) - [Customisation](#quick-customisation) - [Trivials](#trivial-facts) - [TeenyELF](#wrx-memory) - [Licensing](#licensing-terms) - [gzcmd.sh](#gzcmdsh)
+- [Release](#current-release) - [Usage](#usage) - [Presentation](#presentation) - [Deploying](#notes-for-deploying) - [Compile](#how-to-compile) - [Python](#python-support) - [BusyBox](#busybox-support)
+- [Examples](#example-1) - [Customisation](#quick-customisation) - [Trivials](#trivial-facts) - [TeenyELF](#wrx-memory) - [Licensing](#licensing-terms) - [gzcmd.sh](#gzcmdsh)
+
+---
+
+### Current release
+
+Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.98** on the `master` branch. Since v0.97, it aims to keep the `uzpexec` uncustomised as much as possible and, instead, relies on system standards like `binfmt_script`, zutils `zcat` and busybox `zcat` seamless decompression, offering [`uzcat`](uzcat.asm) as a lightweight alternatives for system customisation. This release moves forward integrating the `zstd` support and being self-sufficient in executing from `STDIN` plain inputs, and it is freed from `zcat -f` potentially insecure option.
+
+---
+
+### USAGE
+
+Running `uzpexec` directly probably isn't your goal, but `uzpack` to create executables:
+
+```sh
+Usage: uzpack [-h|--help] [-v|--version]
+       uzpack origin [destination[.uzp]]
+       uzpack [-x: debug | -1/-19: zstd]
+ export UZCMD=[pigz | (any other ztool)]
+```
+
+This tool comes with its `man` page [uzpack.1](uzpack.1) which can be read by github via [uzpack.md](uzpack.md). However, the help from the script is pretty clear, and its development is simplicity-oriented.
+
+```sh
+sh ./uzpack.sh uzpack.sh uzpack
+./uzpack -v
+```
+
+Moreover, the shell script `uzpack.sh` is able to convert itself into an executable converter.
 
 ---
 
@@ -79,11 +108,7 @@ It supports natively the `gzip` (legacy) and `zstd` (fastest) carryload formats 
 
 ---
 
-### Current release
-
-Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.98** on the `master` branch. Since v0.97, it aims to keep the `uzpexec` uncustomised as much as possible and, instead, relies on system standards like `binfmt_script`, zutils `zcat` and busybox `zcat` seamless decompression, offering [`uzcat`](uzcat.asm) as a lightweight alternatives for system customisation. This release moves forward integrating the `zstd` support and being self-sufficient in executing from `STDIN` plain inputs, and it is freed from `zcat -f` potentially insecure option.
-
-### Notes
+### Notes for deploying
 
 #### 0. use the source
 
@@ -107,26 +132,6 @@ Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.98** on
 
 ---
 
-### USAGE
-
-Running `uzpexec` directly probably isn't your goal, but `uzpack` to create executables:
-
-```sh
-Usage: uzpack [-h|--help] [-v|--version]
-       uzpack origin [destination[.uzp]]
-       uzpack [-x: debug | -1/-19: zstd]
- export UZCMD=[pigz | (any other ztool)]
-```
-
-This tool comes with its `man` page [uzpack.1](uzpack.1) which can be read by github via [uzpack.md](uzpack.md). However, the help from the script is pretty clear, and its development is simplicity-oriented.
-
-```sh
-sh ./uzpack.sh uzpack.sh uzpack
-./uzpack -v
-```
-
-Moreover, the shell script `uzpack.sh` is able to convert itself into an executable converter.
-
 ### How to compile
 
 Compiling `.asm` files requires `nasm`, otherwise `sudo apt install nasm` if missing:
@@ -143,6 +148,8 @@ Test by yourself and then decide how to deploy.
 - `uzpexec <&-||echo` # for the version + github
 
 It works as a single block 512-bytes self-inflating executable payload replacing also `gzcmd.sh` with the sole requirement of `/bin/zcat` available.
+
+---
 
 ### Python support
 
@@ -165,6 +172,8 @@ du -b hello.py*
 ```
 
 In v0.95 or before, supporting phython scripts was possible only by properly customising `uzpexec`. After, by system changes like configuring the `/bin/sh` or Linux `binfmt` to properly routing shebang-ed scripts to their own interpreter. Which is the standard configuration in desktop and servers and some less-than-minimal embedded systems.
+
+---
 
 ### BusyBox support
 
@@ -244,7 +253,6 @@ eof_tests:  db "U238"                            ; for tests    :   4 |  -
 commd_exe:  db "/proc/self/exe", 0,0                            ;  16 | 16
                                                                 ; ----------
                                                                 ;  76  tot.
-
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
 ; ==============================================================================
@@ -486,8 +494,6 @@ A couple more of constraints strengthen the overall security policy:
   ; - MFD_CLOEXEC and F_SEAL_WRITE are already set.
   ; ----------------------------------------------------------------------------
 ```
-
----
 
 #### Script to ELF32
 
