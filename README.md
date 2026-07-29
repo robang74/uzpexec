@@ -186,11 +186,9 @@ The shell script [uzpack.sh](uzpack.sh) converts a binary or a script into a sel
 
 Obviously, it is possible to convert an already converted binary. Which fails to run when it carries a shell script, but it is acceptable because it is totally useless to convert anything twice, especially in this case.
 
-A different result can be obtained by double converting and executing a binary (bigger is better) because it creates a "*fork bomb*" which will eventually trigger an OOM `kill` by the kernel itself... a show to enjoy with a `htop` view. ;-)
-
 > [!NOTE]
 > 
-> Performance report: this little guy in "fork bomb" mode or better said in "fork loop" mode, is capable of sucking 2 core power from my i5-8365. Two! And this number can correctly taken as an index of its performance: no any lags but pure execution.
+> Performance report: `uzpexec` in "fork loop" mode, is capable of sucking 2 core power from my i5-8365. Two! And this number can correctly taken as an index of its performance: no any lags but pure execution.
 
 ---
 
@@ -345,6 +343,46 @@ $ ~/bin/qemu-aarch64-static -d strace ./hiwld nice
 ```
 
 The above reported console commands and output provide a reference about the running of a simple ARM64 compressed elf, the system call involved, the args/envp management and last but not the simplicity of assembling it.
+
+#### Performance test
+
+The use of `uzpexec` extends every GitHub action from executing whatever is installable by their internal repository to whatever is available by an URL access.
+
+```
+38.8MB w/ 1st degree dynamic libraries
+
+time qemu-system-x86_64 -m4 >/dev/null 2>&1
+
+    real	0m0.021s
+    user	0m0.008s
+    sys	  0m0.013s
+
+7.5MB musl-static, 2.5MB zstd compressed
+
+time ./qemu-system-x86_64 -m4 >/dev/null 2>&1
+
+    real	0m0.046s
+    user	0m0.028s
+    sys	  0m0.022s
+
+uzpexec executes a binary which has already uzpexec as loader
+
+time cat ./qemu-system-x86_64 | ./uzpexec -m4 >/dev/null 2>&1
+
+    real	0m0.073s
+    user	0m0.029s
+    sys	  0m0.061s
+
+uzpexec executes by STDIN pipe a binary which is zstd compressed
+
+time dd skip=1 if=qemu-system-x86_64 2>&- | ./uzpexec -m4 >/dev/null 2>&1
+
+    real	0m0.046s
+    user	0m0.031s
+    sys	  0m0.029s
+```
+
+By a raw estimation a 1GBit/s network call is nearly equivalent to a local call, because the 1Gbit/s network transfer time (25 ms) is zeroed by decompression on stream.
 
 ---
 
