@@ -8,12 +8,13 @@
 uzpack \- package binaries or scripts into self-extracting ELF32 executables
 .SH SYNOPSIS
 .B uzpack
-.RI [ \-h | \-\-help ]
-.RI [ \-v | \-\-version ]
+.BR [ \-h | \-\-help ]
+.BR [ \-v | \-\-version ]
 .br
 .B uzpack
-.RI [ \-s | \-\-script ]
-.RI [ \-u | \-\-update ]
+.BR [ \-s | \-\-script ]
+.BR [ \-u | \-\-update ]
+.BR [ \-n | \-1 : \-19 ]
 .I origin
 .RI [ destination [ .uzp ]]
 .SH DESCRIPTION
@@ -24,13 +25,22 @@ into a self-extracting, self-running ELF32 file using the
 micro-stub loader.
 The resulting file carries a 512-byte payload header (the
 .B uzpexec
-extractor) followed by a gzip-compressed copy of the original
+extractor) followed by a compressed copy of the original
 .IR origin
 file.  When executed, the stub decompresses the payload entirely in RAM
 (via
 .BR memfd_create (2))
 and runs it without writing to disk.
 .PP
+The default compression tool is
+.BR gzip (1);
+this can be overridden at run-time via the
+.B UZCMD
+environment variable (e.g. with
+.BR zstd ,
+.BR pigz ,
+or
+.BR zopfli ).
 The default output name is derived from the basename of
 .IR origin
 with the
@@ -67,6 +77,32 @@ payload inside the
 script itself.  This is primarily used during development when a new
 .B uzpexec
 binary is available.
+.TP
+.BI \- n
+Set the compression level
+.IR n
+passed to the underlying compressor (honoured by
+.BR gzip ,
+.BR pigz ,
+and
+.BR zstd ).
+When
+.B UZCMD
+selects
+.BR zstd ,
+levels up to 19 can be used.
+.SH ENVIRONMENT
+.TP
+.B UZCMD
+Select an alternative compression program.  If unset,
+.B uzpack
+searches for
+.BR zstd ,
+.BR pigz ,
+.BR zopfli ,
+and
+.BR gzip
+in that order.
 .SH NOTES
 .SS Origin and Form
 The command
@@ -77,17 +113,35 @@ accompanying
 shell script.  The shell script is the canonical source form; the ELF32
 binary is the derived, ready-to-run form.  Both forms behave identically
 from the user's perspective.
+.SS Supported formats
+The
+.B uzpexec
+stub natively supports
+.BR gzip
+and
+.BR zstd
+payloads.  The decompressor path stored in the stub can be customised
+with
+.BR sed (1)
+to target non-standard installations (e.g.
+.IR /usr/local/bin/zstdcat ).
+See the project
+.B README
+for the exact byte layout and safe
+.B sed
+patterns.
 .SS Inspecting Contents
 Because the
 .B .uzp
 file consists of a 512-byte
 .B uzpexec
-stub followed immediately by gzip data, the compressed payload can be
+stub followed immediately by compressed data, the payload can be
 inspected without execution:
 .PP
 .RS
 .nf
-dd skip=1 if=uzpack | zcat
+dd skip=1 if=package.uzp | zcat
+dd skip=1 if=package.uzp | zstdcat
 .fi
 .RE
 .PP
@@ -109,11 +163,21 @@ exit
 .fi
 .RE
 .SH EXAMPLES
-Convert a binary executable:
+Convert a binary executable with default settings:
 .PP
 .RS
 .nf
 uzpack /usr/local/bin/myapp myapp.uzp
+.fi
+.RE
+.PP
+Convert using
+.B zstd
+level 19:
+.PP
+.RS
+.nf
+UZCMD=zstd uzpack -19 myapp myapp.uzp
 .fi
 .RE
 .PP
@@ -139,6 +203,8 @@ sh uzpack.sh \-s uzpack.sh uzpack
 .BR uzpexec (1),
 .BR gzip (1),
 .BR zcat (1),
+.BR zstd (1),
+.BR zstdcat (1),
 .BR memfd_create (2),
 .BR dd (1)
 .SH AUTHOR
