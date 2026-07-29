@@ -204,9 +204,14 @@ Quick customisation by coreutil `sed`, or any other stings-based editor (or comm
 
 ```sh
 rm -f uzpexec hello; make distclean uzpexec hello; elf=hello
-sed -e 's/zstdcat/xzcat\x00_/' -e 's/U238/x238/' uzpexec > $elf.uxp
+sed -e 's/zstdcat.\{7\}U238/xzcat\x00_2_4_6_8x238/' uzpexec > $elf.uxp
 xz -9c $elf >>$elf.uxp && chmod +x $elf.uxp && strace -f ./$elf.uxp 2>&-
 ```
+
+It is worth to note the relevant role of the `U238` as string length sentinel:
+
+- `U238 --> x238` to inform the running code about the customisation
+- between `zcat_cat` and `eof_tests` data size can change, `U238` tags it 
 
 Alternatives to `/bin/zstdcat` are every equivalent executable for which its full pathname would fit into a 22 chars string plus the trailing `\0`, and it can contain `/usr/local/bin/zstdcat`, for example.
 
