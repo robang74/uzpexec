@@ -16,7 +16,7 @@ SRCDIR     = $(DATADIR)/src
 # -----------------------------------------------------------------------------
 # Package metadata
 # -----------------------------------------------------------------------------
-VERSION   ?= 0.98
+VERSION   ?= 0.98.1
 PKGNAME    = uzpexec
 FILENME    = $(PKGNAME)-$(VERSION)
 ARCH       = $(shell dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null || uname -m)
@@ -43,6 +43,7 @@ VTOGREP   := $(VERSNED) uzpack.md uzpack.1
 GRPDATE   := [0-9]\{4\}-[0-9][0-9]-[0-9][0-9]
 GREPCOL   := grep --color=always
 
+GZIP      ?= $(shell command -v pigz gzip | head -n1)
 ZDDCMD    := dd if=hello.gz.sh skip=1 | zcat
 GITMPLOG  := deb/changes.log
 
@@ -104,7 +105,7 @@ uzcat: uzcat.asm
 	@echo ====== compile $^ ======
 	@echo
 	nasm -O2 -f bin $^ -o $@
-	chmod +x uzcat
+	@chmod +x uzcat
 	du -b $@
 	@echo
 
@@ -137,7 +138,7 @@ uzpack: uzpexec uzpack.sh
 	@echo
 	sh uzpack.sh -u uzpexec
 	rm -f uzpack
-	sh uzpack.sh -9 uzpack.sh uzpack
+	sh uzpack.sh -19 uzpack.sh uzpack
 	du -b $@
 	@echo
 
@@ -168,7 +169,7 @@ testexve:
 	@echo
 	make doexecve hello >/dev/null 2>&1
 	@echo
-	{ cat uzpexec; gzip -9c hello; } > hellz
+	{ cat uzpexec; $(GZIP) -9c hello; } > hellz
 	chmod +x hellz
 	$(call grep_and_tab,"strace ./hellz","execve[^a]")
 	$(call grep_and_tab,"WORLD=Wonderful ./hellz nice",".")
@@ -264,13 +265,13 @@ armflags := --defsym $(JE_STDIN)=1 --defsym $(JE_EXTRA)=1 --defsym $(JE_EXCVE)=1
 hix86gz: uzprm64 hello
 	rm -f $@
 #	cc -s -static hello.c -o hix86s
-	cp -f uzprm64 $@ && gzip -9c hello >> $@
+	cp -f uzprm64 $@ && $(GZIP) -9c hello >> $@
 	chmod +x $@
 	@echo
 
 hlx86gz: uzarm64 hello
 	rm -f $@
-	cp -f uzarm64 $@ && gzip -9c hello >> $@
+	cp -f uzarm64 $@ && $(GZIP) -9c hello >> $@
 	chmod +x $@
 	@echo
 
@@ -312,7 +313,7 @@ _testa: hiarm64 hix86gz
 	export WORLD=Wonderful && $(armloadr) \
       ./hix86gz $${WORLD:-nice}; printf "\tret: $$?\n"
 	@echo
-	{ cat uzprm64; gzip -9c hello.sh; } > hellz
+	{ cat uzprm64; $(GZIP) -9c hello.sh; } > hellz
 	chmod +x hellz; export WORLD=Wonderful && \
 	  ./hellz $${WORLD:-nice}; printf "\tret: $$?\n"
 	@echo
@@ -350,7 +351,7 @@ _testb: hiarm64 hlx86gz
       ./hlx86gz $${WORLD:-nice}; printf "\tret: $$?\n"
 	@echo
 #	cp -af uzarm64 hello.pyz
-#	gzip -9c hello.py >> hello.pyz
+#	$(GZIP) -9c hello.py >> hello.pyz
 #	$(armloadr) -d strace ./hello.pyz
 #	@echo
 	./uzarm64 <&- 2>&- | sed -e "s/^/    /" | grep robang74
@@ -447,7 +448,7 @@ deb: rpm  deb/control deb/changelog
 	install -m 644 $(DEVFILES) deb/tmp$(PREFIX)/share/uzpack/src/
 	install -m 644 deb/control deb/tmp/DEBIAN/control
 	install -m 644 deb/changelog deb/tmp/DEBIAN/changelog
-	gzip -9 -n deb/tmp$(PREFIX)/share/man/man1/*.1
+	$(GZIP) -9 -n deb/tmp$(PREFIX)/share/man/man1/*.1
 	dpkg-deb --root-owner-group --build deb/tmp $(FILENME).deb
 	rm -rf deb/tmp/
 

@@ -18,8 +18,8 @@ usage() {
     echo
     echo "Usage: uzpack [-h|--help] [-v|--version]"
     echo "       uzpack origin [destination[.uzp]]"
-    echo "       uzpack [-x: debug | -1/-19: zstd]"
-    echo " export UZCMD=[pigz | (any other ztool)]"
+    echo "       uzpack [-x: debug | -1/-19: pigz]"
+    echo " export UZCMD=[zstd | (any other ztool)]"
 }
 
 lvl=
@@ -38,19 +38,19 @@ cpy='(c) github/'"robang74/$nme v[^ ]* "
 
 ########################################################################
 UZPAYLOAD="
-KLUv/WQAAY0OAPYbbErwzigdkGY9vHAWI4s2/n2PoJRaMpPEZgPZRDYRiS4yGoRg6P7DLRAH
-Npr1sKZ2od8v4BUGtbMbqybQUz3suITfmeVdQ+wDuxGSAlEAWgBaALVLPeqp8alxClRDakis
-jNi/sXJ2buPPf4aaUvwxQQHUxhkkiZuxMe1LbRV0UOn/mxUZosXG59K/Y+OX8t9oTNl/99E/
-mrI7HHTu27Zh0FBCE+OG3CJzrwBWJ9aYguplXInabUxlRXFRIAqFAso8paji404psvioMeA6
-mVL0qdAKLM5ISQxDbAlNSQxFLIMGJTF0kWt8J1sjNq2cAWssZVOC+Kx2Kag2/ggOJwReFkDT
-2JjnM40LsmiATYpMG3f8RPjiwrg99/XfwhxSRpB/rgjkljxWGLqwA4bGximOahoT5MYFZL/k
-mIHUQ41hpQ6sscmKj25UDtw4swnIJQKh0Jj28XygR////61XywtbWjLe6iUGxiNJiHBym7Ji
-WZkZz4VF5Qnouo5UgkDyoVu1Xi2YGZc3mqDikqJ6ifFUrhXLotI9WI003sbGKCJ1SlHEDNwq
-lbUx7eu5qNcDGQaGxgsAFz7BkSGOQqhDBM2OOvfsFq08kNQrOVXHtIQAXHUrGOc=
+H4sIAAAAAAAAA6t39XFjZGRkgAEmBmYGEC+kgYXDhAEBTBgUGGCq4KqBakD4F1CAhYWBgR0k
+JsDAENH5rDenjSVjDZAbkaUWncUYaXjpbMOGNZtZPM82ZLFG7H7VyMIRvJOBgYPhbEPn8R0p
+QANav5UYdMtlMUeebQgACwDpLOGIzt9bmTYC2VnMQOZOhiYWjk0sZxuaf7CUcLT+Lwkw/P/6
+aVqjpbJiiSqQqnctkQNSGltLpBtsnwHtCC0V6ha9A2R0it4Ekq9ZoqOCg6ODOw9lsUQAbf69
+jWkTA9Dksw2tB0rYKpheP3ntu0E42vAkyLnWMiqlzN6vOTYwgaUDs9gjDG97A+0+wFLyOSsm
+InonJ9DPm/jPNryW2mCfxQl0+Abu6OPO3Gkp+padMiqdr15LvLbYkQb0ShZD58POT53v0vYz
+CJxtiHh9oZdH5bXsBnvDk0A99tGOIAsqeIG6m1+LZzEEdz4E2Q90YhZj9M51QHdnqUYBFTKe
+bdBI1lRIzyzJKE3SL8pPSsxLNzfRL60qSK1ITVYoM9CztNAzVODST8rM068qLklJTiyBRlSo
+kbGFfkFRfrJ+cWpOmj5QPSwKARsPkggAAgAA
 " # END_OF_UZPAYLOAD ###################################################
 
 b64=$(command -v base64)
-gzc=$(command -v ${UZCMD:-} zstd pigz zopfli gzip | head -n1)
+gzc=$(command -v ${UZCMD:-} pigz zopfli gzip zstd | head -n1)
 
 grp() { strings | command grep --color=none "$@"; }
 get_copy() { grp -E "robang74|$nme" | tr '\n' ' ' | grp "$cpy"; }
@@ -120,7 +120,7 @@ case "${1:-}" in
       shift
       ext=1
       ;;
-  -[0-9]|-11)
+  -[0-9]*)
       lvl=$1
       shift
       ;;
@@ -132,15 +132,17 @@ case "${1:-}" in
   -u|--update)
       echo "WARNING: option '-u' updates the script payload (dev onnly)" >&2
       shift
-      lvl=-11
+      lvl=-19
       upd=1
       ;;
 esac
 
 # The standard gzip hasn't -11 but pigz
 echo "$gzc$lvl"  | grep -q "gzip-1[0-9]" && lvl="-9"
-# Zopli doesn't support nor need '-n'
+# zopli doesn't support nor need '-n'
 echo "$gzc-$opt" | grep -q "zopfli-nc" && opt="c"
+# pigz hasn't -10 or -12+ use -11
+echo "$gzc$lvl"  | grep -q "pigz-1[0,2-9]" && lvl="-11"
 
 while [ $ext -eq 0 ]; do
     {

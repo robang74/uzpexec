@@ -502,7 +502,7 @@ copy_vers:  db "(c) github/robang74/uzpexec v0.98"              ;  33 | 33
 %ifdef  _HAS_PROVIDER
 provider :  db  0x20, "12345678", 0x0a                          ;  10 |  -
 %else
-micro_ver:  db  0x20, 0x20, 0x20, 0x0a                          ;   - |  4
+micro_ver:  db        ".1", 0x20, 0x0a                          ;   - |  4
 %endif
 ; following fields are conditionally overwritable, do unions
 zcat_path:  db "/bin/z"
