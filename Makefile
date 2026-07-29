@@ -25,12 +25,13 @@ MAINTAINER = Roberto A. Foglietta <roberto.foglietta@gmail.com>
 # -----------------------------------------------------------------------------
 # Files
 # -----------------------------------------------------------------------------
-BINS       = uzpexec uzpack gzcmd.gz.sh
-CLEN       = uzpexec hello hellz uzpeck uzpeck.uzp uzcat
+BINS       = uzpexec uzpack gzcmd.gz.sh uzcat
+CLEN       = $(BINS) hello hellz uzpeck uzpeck.uzp
 MANPAGES   = uzpack.1 uzpexec.1
 DOCFILES   = README.md uzpack.md
 DEVFILES   = uzpack.sh uzpexec.asm uzpexec.arm hello.c hello.sh hello.py
 DEVFILES  += tests.sh sigsegv.c gzcmd.sh Makefile $(DOCFILES) zeroenv.c
+DEVFILES  += uzcat.asm
 RPMFILES   = $(BINS) $(MANPAGES) $(DEVFILES) uzpexec.spec.tmpl
 
 # -----------------------------------------------------------------------------
@@ -96,6 +97,14 @@ uzpexec: uzpexec.asm
 	@chmod +x $@
 	ln -sf uzpack.1 uzpexec.1
 	file $@ | sed -e 's/V), s/V),\n\ts/'
+	du -b $@
+	@echo
+
+uzcat: uzcat.asm
+	@echo ====== compile $^ ======
+	@echo
+	nasm -O2 -f bin $^ -o $@
+	chmod +x uzcat
 	du -b $@
 	@echo
 
