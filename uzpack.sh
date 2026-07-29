@@ -18,7 +18,8 @@ usage() {
     echo
     echo "Usage: uzpack [-h|--help] [-v|--version]"
     echo "       uzpack origin [destination[.uzp]]"
-    echo "       uzpack [-x: debug | -1/-11: gzip]"
+    echo "       uzpack [-x: debug | -1/-19: zstd]"
+    echo " export UZCMD=[pigz | (any other ztool)]"
 }
 
 lvl=
@@ -35,19 +36,18 @@ nme="uzpexec"
 cpy='(c) github/'"robang74/$nme v[^ ]* "
 
 
-#######################################################################
+########################################################################
 UZPAYLOAD="
-KLUv/WQAAZUOAHaba0kAz6gDcMLoe5X/H5jVjQgDke388Rlk1Q3w/1+NRbh2tuNmX4VTEQn
-Fkp2FNxLrabGcjQikesML+qYhSvofjvXgJ/b7l05Me+8UUgBWAFgAFKSiPEZ5rOrqARsONo
-ase2vp8NzHPbtp4XSSxQiqUR9T8BA45WOfT7VVUUGl3Y3D4h5cblZc2u2x0e3evcmY/t2kN
-nWbpj+G7prrbdskVDCpCRB6PhGktJBTZA4GwO7IHtOu9owTUbuPqdcSNxTDMEX0PJ38Ed3p
-JAqRzYfNEQHJUWRNakByHNmQBCA5qshB3wQbJJvWZ8Qe+2x6h6bVLu3q4wbB5dRu9SPHxFA
-pAFYipsrHPV+qNJBLAW5OZPrYo0mMLu6LC3S7dm+jDioTyC1uaXRBrzWGIvCIofKxiqOmyg
-L58YBZt3PQRKqhwrC+E3t88vPRjXqBK2c+6V6lUe2CubzRxTXjsWBkYrxGkYxkaKvCatkZG
-u+lZeV1B+r0wIGJZOQjnUAGDTaQWC6YK4bm5ZlOKy8qKxgZb/VisS0rpAUskcdb+TilI6TE
-BII6nfxAE7dKvT72+YBu2AEMADa+wZHBjtDuOWXWIWhK1BlnF2iFgKRIyVk6ZiAE4AIhJRP
-W
-" # END_OF_UZPAYLOAD ##################################################
+KLUv/WQAAY0OAPYbbErwzigdkGY9vHAWI4s2/n2PoJRaMpPEZgPZRDYRiS4yGoRg6P7DLRAH
+Npr1sKZ2od8v4BUGtbMbqybQUz3suITfmeVdQ+wDuxGSAlEAWgBaALVLPeqp8alxClRDakis
+jNi/sXJ2buPPf4aaUvwxQQHUxhkkiZuxMe1LbRV0UOn/mxUZosXG59K/Y+OX8t9oTNl/99E/
+mrI7HHTu27Zh0FBCE+OG3CJzrwBWJ9aYguplXInabUxlRXFRIAqFAso8paji404psvioMeA6
+mVL0qdAKLM5ISQxDbAlNSQxFLIMGJTF0kWt8J1sjNq2cAWssZVOC+Kx2Kag2/ggOJwReFkDT
+2JjnM40LsmiATYpMG3f8RPjiwrg99/XfwhxSRpB/rgjkljxWGLqwA4bGximOahoT5MYFZL/k
+mIHUQ41hpQ6sscmKj25UDtw4swnIJQKh0Jj28XygR////61XywtbWjLe6iUGxiNJiHBym7Ji
+WZkZz4VF5Qnouo5UgkDyoVu1Xi2YGZc3mqDikqJ6ifFUrhXLotI9WI003sbGKCJ1SlHEDNwq
+lbUx7eu5qNcDGQaGxgsAFz7BkSGOQqhDBM2OOvfsFq08kNQrOVXHtIQAXHUrGOc=
+" # END_OF_UZPAYLOAD ###################################################
 
 b64=$(command -v base64)
 gzc=$(command -v ${UZCMD:-} zstd pigz zopfli gzip | head -n1)
@@ -138,9 +138,9 @@ case "${1:-}" in
 esac
 
 # The standard gzip hasn't -11 but pigz
-echo "$gzc$lvl" | grep -q "gzip-1[0-9]" && lvl=-9
+echo "$gzc$lvl"  | grep -q "gzip-1[0-9]" && lvl="-9"
 # Zopli doesn't support nor need '-n'
-echo "$gzc-$opt" | grep -q "zopfli-nc" && opt=c
+echo "$gzc-$opt" | grep -q "zopfli-nc" && opt="c"
 
 while [ $ext -eq 0 ]; do
     {
@@ -169,7 +169,7 @@ while [ $ext -eq 0 ]; do
         hf1=$(cat "$0" | head -n  $srt)
         end=$((end-1))
         hf2=$(tac "$0" | head -n -$end | tac)
-        pld=$($gzc -$opt $bin | base64 -w 71)
+        pld=$($gzc -$opt $bin | base64 -w 72)
         printf "%s\n%s\n%s\n" "$hf1" "$pld" "$hf2" >"$0".tmp
         trap "mv -f '$0'.tmp '$0'" EXIT
         echo "Successfully updated: $bin --> $0"

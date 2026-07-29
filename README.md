@@ -114,7 +114,8 @@ Running `uzpexec` directly probably isn't your goal, but `uzpack` to create exec
 ```sh
 Usage: uzpack [-h|--help] [-v|--version]
        uzpack origin [destination[.uzp]]
-       uzpack [-x: debug | -1/-11: gzip]
+       uzpack [-x: debug | -1/-19: zstd]
+ export UZCMD=[pigz | (any other ztool)]
 ```
 
 This tool comes with its `man` page [uzpack.1](uzpack.1) which can be read by github via [uzpack.md](uzpack.md). However, the help from the script is pretty clear, and its development is simplicity-oriented.
@@ -564,8 +565,9 @@ The `gzcmd.sh` was the predecessor of `uzpexec` in terms of project planning and
 Alternatively it can be used by activating the execution bit by `chmod +x gzcmd.sh` or calling it by the shell `sh gzcmd.sh`, the only parameter that matters is the ELF patch to convert and the converted file will be written in the current directory.
 
 ```sh
-$ sh gzcmd.sh gzcmd.sh
-FILE: 'gzcmd.gz.sh', HEAD: 502 (512), GZIP: 6780 (7 Kb, 38 %), GZSH: v0.3.1
+$ UZCMD=pigz ZCMPLVL=11  sh gzcmd.sh gzcmd.sh
+FILE: 'gzcmd.gz.sh', HEAD: 506 (512), GZIP: 6635 (6 Kb, 37 %), GZSH: v0.3.3
+
 ```
 
 #### Install
