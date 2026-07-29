@@ -39,6 +39,8 @@ Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.98.1** 
 
 - This release v0.98, moves forward integrating the `zstd` support and being self-sufficient in executing from `STDIN` plain inputs, and it is freed from `zcat -f` potentially insecure option. In v0.98.1, the `gzip`&thinsp;/&thinsp;`pigz` format returns as default because universally available.
 
+- `35903e0 - 2026-07-29 - uzpack.sh: regression fix about re-converting from old versions`
+
 <br>
 
 ### USAGE
