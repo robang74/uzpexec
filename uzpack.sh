@@ -97,7 +97,7 @@ else
     emb=1
    _gt_plbody() { echo "$UZPAYLOAD" | $b64 -d | $gzc -dc; }
     prt_versn() { echo; _gt_plbody | strings | grep -e "$cpy"; }
-    echo "Notice: '$nme' not found, using UZPAYLOAD base64" >&2
+    echo "Notice: '$nme' not found, using UZPAYLOAD $b64" >&2
 fi
 if prt_versn |  grep -qe " v0\.8[0-9] "; then
     do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i "$dst"; }
@@ -171,7 +171,7 @@ while [ $ext -eq 0 ]; do
         hf1=$(cat "$0" | head -n  $srt)
         end=$((end-1))
         hf2=$(tac "$0" | head -n -$end | tac)
-        pld=$($gzc -$opt $bin | base64 -w 72)
+        pld=$($gzc -$opt $bin | $b64 -w 72)
         printf "%s\n%s\n%s\n" "$hf1" "$pld" "$hf2" >"$0".tmp
         trap "mv -f '$0'.tmp '$0'" EXIT
         echo "Successfully updated: $bin --> $0"
