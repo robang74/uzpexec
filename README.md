@@ -37,7 +37,7 @@ Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.98.1** 
 
 - Since v0.96, it aims to keep the `uzpexec` uncustomised as much as possible and, instead, relies on system standards like `binfmt_script`, zutils `zcat` and busybox `zcat` with seamless decompression, and offering [`uzcat`](uzcat.asm) as a lightweight alternatives for system customisation.
 
-- This release v0.98, moves forward integrating the `zstd` support and being self-sufficient in executing from `STDIN` plain inputs, and it is freed from `zcat -f` potentially insecure option. In v0.98.1, the `gzip`&thinsp;/&thinsp;`pigz` format returns as default because universally available.
+- This release v0.98, moves forward integrating the `zstd` support and being self-sufficient in executing from `STDIN` plain inputs, and it is freed from `zcat -f` potentially insecure option. In v0.98.1, the `gzip`&thinsp;/&thinsp;`pigz` format returns as default because it is universally available.
 
 - `35903e0 - 2026-07-29 - uzpack.sh: regression fix about re-converting from old versions`
 
@@ -45,7 +45,7 @@ Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.98.1** 
 
 ### USAGE
 
-Running `uzpexec` directly probably isn't your goal, but `uzpack` to create executables:
+The use of `uzpexec` extends every GitHub action from executing whatever is installable by their internal repository to whatever is available by an URL access. Despite this potential, running `uzpexec` directly isn't probably your goal as end-user, but `uzpack` to create compressed self-extracting in RAM executables:
 
 ```sh
 Usage: uzpack [-h|--help] [-v|--version]
@@ -54,20 +54,22 @@ Usage: uzpack [-h|--help] [-v|--version]
  export UZCMD=[zstd | (any other ztool)]
 ```
 
-This tool comes with its `man` page [uzpack.1](uzpack.1) which can be read by github via [uzpack.md](uzpack.md). However, the help from the script is pretty clear, and its development is simplicity-oriented.
+This tool comes with its `man` page [uzpack.1](uzpack.1) which can be read by GitHub via [uzpack.md](uzpack.md). However, the help from the script is pretty clear, and its development is simplicity-oriented.
 
 ```sh
 sh ./uzpack.sh uzpack.sh uzpack
 ./uzpack -v
 ```
 
-Moreover, the shell script `uzpack.sh` is able to convert itself into an executable converter.
+Moreover, the shell script `uzpack.sh` is able to convert itself into a standalone executable converter by incorporating itself via `base64` binary-to-text conversion. Via shebang and Linux kernel `binfmt_script` standard registration, script support is extended to any interpreter installed on the system, in particular python.
 
 ### Requirements
 
 - `/bin/sh`, `/bin/zcat` (gunzip), `/proc` mounted, Linux kernel 3.19 or later.
 
 - `/bin/zstd` for creation, and `/bin/zstdcat` for 1GB/s in memory extraction.
+
+- `/bin/base64` for stand-alone conversion and `python` in PATH for `.py` scripts.
 
 <br>
 
@@ -424,6 +426,8 @@ The above reported console commands and output provide a reference about the run
 The use of `uzpexec` extends every GitHub action from executing whatever is installable by their internal repository to whatever is available by an URL access.
 
 ```
+PRE v0.98 RELEASE QUICK TESTS
+
 38.8MB w/ 1st degree dynamic libraries
 
 time qemu-system-x86_64 -m4 >/dev/null 2>&1
@@ -455,6 +459,8 @@ time dd skip=1 if=qemu-system-x86_64 2>&- | ./uzpexec -m4 >/dev/null 2>&1
     real 0m0.046s
     user 0m0.031s
     sys  0m0.029s
+
+Quick tests aim to set a raw reference in differential launch latency
 ```
 
 By a raw estimation a 1GBit/s network call is nearly equivalent to a local call, because the 1Gbit/s network transfer time (25 ms) is zeroed by decompression on stream.
