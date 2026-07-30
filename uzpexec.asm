@@ -268,9 +268,9 @@ main:
   pop eax
   int 0x80
 
-  cmp edx, 4                     ; check for having read 4st bytes
-  jne .chk_read                  ; otherwise continue
-  cmp eax, 4
+  test dh, dh                    ; check for had to read only 4 bytes
+  jnz .chk_read                  ; otherwise continue
+  cmp eax, edx
   je .chk_magic                  ; check for the magic numbers
   test edi, edi
   jnz .stdin                     ; there is not a carryload, try STDIN
