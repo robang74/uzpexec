@@ -423,47 +423,50 @@ The above reported console commands and output provide a reference about the run
 
 #### Performance test
 
-The use of `uzpexec` extends every GitHub action from executing whatever is installable by their internal repository to whatever is available by an URL access.
+The use of `uzpexec` extends every GitHub action from executing whatever is installable by their internal repository to whatever is available by an URL access, adding a negligible latency, in terms of human perception. By contrast, the variance of the latency (rng/min) is reduced up to 6 folds.
 
 ```
-PRE v0.98 RELEASE QUICK TESTS
+QUICK TESTS ON v0.98.1
 
-38.8MB w/ 1st degree dynamic libraries
+Stats are made on the 10 sample 1s away after the first (for cache) call
 
-time qemu-system-x86_64 -m4 >/dev/null 2>&1
+Case #1: qemu 38.8MB w/ 1st degree dynamic libraries
 
-    real 0m0.021s
-    user 0m0.008s
-    sys  0m0.013s
+time qemu-system-x86_64 -m4 2>&-
 
-7.5MB musl-static, 2.5MB zstd compressed
+real  min:  9, avg: 19.7, max: 36 (ms)
+user  min:  4, avg:  7.2, max: 13 (ms)
+sys   min:  3, avg: 12.5, max: 25 (ms)
 
-time ./qemu-system-x86_64 -m4 >/dev/null 2>&1
+Case #2: qemu 7.5MB musl-static, 2.5MB zstd compressed
 
-    real 0m0.046s
-    user 0m0.028s
-    sys  0m0.022s
+time ./qemu-system-x86_64 -m4 2>&-
+
+real  min: 40, avg: 43.0, max: 59 (ms)
+user  min: 18, avg: 22.6, max: 30 (ms)
+sys   min: 20, avg: 24.6, max: 34 (ms)
 
 uzpexec executes a binary which has already uzpexec as loader
 
-time cat ./qemu-system-x86_64 | ./uzpexec -m4 >/dev/null 2>&1
+time cat ./qemu-system-x86_64 | ./uzpexec -m4 2>&-
 
-    real 0m0.073s
-    user 0m0.029s
-    sys  0m0.061s
+real  min: 37, avg: 47.7, max: 86 (ms)
+user  min: 21, avg: 27.4, max: 45 (ms)
+sys   min: 18, avg: 27.6, max: 55 (ms)
 
 uzpexec executes by STDIN pipe a binary which is zstd compressed
 
-time dd skip=1 if=qemu-system-x86_64 2>&- | ./uzpexec -m4 >/dev/null 2>&1
+time dd skip=1 if=qemu-system-x86_64 2>&-| ./uzpexec -m4 2>&-
 
-    real 0m0.046s
-    user 0m0.031s
-    sys  0m0.029s
+real  min: 30, avg: 37.8, max: 48 (ms)
+user  min: 18, avg: 23.8, max: 35 (ms)
+sys   min: 18, avg: 25.6, max: 40 (ms)
 
 Quick tests aim to set a raw reference in differential launch latency
+
 ```
 
-By a raw estimation a 1GBit/s network call is nearly equivalent to a local call, because the 1Gbit/s network transfer time (25 ms) is zeroed by decompression on stream.
+By a raw estimation a 1GBit/s network call is nearly equivalent to a local call, because the 1Gbit/s network transfer time (25 ms) is zeroed by decompression on stream. Moreover, considering that `zstd` inflates at 1GB/s, the 23 ms of average latency overhead are spent almost entirely (96%) in the `fork()` and `exec()` of the external tool.
 
 ---
 
