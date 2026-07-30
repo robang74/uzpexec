@@ -132,7 +132,7 @@ case "${1:-}" in
   -u|--update)
       echo "WARNING: option '-u' updates the script payload (dev onnly)" >&2
       shift
-      lvl=-19
+      lvl=-9
       upd=1
       ;;
 esac
