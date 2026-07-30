@@ -480,6 +480,20 @@ By a raw estimation a 1GBit/s network call is nearly equivalent to a local call,
 
 The `zstdcat` isn't available in BusyBox but its `zcat` supports it by seamless file decompression and this is the **only** way in which an embedded system can compensate for a 4x slower latency in execution start. Unfortunately, BusyBox seamless decompression isn't working with pipe.
 
+| Compression (ELF x86 64-bit, 7265KB) | size | time    |
+|--------------------------------------|-----:|--------:|
+| `time pigz -11c qemu-system-x86_64`  | 2219 | 1.467 s |
+| `time zstd -19c qemu-system-x86_64`  | 2219 | 0.447 s |
+||||
+| `time pigz  -9c qemu-system-x86_64`  | 2220 | 0.051 s |
+| `time zstd  -9c qemu-system-x86_64`  | 2221 | 0.047 s |
+||||
+| `time busybox gzip -c $qemu_x86_64`  | 2220 | 0.081 s |
+
+Clearly, the `zstd` strongest advantage in this specific case (executable) is about the decompression speed because in all the other dimensions also the BusyBox `gzip` performs very well.
+
+Or said from another perspective BusyBox `zcat` has a bottleneck to fix and more in general, the `gunzip` algorithm should be reviewed in order to evaluate a 2x faster refactored implementation. The two might converge as much as a new BusyBox `gunzip` implementation might achieve a 4x speed improvement.
+
 ---
 
 ### Trivial facts
