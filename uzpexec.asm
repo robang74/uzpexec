@@ -76,7 +76,7 @@ phdr:
   ; Security-by-Design VS Security-by-Subtraction
 
   ; Because uzpexec contains no input parsing logic that could be corrupted and
-  ; its fixed 512-byte read loop cannot be overflowed, the writeable-executable
+  ; its fixed length read loop cannot be overflowed, the writeable-executable
   ; segment offers no exploitable attack vector. They are 1024 in aarm64 binary.
 
   ; Since the loader immediately forfeits control through atomic fork() / exec()
@@ -270,7 +270,7 @@ main:
   ; Read from input
   mov ebx, edi                   ; input fd
 ; mov ecx, buf                   ; already set
-  mov dh, 2                      ; EDX = 512, buffer size
+  mov dh, 14                     ; EDX = 512*7, buffer size
   mov dl, 0
   push 3                         ; SYS_read
   pop eax
@@ -533,5 +533,5 @@ times (512 - ($ - $$)) db 0      ; Padding to 512 bytes for skip=1
 bss_start equ $$ + 512
 
 buf:      equ bss_start          ; Only variable needed besides the buffer
-bss_end:  equ buf + 516          ; Reserve 512 + 4 bytes for the buffer
+bss_end:  equ buf + 3584         ; Eeverything stays in a 4KB memory page
 
