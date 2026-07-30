@@ -199,27 +199,18 @@ main:
 ;                                    /doc/the-x86-asm-eintr-dilemma-question.txt
 ; ------------------------------------------------------------------------------
   ; 3. Try to read from the file the 1st block + 4 bytes to check the carryload
-.read_four:
-  push 3                         ; SYS_read
-  pop eax
-  mov ebx, edi                   ; input fd
-  mov ecx, buf
-  mov  dl, 4                     ; EDX = 4
-  int 0x80
-
-  cmp eax, 4
-  je .do_copy                    ; read ok, there is a carryload
-  test edi, edi
-.jz_do_exit:
-  jz .do_exit
+.set_four:
+  mov dl, 4
+  mov ecx, buf                   ; buf, set once here
+  jmp short .read_four
 
 .stdin:
-%ifdef _NO_STDIN
-  jmp short .do_exit             ; single point of detour to do_exit
-%else                            ; to check about %-branch size balance (/!\)
   xor edi, edi                   ; EDI = 0 (STDIN)
+%ifndef _NO_STDIN                 ; single point of detour to do_exit
+  jmp short .set_four
 %endif
-  jmp .read_four
+.jz_do_exit:
+  jz short .do_exit
 
 ; ------------------------------------------------------------------------------
 ; DO COPY BY READ / WRITE LOOP
@@ -230,7 +221,7 @@ main:
 ;
 ; The values above are comphrensive of all syscalls including exec(zcat -f)
 ; ------------------------------------------------------------------------------
-.do_copy:
+.chk_magic:
   ; at this point [ecx] contains the magic number to check
   cmp word [ecx], 0x2123         ; match shebang
   je .use_cat
@@ -268,22 +259,29 @@ main:
   int 0x80
 
   ; Read from input
-  mov ebx, edi                   ; input fd
-; mov ecx, buf                   ; already set
   mov dh, 14                     ; EDX = 512*7, buffer size
   mov dl, 0
+.read_four:
+  mov ebx, edi                   ; input fd
+; mov ecx, buf                   ; already set
   push 3                         ; SYS_read
   pop eax
   int 0x80
 
-%ifdef _DO_EINTR
-  cmp eax, -4                    ; check for -EINTR (if any, ever)
-  je .pump_loop                  ; continue
-%endif
+  cmp edx, 4                     ; check for having read 4st bytes
+  jne .chk_read                  ; otherwise continue
+  cmp eax, 4
+  je .chk_magic                  ; check for the magic numbers
+  test edi, edi
+  jnz .stdin                     ; there is not a carryload, try STDIN
+  jmp .do_exit
+
+.chk_read:
   test eax, eax
   jz .rewind                     ; check for EOF
   js .do_exit                    ; single point of detour to do_exit
   jmp .pump_loop                 ; continue
+
 ; ------------------------------------------------------------------------------
 
 ; ------------------------------------------------------------------------------
