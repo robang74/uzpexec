@@ -466,7 +466,15 @@ Quick tests aim to set a raw reference in differential launch latency
 
 ```
 
-By a raw estimation a 1GBit/s network call is nearly equivalent to a local call, because the 1Gbit/s network transfer time (25 ms) is zeroed by decompression on stream. Moreover, considering that `zstd` inflates at 1GB/s, the 23 ms of average latency overhead are spent almost entirely (96%) in the `fork()` and `exec()` of the external tool.
+By a raw estimation a 1GBit/s network call is nearly equivalent to a local call, because the 1Gbit/s network transfer time (25 ms) is zeroed by decompression on stream. Moreover, considering that `zstd` inflates at 1GB/s, the 23 ms of average latency overhead are spent almost entirely (96%) in the `fork()` and `exec()` of the external decompressing tool.
+
+- `zstdcat         min: 263, avg: 324, max: 356 (MB/s) r%: 100 (23 ms, real)`
+- `busybox zstd    min: 138, avg: 170, max: 285 (MB/s) r%:  52 (46 ms, real)`
+- `zcat            min: 105, avg: 172, max: 200 (MB/s) r%:  53 (46 ms, real)`
+- `pigz -p8 -dc    min: 116, avg: 176, max: 215 (MB/s) r%:  54 (46 ms, real)`
+- `busybox zcat    min:  72, avg:  91, max: 111 (MB/s) r%:  28 (80 ms, ext.)`
+
+The `zstdcat` isn't available in BusyBox but its `zcat` supports it by seamless file decompression and this is the **only** way in which an embedded system can compensate for a 4x slower latency in execution start. Unfortunately, BusyBox seamless decompression isn't working with pipe.
 
 ---
 
