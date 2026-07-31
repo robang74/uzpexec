@@ -134,7 +134,7 @@ main:
   ; ============================================================================
 
   ; 1. Try to open itself file by /proc/self/exe
-  push 5                         ; SYS_open
+  push 5                         ; SYS_open, EAX shold be reset here
   pop eax
   mov ebx, commd_exe
   push ebx                       ; --> m::stack { commd_exe, ... }
@@ -313,8 +313,8 @@ main:
   xor edx, edx                   ; SEEK_SET = 0
   int 0x80
 
-  cmp ebx, [esp]
-  jne .fork
+  cmp ebx, [esp] 
+  jne .fork                      ; memfd1 == memfd2, don't fork but execute
   dec ebx
   jmp parent
 

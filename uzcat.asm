@@ -49,44 +49,44 @@
 ; =============================================================================
 
 BITS 32
-BASE_ADDR equ 0x08048000       ; Loading base definition
+BASE_ADDR equ 0x08048000         ; Loading base definition
 org BASE_ADDR
 
 ; ==============================================================================
 ; ELF32 HEADER (Micro-Loader a 32-bit, Teeny ELF)
 ; ==============================================================================
 elf_header:
-  db 0x7F, 'ELF', 1, 1, 1, 0   ; e_ident (Magic, Class 32bit, Data LSB, Version)
-  times 8 db 0                 ; Padding for e_ident
-  dw 2                         ; e_type (Executable)
-  dw 3                         ; e_machine (Intel 80386)
-  dd 1                         ; e_version
-  dd main_start                ; e_entry (The starting point of our code)
-  dd phdr - elf_header         ; e_phoff (Offset of the Program Header Table)
-  dd 0                         ; e_shoff (No Section Header Table, saving bytes)
-  dd 0                         ; e_flags
-  dw 52                        ; e_ehsize (Size of this header)
-  dw 32                        ; e_phentsize (Size of a Program Header entry)
-  dw 1                         ; e_phnum (Only one segment needed)
+  db 0x7F, 'ELF', 1, 1, 1, 0     ; e_ident (Magic, 32bit, Data LSB, Version)
+  times 8 db 0                   ; Padding for e_ident
+  dw 2                           ; e_type (Executable)
+  dw 3                           ; e_machine (Intel 80386)
+  dd 1                           ; e_version
+  dd main_start                  ; e_entry (The starting point of our code)
+  dd phdr - elf_header           ; e_phoff (Offset of the Program Header Table)
+  dd 0                           ; e_shoff (No Section Header Table, save bytes)
+  dd 0                           ; e_flags
+  dw 52                          ; e_ehsize (Size of this header)
+  dw 32                          ; e_phentsize (Size of a Program Header entry)
+  dw 1                           ; e_phnum (Only one segment needed)
   ; ----------------------------------------------------------------------------
   ; Many Linux kernel ELF parsers completely ignore these 6
   ; bytes when section offset e_shoff = 0, as in this case.
   ;
-  dw 0, 0, 0                   ; Section info (zeroed out, reclamable)
+  dw 0, 0, 0                     ; Section info (zeroed out, reclamable)
   ;
   ; ----------------------------------------------------------------------------
 
 phdr:
-  dd 1                         ; p_type (PT_LOAD - Segment to load)
-  dd 0                         ; p_offset
-  dd BASE_ADDR                 ; p_vaddr (Virtual address in memory)
-  dd BASE_ADDR                 ; p_paddr
-  dd file_end - elf_header     ; p_filesz (Size of the code within the file)
-  dd  bss_end - elf_header     ; p_memsz (Size of the code within memory)
+  dd 1                           ; p_type (PT_LOAD - Segment to load)
+  dd 0                           ; p_offset
+  dd BASE_ADDR                   ; p_vaddr (Virtual address in memory)
+  dd BASE_ADDR                   ; p_paddr
+  dd file_end - elf_header       ; p_filesz (Size of the code within the file)
+  dd  bss_end - elf_header       ; p_memsz (Size of the code within memory)
 
   ; ----------------------------------------------------------------------------
-  dd 7                         ; p_flags (R+W+X - Read, Write, and Execute)
-  dd 0x1000                    ; p_align (Standard page alignment)
+  dd 7                           ; p_flags (R+W+X - Read, Write, and Execute)
+  dd 0x1000                      ; p_align (Standard page alignment)
 
   ; Security-by-Design VS Security-by-Subtraction
 
@@ -125,10 +125,16 @@ paths:
 cmdstr:
   db "/bin/zcat", 0,0,0,0   ; "/bin/cat" + "zstd" + '\0' = 13 bytes
 
-copy_vers:  db "(c) github/robang74/uzpexec", 0
-provider :  db "12345678", 0x0a, 0
+copy_vers:  db "(c) github/robang74/uzpexec"                    ;  27 | 27
+%ifdef  _HAS_PROVIDER
+provider :  db  0x20, "12345678", 0x0a                          ;  10 |  -
+%else
+micro_ver:  db  0x20, 0x20, 0x20, 0x0a                          ;   - |  4
+%endif
 end_copy :
-
+%ifndef _HAS_PROVIDER
+    times 6 db 0                                                ;   - |  6
+%endif
 
 ; ==============================================================================
 ; CODE
@@ -136,31 +142,31 @@ end_copy :
 main_start:
 %ifdef _USE_F_SPECIAL ; actually the uzpexec uses '-f' correctly
   ; Parse argv to check for -f flag (ignore it, we always behave like zcat -f)
-  pop eax                     ; argc
-  pop ebx                     ; argv[0] = program name
+  pop eax                        ; argc
+  pop ebx                        ; argv[0] = program name
   dec eax
-  jz .read_magic              ; no args, proceed to read magic
+  jz .read_magic                 ; no args, proceed to read magic
 
   ; Check if argv[1] is "-f"
-  xor eax, eax                ; EAX = 0
-  pop ecx                     ; argv[1]
-  cmp word [ecx], 0x662d      ; compare with "-f"
-  je .use_cat                 ; uzpexec uses "-f" in a specific manner
-  push ecx                    ; put it back in the stack
+  xor eax, eax                   ; EAX = 0
+  pop ecx                        ; argv[1]
+  cmp word [ecx], 0x662d         ; compare with "-f"
+  je .use_cat                    ; uzpexec uses "-f" in a specific manner
+  push ecx                       ; put it back in the stack
 %endif
 
 .read_magic:
   ; Read first 4 bytes from stdin for magic detection
   ; MUST happen BEFORE fork so child inherits correct file position
-  push 3                      ; SYS_read
+  push 3                         ; SYS_read
   pop eax
-  xor ebx, ebx                ; stdin = 0
+  xor ebx, ebx                   ; stdin = 0
   mov ecx, buf
   mov edx, 4
   int 0x80
 
   cmp eax, 4
-  jne do_exit                 ; not 4 bytes, exit //TODO: not a short jump
+  jne do_exit                    ; not 4 bytes, exit //TODO: not a short jump
 
 ; ------------------------------------------------------------------------------
 ; Determine decompressor from magic
@@ -175,12 +181,12 @@ main_start:
   mov esi, paths
 
 .loop_cmd:
-  cmp ax, [edx]               ; it compares the first 2 bytes
+  cmp ax, [edx]                  ; it compares the first 2 bytes
   je .str_create
-  add edx, 2                  ; move forward on magics
-  add esi, 5                  ; move forward on commands
+  add edx, 2                     ; move forward on magics
+  add esi, 5                     ; move forward on commands
   loop .loop_cmd
-  cmp ax, [edx]               ; gzip compare for zcat as default cmdstr
+  cmp ax, [edx]                  ; gzip compare for zcat as default cmdstr
   je .do_fork
 
 .use_cat:
@@ -189,39 +195,39 @@ main_start:
   jmp parent.do_cat
 
 .str_create:
-  lea edi, [cmdstr + 5]       ; EDI points after "/bin/"
-  mov dword ebx, [edi + 1]    ; EBX saves "cat\0"
+  lea edi, [cmdstr + 5]          ; EDI points after "/bin/"
+  mov dword ebx, [edi + 1]       ; EBX saves "cat\0"
 
 .copy_loop:
-  lodsb                       ; AL = [ESI], ESI++
-  stosb                       ; [EDI] = AL, EDI++
+  lodsb                          ; AL = [ESI], ESI++
+  stosb                          ; [EDI] = AL, EDI++
   test al, al
-  jnz .copy_loop              ; continue until '\0'
+  jnz .copy_loop                 ; continue until '\0'
 
   dec edi
-  mov dword [edi], ebx        ; append 'cat\0'
+  mov dword [edi], ebx           ; append 'cat\0'
 ; ------------------------------------------------------------------------------
 
 .do_fork:
   ; Create pipe: pipefd[2] on stack
   sub esp, 8
-  mov ebx, esp                ; ebx = pipefd array
-  push 42                     ; SYS_pipe
+  mov ebx, esp                   ; ebx = pipefd array
+  push 42                        ; SYS_pipe
   pop eax
   int 0x80
   test eax, eax
   js do_exit
 
-   pop ebx                   ; pipefd[0] <-- stack
-   pop edi                   ; pipefd[1] <-- stack
-   push ebx                  ; pipefd[0] --> stack
+   pop ebx                       ; pipefd[0] <-- stack
+   pop edi                       ; pipefd[1] <-- stack
+   push ebx                      ; pipefd[0] --> stack
 
   ; Fork
-  push 2                      ; SYS_fork
+  push 2                         ; SYS_fork
   pop eax
   int 0x80
   test eax, eax
-  jz child                    ; FORCE near jump, child has EAX=0
+  jz child                       ; FORCE near jump, child has EAX=0
 
 ; ==============================================================================
 ; PARENT PROCESS
@@ -229,9 +235,9 @@ main_start:
 parent:
   ; Close read end of pipe
 %ifdef _DO_CLOSE
-  push 6                      ; SYS_close
+  push 6                         ; SYS_close
   pop eax
-  mov ebx, [esp]              ; pipefd[0]
+  mov ebx, [esp]                 ; pipefd[0]
   int 0x80
 %endif
 
@@ -243,61 +249,61 @@ parent:
 ; fast: 93 MB (88 MiB) copied, 0.0638537 s, 1.5 GB/s (max)
 ; ------------------------------------------------------------------------------
   ; Write first 4 bytes, already read in buf, to pipe
-  push 4                      ; bytes already read, to write
+  push 4                         ; bytes already read, to write
   pop eax
 
 .do_cat:
-  mov ecx, buf                ; set once and keep untouched
+  mov ecx, buf                   ; set once and keep untouched
 
 .pump_loop:
   ; Write to pipe
-  mov ebx, edi                ; pipefd[1]
-  mov edx, eax                ; bytes already read, to write
+  mov ebx, edi                   ; pipefd[1]
+  mov edx, eax                   ; bytes already read, to write
 
-  push 4                      ; SYS_write
+  push 4                         ; SYS_write
   pop eax
   int 0x80
 
   ; Read from stdin
-  xor ebx, ebx                ; stdin
-  mov dh, 14                  ; buffer size
-  mov dl, 0                   ; = 7 * 512
+  xor ebx, ebx                   ; stdin
+  mov dh, 14                     ; buffer size
+  mov dl, 0                      ; = 7 * 512
 
-  push 3                      ; SYS_read
+  push 3                         ; SYS_read
   pop eax
   int 0x80
 
   test eax, eax
-  jz .done                    ; check for EOF
+  jz .done                       ; check for EOF
 %ifdef _DO_EINTR
-  cmp eax, -4                 ; check for -EINTR (if any, ever)
-  je .pump_loop               ; continue
+  cmp eax, -4                    ; check for -EINTR (if any, ever)
+  je .pump_loop                  ; continue
 %endif
   js do_exit
-  jmp .pump_loop              ; continue
+  jmp .pump_loop                 ; continue
 
 .done:
   pop eax
   test eax, eax
-  jz do_exit                  ; after do_cat, do_exit
+  jz do_exit                     ; after do_cat, do_exit
 
   ; Close the writing pipe to send EOF to the child
-  mov al, 6                   ; SYS_close
-  mov ebx, edi                ; pipefd[1]
+  mov al, 6                      ; SYS_close
+  mov ebx, edi                   ; pipefd[1]
   int 0x80
 
   ; Wait for child
-  mov al, 7                   ; SYS_waitpid
+  mov al, 7                      ; SYS_waitpid
   dec ebx
-  dec ebx                     ; -1 = any child
-  xor ecx, ecx                ; status = NULL
-  xor edx, edx                ; options = 0
+  dec ebx                        ; -1 = any child
+  xor ecx, ecx                   ; status = NULL
+  xor edx, edx                   ; options = 0
   int 0x80
 
   ; Exit with child's status
   mov bh, ah
-  shr ebx, 8                  ; extract exit status
-  push 1                      ; SYS_exit
+  shr ebx, 8                     ; extract exit status
+  push 1                         ; SYS_exit
   pop eax
   int 0x80
 
@@ -306,43 +312,43 @@ parent:
 ; ==============================================================================
 child:
   ; Close write end of pipe
-  mov al, 6                   ; SYS_close
-  mov ebx, edi                ; pipefd[1]
+  mov al, 6                      ; SYS_close
+  mov ebx, edi                   ; pipefd[1]
   int 0x80
 
   ; Dup2 read end to stdin
-  mov al, 63                  ; SYS_dup2
-  pop ebx                     ; pipefd[0] <-- stack
-  xor ecx, ecx                ; stdin = 0
+  mov al, 63                     ; SYS_dup2
+  pop ebx                        ; pipefd[0] <-- stack
+  xor ecx, ecx                   ; stdin = 0
   int 0x80
 
   ; Close original read end
 %ifdef _DO_CLOSE
-  push 6                      ; SYS_close
+  push 6                         ; SYS_close
   pop eax
-; mov ebx, [esp]              ; pipefd[0], already set
+; mov ebx, [esp]                 ; pipefd[0], already set
   int 0x80
 %endif
 
 %ifdef _DO_DEBUG
   push 12
   pop edx
-  mov ecx, cmdstr               ; command string
-  push  2                       ; stderr
+  mov ecx, cmdstr                ; command string
+  push  2                        ; stderr
   pop ebx
-  push  4                       ; SYS_write
+  push  4                        ; SYS_write
   pop eax
   int 0x80
 %endif
 
 .exec_it:
   ; Execve the decompressor
-  mov ebx, cmdstr             ; selected decompressor
+  mov ebx, cmdstr                ; selected decompressor
   push 0
   push ebx
-  mov ecx, esp                ; argv = [NULL]
-  xor edx, edx                ; envp = NULL (inherit from parent)
-  mov al, 11                  ; SYS_execve
+  mov ecx, esp                   ; argv = [NULL]
+  xor edx, edx                   ; envp = NULL (inherit from parent)
+  mov al, 11                     ; SYS_execve
   int 0x80
 
   ; If execve fails, fall through to error
@@ -354,32 +360,28 @@ do_exit:
   test eax, eax
   jz .no_error
   mov ecx, copy_vers
-
-%ifdef _DO_EXTRA
-  push end_copy - copy_vers - 1
-  mov byte [ecx + provider - copy_vers - 1], 32 ; space
-%else
-  push provider - copy_vers
-  mov byte [ecx + provider - copy_vers - 1], 10 ; line feed
-%endif
-  pop edx
-  push  4                       ; SYS_write
+  
+  push  4                        ; SYS_write
   pop eax
-  push  2                       ; stderr
+  push  1                        ; STDOUT
   pop ebx
+  ; Print copyright notice, version and internal name
+  mov ecx, copy_vers
+  push end_copy - copy_vers
+  pop edx
   int 0x80
 
 .no_error:
-  mov ebx, eax                ; error from syscall
-  push 1                      ; SYS_exit
+  mov ebx, eax                   ; error from syscall
+  push 1                         ; SYS_exit
   pop eax
   int 0x80
 
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes
 ; ==============================================================================
-file_end:                       ; Physical end of the binary file!
-times (512 - ($ - $$)) db 0     ; Padding for 512 bytes alignement
+file_end:                        ; Physical end of the binary file!
+times (512 - ($ - $$)) db 0      ; Padding for 512 bytes alignement
 
 ; ==============================================================================
 ; BSS SECTION (RAM only, aligned to 512 bytes)
@@ -387,6 +389,6 @@ times (512 - ($ - $$)) db 0     ; Padding for 512 bytes alignement
 section .bss align=8
 bss_start equ $$ + 512
 
-buf       equ bss_start         ; Only variable needed besides the buffer
-bss_end   equ buf + 3584        ; buffer and binary in the same 4Kb memory page
+buf       equ bss_start          ; Only variable needed besides the buffer
+bss_end   equ buf + 3584         ; buffer and binary in the same 4Kb memory page
 

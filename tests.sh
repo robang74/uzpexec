@@ -60,7 +60,7 @@ echo "Strings output:"
   done
   printf "%6s: %s \n" "use-f" "$(gzip -c uzcat.asm | ./uzcat -f  | file -)"
   printf "%6s: %s \n" "info" "$(./uzcat <&- 2>&1)"
-  nasm -O2 -f bin -d_DO_EXTRA uzcat.asm -o uzcat
+  nasm -O2 -f bin -d_HAS_PROVIDER uzcat.asm -o uzcat
   printf "%6s: %s \n" "prov." "$(./uzcat <&- 2>&1)"
 
   echo
@@ -176,7 +176,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/14692e96520d6ae6f839554da3537a351c890efe/$bin OK/" |
+sed "s/918bd68d5b9cda8c3829e7b98c8433b18d608b84/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
