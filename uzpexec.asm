@@ -126,7 +126,7 @@ main:
   ; prctl(PR_SET_DUMPABLE, 0, 0, 0, 0)
   mov al, 172                    ; SYS_prctl
   mov bl, 4                      ; EBX = PR_SET_DUMPABLE
-                                 ; EDX = 0, already
+; xor edx, edx                   ; EDX = 0, already set
   dec ecx                        ; ECX = 0 (RAM !coredump)
   int 0x80                       ; prctl() in best-effort
 
@@ -159,14 +159,18 @@ main:
   push 19                        ; SYS_lseek
   pop eax
   mov ebx, edi                   ; itself
-  mov ch, 2                      ; skip size, 32-bit aligned
-  mov cl, 0                      ; ECX = 512
-; xor edx, edx                   ; SEEK_SET = 0, already set
+  xor ecx, ecx
+  mov dl, 2                      ; SEEK_END = 2
   int 0x80
-%if 0
-  cmp eax, ecx
-  jne .do_exit                   ; this should never happen
-%endif
+
+  mov dl, 0                      ; SEEK_SET = 0
+  mov ch, 2                      ; ECX = 512
+  cmp eax, ecx                   ; check for the carryload
+  je .stdin
+
+  push 19                        ; SYS_lseek
+  pop eax
+  int 0x80
 
 ; ------------------------------------------------------------------------------
 ; WHY -EINTR ISN'T AN ISSUE HERE (and it wasn't correctly addressed anyway)
@@ -205,7 +209,7 @@ main:
   jmp short .read_four
 
 .stdin:
-  xor edi, edi                   ; EDI = 0 (STDIN)
+  xor edi, edi                    ; EDI = 0 (STDIN)
 %ifndef _NO_STDIN                 ; single point of detour to do_exit
   jmp short .set_four
 %endif
@@ -269,12 +273,15 @@ main:
   int 0x80
 
   test dh, dh                    ; check for had to read only 4 bytes
+  jz .chk_magic
+%if 0
+  test dh, dh                    ; check for had to read only 4 bytes
+  jz .chk_magic
   jnz .chk_read                  ; otherwise continue
   cmp eax, edx
   je .chk_magic                  ; check for the magic numbers
-  test edi, edi
-  jnz .stdin                     ; there is not a carryload, try STDIN
   jmp .do_exit
+%endif
 
 .chk_read:
   test eax, eax
