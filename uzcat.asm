@@ -212,6 +212,10 @@ main_start:
   test eax, eax
   js do_exit
 
+   pop ebx                   ; pipefd[0] <-- stack
+   pop edi                   ; pipefd[1] <-- stack
+   push ebx                  ; pipefd[0] --> stack
+
   ; Fork
   push 2                      ; SYS_fork
   pop eax
@@ -245,14 +249,9 @@ parent:
 .do_cat:
   mov ecx, buf                ; set once and keep untouched
 
- pop ebx
- pop edi
- push ebx
-
 .pump_loop:
   ; Write to pipe
-; mov ebx, [esp]              ; pipefd[1]
-  mov ebx, edi
+  mov ebx, edi                ; pipefd[1]
   mov edx, eax                ; bytes already read, to write
 
   push 4                      ; SYS_write
@@ -283,23 +282,20 @@ parent:
   jz do_exit                  ; after do_cat, do_exit
 
   ; Close the writing pipe to send EOF to the child
-  push 6                      ; SYS_close
-  pop eax
+  mov al, 6                   ; SYS_close
   mov ebx, edi                ; pipefd[1]
   int 0x80
 
   ; Wait for child
-  push 7                      ; SYS_waitpid
-  pop eax
-  xor ebx, ebx
+  mov al, 7                   ; SYS_waitpid
+  dec ebx
   dec ebx                     ; -1 = any child
   xor ecx, ecx                ; status = NULL
   xor edx, edx                ; options = 0
   int 0x80
 
   ; Exit with child's status
-  mov ebx, eax
-  and ebx, 0xFF00
+  mov bh, ah
   shr ebx, 8                  ; extract exit status
   push 1                      ; SYS_exit
   pop eax
@@ -311,13 +307,12 @@ parent:
 child:
   ; Close write end of pipe
   mov al, 6                   ; SYS_close
-  mov ebx, [esp+4]            ; pipefd[1]
+  mov ebx, edi                ; pipefd[1]
   int 0x80
 
   ; Dup2 read end to stdin
-  push 63                     ; SYS_dup2
-  pop eax
-  mov ebx, [esp]              ; pipefd[0]
+  mov al, 63                  ; SYS_dup2
+  pop ebx                     ; pipefd[0] <-- stack
   xor ecx, ecx                ; stdin = 0
   int 0x80
 
@@ -325,18 +320,18 @@ child:
 %ifdef _DO_CLOSE
   push 6                      ; SYS_close
   pop eax
-; mov ebx, [esp]              ; pipefd[0]
+; mov ebx, [esp]              ; pipefd[0], already set
   int 0x80
 %endif
 
 %ifdef _DO_DEBUG
-  mov ecx, cmdstr
   push 12
   pop edx
-  push  4                       ; SYS_write
-  pop eax
+  mov ecx, cmdstr               ; command string
   push  2                       ; stderr
   pop ebx
+  push  4                       ; SYS_write
+  pop eax
   int 0x80
 %endif
 
@@ -347,8 +342,7 @@ child:
   push ebx
   mov ecx, esp                ; argv = [NULL]
   xor edx, edx                ; envp = NULL (inherit from parent)
-  push 11                     ; SYS_execve
-  pop eax
+  mov al, 11                  ; SYS_execve
   int 0x80
 
   ; If execve fails, fall through to error
@@ -357,7 +351,7 @@ child:
 ; ERROR HANDLING
 ; ==============================================================================
 do_exit:
-  test al, al
+  test eax, eax
   jz .no_error
   mov ecx, copy_vers
 
