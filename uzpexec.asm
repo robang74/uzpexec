@@ -204,10 +204,27 @@ main:
 ;                                    /doc/the-x86-asm-eintr-dilemma-question.txt
 ; ------------------------------------------------------------------------------
   ; 3. Try to read from the file the 1st block + 4 bytes to check the carryload
-.set_four:
+.read_four:
+  push 3                         ; SYS_read
+  pop eax
+  mov ebx, edi                   ; input fd or STDIN
   mov ecx, buf                   ; ECX = buf, set once here
   mov  dl, 4                     ; EDX = 4, read four bytes
-  jmp .read_four
+  int 0x80
+
+  cmp eax, edx
+  je .do_copy                    ; read ok, there is a carryload
+  test edi, edi
+.jz_do_exit:
+  jz short .do_exit
+
+.stdin:
+  xor edi, edi                   ; EDI = 0 (STDIN)
+%ifdef _NO_STDIN                 ; single point of detour to do_exit
+  jmp short .do_exit
+%else                            ; jmp short for %-branch size balance
+  jmp short .read_four
+%endif
 
 ; ------------------------------------------------------------------------------
 ; DO COPY BY READ / WRITE LOOP
@@ -235,18 +252,10 @@ main:
   jmp .write_four
 
 .use_cat:
-%if 1
   pop ebx                        ; [memfd2] <-- p::stack { [memfd1], commd_exe, }
   pop edx                        ; [memfd1] <-- p::stack {  commd_exe, ... }
   push ebx                       ; --> m::stack { [memfd2], commd_exe, ... }
   push ebx                       ; --> m::stack { [memfd2], [memfd2], commd_exe, }
-%else
-  inc word [esp+4]               ; the same but leveraging memfd2 == memfd1 + 1
-; pop ebx                        ; the same but another byte longer than above
-; xchg ebx, [esp]
-; inc ebx
-; push ebx
-%endif
 
 .write_four:
   ; Write first 4 bytes, already read in buf
@@ -266,30 +275,12 @@ main:
   ; Read from input
   mov dl, 0
   mov dh, 14                     ; EDX = 512*7, buffer size
-.read_four:
 ; mov ecx, buf                   ; already set
   mov ebx, edi                   ; input fd
   push 3                         ; SYS_read
   pop eax
   int 0x80
 
-  test dh, dh
-  jnz short .continue
-  cmp eax, edx
-  je .do_copy
-  test edi, edi
-.jz_do_exit:
-  jz short .do_exit
-
-.stdin:
-  xor edi, edi                   ; EDI = 0 (STDIN)
-%ifdef _NO_STDIN                 ; single point of detour to do_exit
-  jmp short .do_exit
-%else                            ; jmp short for %-branch size balance
-  jmp short .read_four
-%endif
-
-.continue:
 %ifdef _DO_EINTR
   cmp eax, -4                    ; check for -EINTR (if any, ever)
   je short .pump_loop            ; continue
