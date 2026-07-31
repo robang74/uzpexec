@@ -141,10 +141,30 @@ main:
   int 0x80
   mov edi, eax                   ; save FD in EDI for later
 
+  mov al, 19                     ; SYS_lseek
+  mov ebx, edi                   ; itself
+  xor ecx, ecx
+  mov dl, 2                      ; EDX = 2, SEEK_END
+  int 0x80
+
+  mov ch, 2                      ; ECX = 512 
+  cmp eax, ecx                   ; check for the carryload
+  jnz .use_file
+
+%ifndef _NO_STDIN                ; single point of detour to do_exit
+  xor edi, edi                   ; EDI = 0, is STDIN
+%endif
+
+.use_file:
+  push 19                        ; SYS_lseek
+  pop eax
+  mov dl, 0                      ; EDX = 0, SEEK_SET
+  int 0x80
+
   ; 2. Try to open the memfd, as first operation
   mov eax, 356                   ; SYS_memfd_create
   test esi, esi                  ; CVE-2021-4034, pre-5.18, can't cover LK bugs
-  jz short .jz_do_exit           ; just exit or SIGSEGV later
+  jz short .do_exit              ; just exit or SIGSEGV here below
   mov ebx, [esi]                 ; argv[0]
   push 3                         ; MFD_ALLOW_SEALING | MFD_CLOEXEC
   pop ecx
@@ -155,22 +175,6 @@ main:
   mov eax, 356                   ; SYS_memfd_create
   int 0x80
   push eax                       ; --> m::stack { [memfd2], [memfd1], commd_exe, }
-
-  push 19                        ; SYS_lseek
-  pop eax
-  mov ebx, edi                   ; itself
-  xor ecx, ecx
-  mov dl, 2                      ; SEEK_END = 2
-  int 0x80
-
-  mov dl, 0                      ; SEEK_SET = 0
-  mov ch, 2                      ; ECX = 512
-  cmp eax, ecx                   ; check for the carryload
-  je .stdin
-
-  push 19                        ; SYS_lseek
-  pop eax
-  int 0x80
 
 ; ------------------------------------------------------------------------------
 ; WHY -EINTR ISN'T AN ISSUE HERE (and it wasn't correctly addressed anyway)
@@ -204,17 +208,9 @@ main:
 ; ------------------------------------------------------------------------------
   ; 3. Try to read from the file the 1st block + 4 bytes to check the carryload
 .set_four:
-  mov dl, 4
+  mov dl, 4                      ; EDX = 4, SEEK_SET
   mov ecx, buf                   ; buf, set once here
   jmp short .read_four
-
-.stdin:
-  xor edi, edi                    ; EDI = 0 (STDIN)
-%ifndef _NO_STDIN                 ; single point of detour to do_exit
-  jmp short .set_four
-%endif
-.jz_do_exit:
-  jz short .do_exit
 
 ; ------------------------------------------------------------------------------
 ; DO COPY BY READ / WRITE LOOP
@@ -226,20 +222,22 @@ main:
 ; The values above are comphrensive of all syscalls including exec(zcat -f)
 ; ------------------------------------------------------------------------------
 .chk_magic:
+  test eax, eax
+  jz short .do_exit
   ; at this point [ecx] contains the magic number to check
   cmp word [ecx], 0x2123         ; match shebang
-  je .use_cat
+  je short .use_cat
   cmp word [ecx], 0x457f         ; match elf bin
-  je .use_cat
+  je short .use_cat
   cmp word [ecx], 0xb528         ; match zstd
-  je .write_four
+  je short .write_four
   cmp byte [eof_tests], 'U'      ; check for customisation
-  jne .write_four
+  jne short .write_four
 
 .use_zcat:
   mov dword edx, [zcat_cat]      ; save "cat\0"
   mov dword [zcat_cmd], edx      ; write back
-  jmp .write_four
+  jmp short .write_four
 
 .use_cat:
   pop ebx                        ; memfd2
@@ -274,20 +272,12 @@ main:
 
   test dh, dh                    ; check for had to read only 4 bytes
   jz .chk_magic
-%if 0
-  test dh, dh                    ; check for had to read only 4 bytes
-  jz .chk_magic
-  jnz .chk_read                  ; otherwise continue
-  cmp eax, edx
-  je .chk_magic                  ; check for the magic numbers
-  jmp .do_exit
-%endif
 
 .chk_read:
   test eax, eax
-  jz .rewind                     ; check for EOF
-  js .do_exit                    ; single point of detour to do_exit
-  jmp .pump_loop                 ; continue
+  jz short .rewind               ; check for EOF
+  js short .do_exit              ; single point of detour to do_exit
+  jmp short .pump_loop           ; continue I/O
 
 ; ------------------------------------------------------------------------------
 
