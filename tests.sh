@@ -36,7 +36,7 @@ rm -f $bin.ipx
 echo "Strings output:"
 ( exec 2>&1
   echo "$(strings -d $bin)" | sed -e "s/^/  /" | tee /proc/self/fd/2 |
-  grep -qe "([cC]) .*robang74/uzpexec v[0-9.]\{4\}" ||{
+  grep -qe "([cC]) .*robang74.*uzpexec v[0-9.]\{4\}" ||{
     printf "\nWARNING:\n"
     printf "\tAuthorship isn't allowed to be changed or removed"
     printf "\n\n"

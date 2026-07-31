@@ -148,37 +148,36 @@ main:
   int 0x80
 
   mov ch, 2                      ; ECX = 512
-  cmp eax, ecx                   ; check for the carryload
-  jnz .use_file
+  xor eax, ecx                   ; check for the carryload
+  push eax                       ; --> m::stack { [I/O], commd_exe, }
 
-%ifndef _NO_STDIN                ; single point of detour to do_exit
-  xor edi, edi                   ; EDI = 0, is STDIN
-%endif
-
-.use_file:
   push 19                        ; SYS_lseek
   pop eax
   mov dl, 0                      ; EDX = 0, SEEK_SET
   int 0x80
 
   ; 2. Try to open the memfd, as first operation
-; mov eax, 356                   ; SYS_memfd_create
-  mov ah, 1
-  mov al, 100
+
 ; test esi, esi                  ; CVE-2021-4034, pre-5.18, can't cover LK bugs
 ; jz short .do_exit              ; just exit or SIGSEGV here below
   mov ebx, [esi]                 ; argv[0]
   push 3                         ; MFD_ALLOW_SEALING | MFD_CLOEXEC
   pop ecx
-  int 0x80
-
-  ; Organising the stack in the proper order (inverse order of popping)
-  push eax                       ; --> m::stack { [memfd1], commd_exe, ... }
+.cpy_stdin:
 ; mov eax, 356                   ; SYS_memfd_create
   mov ah, 1
   mov al, 100
   int 0x80
-  push eax                       ; --> m::stack { [memfd2], [memfd1], commd_exe, }
+
+  xchg eax, [esp]               ; 1: [I/O] <--> m::stack { [memfd1], commd_exe, }
+                                ; 2: [f/self] <--> m::stack { [memfd2], [memfd1], }
+  test edi, edi
+  jz .set_four                  ; 2: jump out from here
+  push edi                      ; 1: --> m::stack { [f/self], [memfd1], commd_exe, }
+  test eax, eax
+  jnz .set_four                 ; 1: jump out from here
+  xor edi, edi                  ; 2: EDI = 0, STDIN
+  jmp .cpy_stdin
 
 ; ------------------------------------------------------------------------------
 ; WHY -EINTR ISN'T AN ISSUE HERE (and it wasn't correctly addressed anyway)
@@ -212,7 +211,7 @@ main:
 ; ------------------------------------------------------------------------------
   ; 3. Try to read from the file the 1st block + 4 bytes to check the carryload
 .set_four:
-  mov dl, 4                      ; EDX = 4, SEEK_SET
+  mov dl, 4                      ; EDX = 4, read four
   mov ecx, buf                   ; buf, set once here
   jmp short .read_four
 
@@ -244,9 +243,9 @@ main:
   jmp short .write_four
 
 .use_cat:
-  pop ebx                        ; memfd2
-  pop edx                        ; memfd1
-  push ebx                       ; --> m::stack { [memfd2], commd_exe, }
+  pop ebx                        ; [memfd2] <-- p::stack { [memfd1], commd_exe, }
+  pop edx                        ; [memfd1] <-- p::stack {  commd_exe, ... }
+  push ebx                       ; --> m::stack { [memfd2], commd_exe, ... }
   push ebx                       ; --> m::stack { [memfd2], [memfd2], commd_exe, }
 
 .write_four:
@@ -255,8 +254,6 @@ main:
 ; pop eax                        ; soon --> edx, size to write , already set
   test edi, edi
   jz short .pump_loop
-  pop ebx                        ; [memfd2] <-- p::stack { [memfd1], commd_exe, }
-  push edi                       ; --> m::stack { [f/exe], [memfd1], commd_exe, }
   mov al, 2                      ; EAX = 512
   jmp short .rewind
 
@@ -508,7 +505,7 @@ do_exit:
 ; COMPACT DATA SECTION (appended to code)
 ; ==============================================================================
 ;                                                                  LN | XE
-copy_vers:  db "(c) github/robang74/uzpexec v0.98"              ;  33 | 33
+copy_vers:  db "(c) github/robang74/uzpexec v.98"              ;  33 | 33
 %ifdef  _HAS_PROVIDER
 provider :  db  0x20, "12345678", 0x0a                          ;  10 |  -
 %else

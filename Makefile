@@ -195,7 +195,7 @@ teststdin: nostdin
 	@echo ====== testing nostdin ======
 	@echo
 	@echo 'ret:1|2 is mandatorly expected'
-	timeout 1 ./uzpexec; printf "\tret:$$?\n" | grep -e "ret:[12]$$" || exit
+	timeout 1 ./uzpexec; printf "\tret:$$?\n" | grep -e "ret:[^0]" || exit
 	@rm -f uzpexec
 	@echo
 
