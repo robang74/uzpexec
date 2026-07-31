@@ -33,7 +33,7 @@ old=0
 opt=nc
 
 nme="uzpexec"
-cpy='(c) github/''robang74.*'$nme' v[^ ]* '
+cpy='(c) github/''robang74.'$nme' v[^ ]* '
 
 
 ########################################################################
