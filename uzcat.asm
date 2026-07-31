@@ -245,9 +245,14 @@ parent:
 .do_cat:
   mov ecx, buf                ; set once and keep untouched
 
+ pop ebx
+ pop edi
+ push ebx
+
 .pump_loop:
   ; Write to pipe
-  mov ebx, [esp+4]            ; pipefd[1]
+; mov ebx, [esp]              ; pipefd[1]
+  mov ebx, edi
   mov edx, eax                ; bytes already read, to write
 
   push 4                      ; SYS_write
@@ -256,7 +261,8 @@ parent:
 
   ; Read from stdin
   xor ebx, ebx                ; stdin
-  mov edx, 3584               ; buffer size
+  mov dh, 14                  ; buffer size
+  mov dl, 0                   ; = 7 * 512
 
   push 3                      ; SYS_read
   pop eax
@@ -272,14 +278,14 @@ parent:
   jmp .pump_loop              ; continue
 
 .done:
-  mov eax, [esp]
+  pop eax
   test eax, eax
   jz do_exit                  ; after do_cat, do_exit
 
   ; Close the writing pipe to send EOF to the child
   push 6                      ; SYS_close
   pop eax
-  mov ebx, [esp+4]            ; pipefd[1]
+  mov ebx, edi                ; pipefd[1]
   int 0x80
 
   ; Wait for child
