@@ -52,7 +52,7 @@ elf_header:
   ;
 %ifndef _NO_INFOSIX
 elf_infosix:
-  dw 0, 0, 0                     ; Section info (zeroed out, reclamable)
+; dw 0, 0, 0                     ; Section info (zeroed out, reclamable)
 %endif
   ;
   ; ASSUMPTIONS CHECK
@@ -143,11 +143,11 @@ main:
 
   mov al, 19                     ; SYS_lseek
   mov ebx, edi                   ; itself
-  xor ecx, ecx
+  xor ecx, ecx                   ; SEEK_PNT = 0
   mov dl, 2                      ; EDX = 2, SEEK_END
   int 0x80
 
-  mov ch, 2                      ; ECX = 512 
+  mov ch, 2                      ; ECX = 512
   cmp eax, ecx                   ; check for the carryload
   jnz .use_file
 
@@ -162,9 +162,11 @@ main:
   int 0x80
 
   ; 2. Try to open the memfd, as first operation
-  mov eax, 356                   ; SYS_memfd_create
-  test esi, esi                  ; CVE-2021-4034, pre-5.18, can't cover LK bugs
-  jz short .do_exit              ; just exit or SIGSEGV here below
+; mov eax, 356                   ; SYS_memfd_create
+  mov ah, 1
+  mov al, 100
+; test esi, esi                  ; CVE-2021-4034, pre-5.18, can't cover LK bugs
+; jz short .do_exit              ; just exit or SIGSEGV here below
   mov ebx, [esi]                 ; argv[0]
   push 3                         ; MFD_ALLOW_SEALING | MFD_CLOEXEC
   pop ecx
@@ -172,7 +174,9 @@ main:
 
   ; Organising the stack in the proper order (inverse order of popping)
   push eax                       ; --> m::stack { [memfd1], commd_exe, ... }
-  mov eax, 356                   ; SYS_memfd_create
+; mov eax, 356                   ; SYS_memfd_create
+  mov ah, 1
+  mov al, 100
   int 0x80
   push eax                       ; --> m::stack { [memfd2], [memfd1], commd_exe, }
 
@@ -242,13 +246,19 @@ main:
 .use_cat:
   pop ebx                        ; memfd2
   pop edx                        ; memfd1
-  push ebx
-  push ebx
+  push ebx                       ; --> m::stack { [memfd2], commd_exe, }
+  push ebx                       ; --> m::stack { [memfd2], [memfd2], commd_exe, }
 
 .write_four:
   ; Write first 4 bytes, already read in buf
 ; push 4                         ; bytes already read, to write, already set
 ; pop eax                        ; soon --> edx, size to write , already set
+  test edi, edi
+  jz short .pump_loop
+  pop ebx                        ; [memfd2] <-- p::stack { [memfd1], commd_exe, }
+  push edi                       ; --> m::stack { [f/exe], [memfd1], commd_exe, }
+  mov al, 2                      ; EAX = 512
+  jmp short .rewind
 
 .pump_loop:
   ; Write to memfd2
@@ -297,10 +307,11 @@ main:
 
   ; 4. Rewind of the memfd2, set it to be ready to read as (EDI) source
 .rewind:
-  mov al, 19                     ; SYS_lseek
   pop ebx                        ; [memfd2] <-- p::stack { [memfd1], commd_exe, }
   xor ecx, ecx                   ; SEEK_PNT = 0
+  mov ch, al                     ;          = 0 or 512
   xor edx, edx                   ; SEEK_SET = 0
+  mov al, 19                     ; SYS_lseek
   int 0x80
 
   cmp ebx, [esp]
@@ -310,7 +321,8 @@ main:
 
 .fork:
   ; 4b. Fork the process
-  mov al, 2                      ; SYS_fork
+  push 2                         ; SYS_fork
+  pop eax
   int 0x80
   test eax, eax
   jz child                       ; the child jump to its routine
@@ -360,7 +372,9 @@ parent:
   push 92                        ; SYS_fcntl (security, set eax in full)
   pop eax
   pop ebx                        ; [memfd1] <-- p::stack { commd_exe, ... }
-  mov ecx, 1033                  ; ECX = F_ADD_SEALS (0x0409)
+; mov ecx, 1033                  ; ECX = F_ADD_SEALS (0x0409)
+  mov ch, 4
+  mov cl, 9
   ; F_SEAL_WRITE | F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL = 15 (0x0f)
   mov dl, 15                     ; EDX = 0x0f, sealed in full
   int 0x80                       ; ELF hardening provided in best effort
@@ -416,6 +430,7 @@ parent:
   ; ----------------------------------------------------------------------------
 .execute_elf:
   ; Execute the ELF binary using a Linux specific syscall
+
   mov eax, 358                   ; SYS_execveat
 ; mov ebx, [memfd]               ; EBX = memfd1, already
   push 0                         ; "" on the stack
@@ -507,7 +522,7 @@ zcat_cat :  db "cat", 0                                         ;  13 | 23 (29)
     times 6 db 0                                                ;   - |  -
 %endif
 %ifdef  _NO_INFOSIX
-    times 6 db 0                                                ;   - |  -
+;   times 6 db 0                                                ;   - |  -
 %endif
 eof_tests:  db "U238"                            ; for tests    :   4 |  -
 ; This introduces the need of having the /proc mounted,granted after the /init
