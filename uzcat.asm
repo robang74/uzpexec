@@ -39,7 +39,7 @@
 ;   chmod +x uzcat && du -b uzcat
 ;
 ; Testing:
-;   for cmd in gzip xz bzip2 lz4 zstd; do echo $cmd:
+;   for cmd in gzip xz bzip2 lz4 zstd lzop; do echo $cmd:
 ;       $cmd -c uzcat.asm | ./uzcat | file -; done
 ;   gzip -c uzcat.asm | ./uzcat -f  | file -
 ;   echo info:; ./uzcat <&-
@@ -109,12 +109,12 @@ phdr:
 ; ==============================================================================
 
 ; Size of the vectors
-vect_size equ 4
+vect_size equ 5
 
-; The magics vector (5 × 2 byte)
+; The magics vector (6 × 2 byte)
 magics:
-;        xz,   bzip2,    lz4,   zstd,   gzip
-  dw 0x37fd,  0x5a42, 0x2204, 0xb528, 0x8b1f
+;        xz,  bzip2,    lz4,   zstd,   lzop, gzip
+  dw 0x37fd, 0x5a42, 0x2204, 0xb528, 0x4c89, 0x8b1f
 
 ; The strings vector (5 × 5 byte)
 paths:
@@ -122,6 +122,7 @@ paths:
   db "bz", 0,0,0
   db "lz4", 0,0
   db "zstd", 0
+  db "lzop", 0
 cmdstr:
   db "/bin/zcat", 0,0,0,0   ; "/bin/cat" + "zstd" + '\0' = 13 bytes
 
@@ -218,9 +219,9 @@ main_start:
   test eax, eax
   js do_exit
 
-   pop ebx                       ; pipefd[0] <-- stack
-   pop edi                       ; pipefd[1] <-- stack
-   push ebx                      ; pipefd[0] --> stack
+  pop ebx                        ; pipefd[0] <-- stack
+  pop edi                        ; pipefd[1] <-- stack
+  push ebx                       ; pipefd[0] --> stack
 
   ; Fork
   push 2                         ; SYS_fork
@@ -363,7 +364,7 @@ do_exit:
   
   push  4                        ; SYS_write
   pop eax
-  push  1                        ; STDOUT
+  push  2                        ; STDERR
   pop ebx
   ; Print copyright notice, version and internal name
   mov ecx, copy_vers

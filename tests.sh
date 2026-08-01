@@ -54,10 +54,12 @@ echo "Strings output:"
   echo
 
   nasm -O2 -f bin uzcat.asm -o uzcat && chmod +x uzcat
+  set +x
   printf "%6s: %d %s\n" "size" $(du -b uzcat)
-  for cmd in gzip xz bzip2 lz4 zstd; do
-    printf "%6s: %s\n" "$cmd" "$($cmd -c uzcat.asm | ./uzcat     | file -)"
+  for cmd in gzip xz bzip2 lz4 zstd lzop; do
+    printf "%6s: %s\n" "$cmd" "$($cmd -c uzcat.asm | ./uzcat 2>&-| file -)"
   done
+  set +x
   printf "%6s: %s \n" "use-f" "$(gzip -c uzcat.asm | ./uzcat -f  | file -)"
   printf "%6s: %s \n" "info" "$(./uzcat <&- 2>&1)"
   nasm -O2 -f bin -d_HAS_PROVIDER uzcat.asm -o uzcat
@@ -176,7 +178,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/28c01d1e607f71fa2764d183810904509c6b29cf/$bin OK/" |
+sed "s/9a4fe1a0967b5ed380fcc0421ec068c51db957ea/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
