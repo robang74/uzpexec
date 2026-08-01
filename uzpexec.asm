@@ -414,11 +414,10 @@ parent:
 
   ; 5p. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
   mov al, 11                     ; SYS_execve
-
   ; In-place stack manipulation using ESP (argv is at [esp]):
-  ; ["/bin/sh", "/proc/self/fd/9", original_args ...]
   pop ebx                        ; commd_exe <-- p::stack { ... }
-  mov dword [ebx+11], 0x392f6466 ; writes "fd/9" at the end of commd_exe
+  mov dword [ebx + file_desc - commd_exe], 0x392f6466
+                                 ; writes "fd/9" at the end of commd_exe
   mov dword [esp], ebx           ; replace argv[1] with "/proc/self/fd/9"
   mov edx, ebp                   ; envp (intact from main_start)
   jmp .backfall
@@ -454,26 +453,29 @@ parent:
 ; CHILD PROCESS ( c::stack [memfd1], commd_exe, ... )
 ; ==============================================================================
 child:
-  ; 1c. dup2: connect memfd2 to *cat stdin
+  ; 1c. dup2: connect memfd2 to "/proc/self/fd/9"
   mov al, 63                     ; SYS_dup2
-; mov ebx, edi                   ; already set
-  xor ecx, ecx                   ; = 0, stdin
+; mov ebx, ...                   ; already set
+  mov cl, 9                      ; = 9
   int 0x80
 
   ; 2c. dup2: connect memfd1 to *cat stdout
   mov al, 63                     ; SYS_dup2
   pop ebx                        ; [memfd1] <-- c::stack { commd_exe, ... }
-  inc ecx                        ; = 1, stdout
+  mov cl, 1                      ; = 1, stdout
   int 0x80
 
   dec eax
   jnz short do_final_int
 
   ; 3c. Execute external decompressor
-
   pop ebx                        ; commd_exe <-- c::stack { 0 }
-  sub ebx, commd_exe-zcat_path   ; = zcat_path
+  ; In-place stack manipulation using ESP (argv is at [esp]):
+  mov dword [ebx + file_desc - commd_exe], 0x392f6466
+  ; mov dword [esp], ebx         ; replace argv[1] with "/proc/self/fd/9"
   push 0                         ; end of envp/argv
+  push ebx                       ; --> /proc/self/fd/0
+  sub ebx, commd_exe-zcat_path   ; = zcat_path
   push ebx                       ; zcat_path --> argv[0]
   mov ecx, esp                   ; argv[1...]
 ; xor edx, edx                   ; envp null
@@ -529,7 +531,8 @@ zcat_cat :  db "cat", 0                                         ;  13 | 23 (29)
 eof_tests:  db "U238"                            ; for tests    :   4 |  -
 ; This introduces the need of having the /proc mounted,granted after the /init
 ; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
-commd_exe:  db "/proc/self/exe", 0,0                            ;  16 | 16
+commd_exe:  db "/proc/self/"
+file_desc:  db "exe", 0,0                                       ;  16 | 16
                                                                 ; ----------
                                                                 ;  76  tot.
 
