@@ -217,7 +217,7 @@ du -b hello.py*
     1235  hello.pyz <-- the output is smaller than original !!!
 ```
 
-In v0.95 or before, supporting phython scripts was possible only by properly customising `uzpexec`. After, by system changes like configuring the `/bin/sh` or Linux `binfmt` to properly routing shebang-ed scripts to their own interpreter. Which is the standard configuration in desktop and servers and some less-than-minimal embedded systems.
+In v0.95 or before, supporting python scripts was possible only by properly customising `uzpexec`. After, by system changes like configuring the `/bin/sh` or Linux `binfmt` to properly routing shebang-ed scripts to their own interpreter. Which is the standard configuration in desktop and servers and some less-than-minimal embedded systems.
 
 ---
 
@@ -255,7 +255,7 @@ Obviously, it is possible to convert an already converted binary. Which fails to
 
 ### Quick customisation
 
-Quick customisation by coreutil `sed`, or any other stings-based editor (or commands line combination like `xxd` or `base64` with busybox `sed` or `awk`) which can deal with binary data containing '\0', is straightforward supported:
+Quick customisation by coreutil `sed`, or any other strings-based editor (or commands line combination like `xxd` or `base64` with busybox `sed` or `awk`) which can deal with binary data containing '\0', is straightforward supported:
 
 ```sh
 rm -f uzpexec hello; make distclean uzpexec hello; elf=hello
@@ -347,7 +347,7 @@ Hence, the customisation can scale up to completely different usage and deployin
 
 The execution by pipe allows a basic running system, then an app is piped into `uzpexec` and executed accordingly with its nature and compression format. And this is a great feature for a lightweight supervisor OS that can create separated virtual execution spaces for each app granting that there is no absolute way one can sniff or read data from the others (unless system vulnerabilities, obviously, but not for the design of the uzpexec).
 
-As a standalone utility `uzpexec` doesn't need to subdue the strict `dd skip=1` constraint, being just an utility on a system. And this explains why the full version for AMR64 is totally fine being 1Kb or whatever minimal size, while the stub (two different for elf and scripts) are designed for the same constraint of the x86 counterpart. Knowing that x86 is for data-centers and arm64 for mobile devices.
+As a standalone utility `uzpexec` doesn't need to subdue the strict `dd skip=1` constraint, being just an utility on a system. And this explains why the full version for ARM64 is totally fine being 1Kb or whatever minimal size, while the stub (two different for elf and scripts) are designed for the same constraint of the x86 counterpart. Knowing that x86 is for data-centers and arm64 for mobile devices.
 
 #### Quick ELF32 view
 
