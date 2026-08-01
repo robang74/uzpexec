@@ -114,14 +114,17 @@ main:
   ; ----------------------------------------------------------------------------
 
   ; prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)
-  push 172                       ; SYS_prctl
-  pop eax
   ; Sterilize the priviledge escalation from CVE-2021-4034, pre-5.18
   push 38                        ; EBX = PR_SET_NO_NEW_PRIVS
   pop ebx
   push 1                         ; ECX = 1 (enable)
   pop ecx
-  xor edx, edx                   ; EDX = 0
+; push 172                       ; SYS_prctl
+; pop eax
+  xor eax, eax
+; xor edx, edx                   ; EDX = 0
+  cdq
+  mov al, 172
   int 0x80                       ; prctl() in best-effort
 
   ; prctl(PR_SET_DUMPABLE, 0, 0, 0, 0)
@@ -307,10 +310,11 @@ main:
 
   ; 4. Rewind of the memfd2, set it to be ready to read as (EDI) source
 .rewind:
-  mov al, 19                     ; SYS_lseek
-  pop ebx                        ; [memfd2] <-- p::stack { [memfd1], commd_exe, }
+; xor edx, edx                   ; SEEK_SET = 0
+  cdq                            ; EDX = 0 when EAX = 0, granted by jz .rewind
   xor ecx, ecx                   ; SEEK_PNT = 0
-  xor edx, edx                   ; SEEK_SET = 0
+  pop ebx                        ; [memfd2] <-- p::stack { [memfd1], commd_exe, }
+  mov al, 19                     ; SYS_lseek
   int 0x80
 
   cmp ebx, [esp] 
@@ -462,17 +466,19 @@ child:
   inc ecx                        ; = 1, stdout
   int 0x80
 
-  test eax, eax
-  js short do_final_int
+  dec eax
+  jnz short do_final_int
 
   ; 3c. Execute external decompressor
-  mov al, 11                     ; SYS_execve
+
   pop ebx                        ; commd_exe <-- c::stack { 0 }
   sub ebx, commd_exe-zcat_path   ; = zcat_path
   push 0                         ; end of envp/argv
   push ebx                       ; zcat_path --> argv[0]
   mov ecx, esp                   ; argv[1...]
-  xor edx, edx                   ; envp null
+; xor edx, edx                   ; envp null
+  cdq                            ; EDX = 0 <-- EAX = 0 by jnz do_final_int
+  mov al, 11                     ; SYS_execve
 
 ; ==============================================================================
 do_final_int:
