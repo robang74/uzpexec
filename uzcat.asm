@@ -317,15 +317,18 @@ child:
   mov ebx, edi                   ; pipefd[1]
   int 0x80
 
-  ; Dup2 read end to stdin
+  ; Yann Collet's lz4/lzopcat support only regular file
+  pop ebx                        ; pipefd[0] <-- stack
+  push 0
   shr ecx, 1
   xor ecx, 2
-  test ecx, ecx
-  jz .continue
+  jz .use_stdin
+  push file_desc
   mov cl, 9
-.continue: 
-  mov al, 63                     ; SYS_dup2
-  pop ebx                        ; pipefd[0] <-- stack
+
+  ; Dup2 read end to stdin
+.use_stdin:
+  mov al, 63                     ; SYS_dup2         
   int 0x80
 
   ; Close original read end
@@ -337,11 +340,6 @@ child:
 %endif
 
   ; Execve the decompressor
-  push 0
-  test ecx, ecx
-  jz .skip_file
-  push file_desc
-.skip_file:
   mov ebx, cmdstr                ; selected decompressor
   push ebx
   mov ecx, esp                   ; argv = [NULL]
