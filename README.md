@@ -39,7 +39,7 @@ Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.98.2** 
 
 - In v0.98 the `sed` customisation returns fully available for running a `uzpexec` self-extracting binary on a system&thinsp;/&thinsp;container with `/usr/local` from a `make install` installation.
 
-- In v0.98.1, the `gzip`&thinsp;/&thinsp;`pigz` format returns as default because it is universally available. In v0.98.2, the BusyBox `u|zcat` seamless inflating file-only limitation has been worked-around.
+- In v0.98.1, the `gzip`&thinsp;/&thinsp;`pigz` format returns as default because it is universally available. In v0.98.2, the BusyBox `u|zcat` seamless inflating `zstd` file-only limitation has been worked-around.
 
 <br>
 
