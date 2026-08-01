@@ -203,17 +203,18 @@ Using `sed` to change the interpreter from `/bin/sh` to every other available in
 ```sh
 rm -f uzpexec; make uzpexec
 export WORLD="Wonderful"; bin="hello.py"; cp -f uzpexec ${bin}z
-pigz -11c $bin >> ${bin}z && chmod +x ${bin}z && ./${bin}z Nice
+pigz -11mc $bin >>${bin}z && chmod +x ${bin}z && ./${bin}z Nice
 
-  Hello Nice World!
-  lsfd: 0 1 2 3 9
-  args: 'Nice'
-  HOME: '/home/roberto'
-  WORLD: 'Wonderful'
+    Hello Nice World!
+    lsfd: 0 1 2 3 9
+    args: 'Nice'
+    HOME: '/home/roberto'
+    WORLD: 'Wonderful'
 
 du -b hello.py*
-  1370  hello.py
-  1235  hello.pyz <-- the output is smaller than original !!!
+
+    1370  hello.py
+    1235  hello.pyz <-- the output is smaller than original !!!
 ```
 
 In v0.95 or before, supporting phython scripts was possible only by properly customising `uzpexec`. After, by system changes like configuring the `/bin/sh` or Linux `binfmt` to properly routing shebang-ed scripts to their own interpreter. Which is the standard configuration in desktop and servers and some less-than-minimal embedded systems.
@@ -224,7 +225,7 @@ In v0.95 or before, supporting phython scripts was possible only by properly cus
 
 > [!WARNING]
 > 
-> Currently BusyBox `uzcat` alias `zcat` with seamless decompression fully supports **only** few of the available algorithms, and in particular it has not `zstdcat`.
+> Currently BusyBox `uzcat` alias `zcat` with seamless decompression fully supports **only** few of the available algorithms, and in particular it has not `zstdcat`. However, having `zstdcat` is not indispensable for `zstd` inflating but passing `/proc/self/fd/9` to `u|zcat` (v0.98.2).
 
 Integrating [#37ab6ac38](https://github.com/robang74/busybox/commit/37ab6ac38ffec8dad72f067d083104a39a99529b) (0.1Kb) to busybox [uchaosys](https://github.com/robang74/busybox) edition, `/bin/uzcat` is created as an applet and its link signals that it can by magic-number auto-detection decompress any supported format by busybox. This allows `uzpexec` as stub to work "seamlessly" with any compression format (gz, bz2, xz, lzma) without further customisation, while the uncompressing algorithms are already included in BusyBox.
 
@@ -280,7 +281,7 @@ copy_vers:  db "(c) github/robang74/uzpexec v0.98"              ;  33 | 33
 %ifdef  _HAS_PROVIDER
 provider :  db  0x20, "12345678", 0x0a                          ;  10 |  -
 %else
-micro_ver:  db  0x20, 0x20, 0x20, 0x0a                          ;   - |  4
+micro_ver:  db        ".2", 0x20, 0x0a                          ;   - |  4
 %endif
 ; following fields are conditionally overwritable, do unions
 zcat_path:  db "/bin/z"
@@ -295,9 +296,11 @@ zcat_cat :  db "cat", 0                                         ;  13 | 23 (29)
 eof_tests:  db "U238"                            ; for tests    :   4 |  -
 ; This introduces the need of having the /proc mounted,granted after the /init
 ; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
-commd_exe:  db "/proc/self/exe", 0,0                            ;  16 | 16
+commd_exe:  db "/proc/self/"
+file_desc:  db "exe", 0,0                                       ;  16 | 16
                                                                 ; ----------
                                                                 ;  76  tot.
+
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
 ; ==============================================================================
