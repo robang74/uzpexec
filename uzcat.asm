@@ -318,9 +318,8 @@ child:
   int 0x80
 
   ; Dup2 read end to stdin
-  neg ecx
-  add ecx, 5
   shr ecx, 1
+  xor ecx, 2
   test ecx, ecx
   jz .continue
   mov cl, 9
@@ -337,7 +336,6 @@ child:
   int 0x80
 %endif
 
-.exec_it:
   ; Execve the decompressor
   push 0
   test ecx, ecx
@@ -381,7 +379,7 @@ do_exit:
 ; PADDING: Aligned exactly to 512 bytes
 ; ==============================================================================
 file_end:                        ; Physical end of the binary file!
-;times (512 - ($ - $$)) db 0      ; Padding for 512 bytes alignement
+times (512 - ($ - $$)) db 0      ; Padding for 512 bytes alignement
 
 ; ==============================================================================
 ; BSS SECTION (RAM only, aligned to 512 bytes)
