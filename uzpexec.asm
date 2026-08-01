@@ -157,12 +157,12 @@ main:
   int 0x80
 
   ; Organising the stack in the proper order (inverse order of popping)
-  push eax                       ; --> m::stack { [memfd1], commd_exe, ... }
+  push eax                       ; --> m::stack { memfd1, commd_exe, ... }
 ; mov eax, 356                   ; SYS_memfd_create
   mov ah, 1
   mov al, 100
   int 0x80
-  push eax                       ; --> m::stack { [memfd2], [memfd1], commd_exe, }
+  push eax                       ; --> m::stack { memfd2, memfd1, commd_exe, }
 
   push 19                        ; SYS_lseek
   pop eax
@@ -255,10 +255,10 @@ main:
   jmp .write_four
 
 .use_cat:
-  pop ebx                        ; [memfd2] <-- p::stack { [memfd1], commd_exe, }
-  pop edx                        ; [memfd1] <-- p::stack {  commd_exe, ... }
-  push ebx                       ; --> m::stack { [memfd2], commd_exe, ... }
-  push ebx                       ; --> m::stack { [memfd2], [memfd2], commd_exe, }
+  pop ebx                        ; memfd2 <-- p::stack { memfd1, commd_exe, }
+  pop edx                        ; memfd1 <-- p::stack {  commd_exe, ... }
+  push ebx                       ; --> m::stack { memfd2, commd_exe, ... }
+  push ebx                       ; --> m::stack { memfd2, memfd2, commd_exe, }
 
 .write_four:
   ; Write first 4 bytes, already read in buf
@@ -313,11 +313,18 @@ main:
 ; xor edx, edx                   ; SEEK_SET = 0
   cdq                            ; EDX = 0 when EAX = 0, granted by jz .rewind
   xor ecx, ecx                   ; SEEK_PNT = 0
-  pop ebx                        ; [memfd2] <-- p::stack { [memfd1], commd_exe, }
+  pop ebx                        ; memfd2 <-- p::stack { memfd1, commd_exe, }
   mov al, 19                     ; SYS_lseek
   int 0x80
 
-  cmp ebx, [esp] 
+  ; In-place stack manipulation: "/proc/self/exe" --> "/proc/self/fd/9"
+  pop eax                        ; memfd1  <-- c::stack { commd_exe }
+  pop edx                        ; commd_exe <-- c::stack { ... } 
+  mov dword [edx + file_desc - commd_exe], 0x392f6466
+  push edx                       ; --> m::stack { slfd_path, ... }
+  push eax                       ; --> m::stack { memfd1, slfd_path, ... }
+
+  cmp ebx, eax 
   jne .fork                      ; memfd1 == memfd2, don't fork but execute
   dec ebx
   jmp parent
@@ -330,7 +337,7 @@ main:
   jz child                       ; the child jump to its routine
 
   ; ============================================================================
-  ; PARENT PROCESS ( p::stack { [memfd1], commd_exe, ... } )
+  ; PARENT PROCESS ( p::stack { memfd1, slfd_path, ... } )
   ; ============================================================================
 parent:
 %ifdef _DO_CLOSE
@@ -351,7 +358,7 @@ parent:
   xor ebx, ebx
   dec ebx                        ; = -1, every child
 ; xor ecx, ecx                   ; =  0, already, reset above
-; xor edx, edx                   ; =  0, already, reset above
+  xor edx, edx                   ; =  0
   int 0x80
   add eax, 4
   jz .do_loop                    ; -EINTR, try again
@@ -373,7 +380,7 @@ parent:
 ; 2p. Sealing the memfd/ELF in RO mode, for security and integrity
   push 92                        ; SYS_fcntl (security, set eax in full)
   pop eax
-  pop ebx                        ; [memfd1] <-- p::stack { commd_exe, ... }
+  pop ebx                        ; memfd1 <-- p::stack { slfd_path, ... }
 ; mov ecx, 1033                  ; ECX = F_ADD_SEALS (0x0409)
   mov ch, 4
   mov cl, 9
@@ -414,11 +421,9 @@ parent:
 
   ; 5p. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
   mov al, 11                     ; SYS_execve
-  ; In-place stack manipulation using ESP (argv is at [esp]):
-  pop ebx                        ; commd_exe <-- p::stack { ... }
-  mov dword [ebx + file_desc - commd_exe], 0x392f6466
-                                 ; writes "fd/9" at the end of commd_exe
-  mov dword [esp], ebx           ; replace argv[1] with "/proc/self/fd/9"
+  pop ebx                        ; slfd_path <-- p::stack { ... }
+  pop edx                        ; replace argv[1]
+  push ebx                       ; with "/proc/self/fd/9"
   mov edx, ebp                   ; envp (intact from main_start)
   jmp .backfall
 
@@ -450,7 +455,7 @@ parent:
   jmp short do_final_int
 
 ; ==============================================================================
-; CHILD PROCESS ( c::stack [memfd1], commd_exe, ... )
+; CHILD PROCESS ( c::stack memfd1, slfd_path, ... )
 ; ==============================================================================
 child:
   ; 1c. dup2: connect memfd2 to "/proc/self/fd/9"
@@ -461,7 +466,7 @@ child:
 
   ; 2c. dup2: connect memfd1 to *cat stdout
   mov al, 63                     ; SYS_dup2
-  pop ebx                        ; [memfd1] <-- c::stack { commd_exe, ... }
+  pop ebx                        ; memfd1 <-- c::stack { slfd_path, ... }
   mov cl, 1                      ; = 1, stdout
   int 0x80
 
@@ -469,12 +474,9 @@ child:
   jnz short do_final_int
 
   ; 3c. Execute external decompressor
-  pop ebx                        ; commd_exe <-- c::stack { 0 }
-  ; In-place stack manipulation using ESP (argv is at [esp]):
-  mov dword [ebx + file_desc - commd_exe], 0x392f6466
-  ; mov dword [esp], ebx         ; replace argv[1] with "/proc/self/fd/9"
+  pop ebx                        ; slfd_path <-- c::stack { ... }
   push 0                         ; end of envp/argv
-  push ebx                       ; --> /proc/self/fd/0
+  push ebx                       ; --> /proc/self/fd/9
   sub ebx, commd_exe-zcat_path   ; = zcat_path
   push ebx                       ; zcat_path --> argv[0]
   mov ecx, esp                   ; argv[1...]
@@ -516,7 +518,7 @@ copy_vers:  db "(c) github/robang74/uzpexec v0.98"              ;  33 | 33
 %ifdef  _HAS_PROVIDER
 provider :  db  0x20, "12345678", 0x0a                          ;  10 |  -
 %else
-micro_ver:  db        ".1", 0x20, 0x0a                          ;   - |  4
+micro_ver:  db        ".2", 0x20, 0x0a                          ;   - |  4
 %endif
 ; following fields are conditionally overwritable, do unions
 zcat_path:  db "/bin/z"
