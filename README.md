@@ -33,13 +33,13 @@ A 512-byte polymorphic stub/payload ([uzpexec](uzpexec.asm)) written in Assemble
 
 ### RELEASE
 
-Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.98.1** on the `master` branch.
+Current [release](https://github.com/robang74/uzpexec/releases/) is **v0.98.2** on the `master` branch.
 
-- Since v0.96, it aims to keep the `uzpexec` uncustomised as much as possible and, instead, relies on system standards like `binfmt_script`, zutils `zcat` and busybox `zcat` with seamless decompression, and offering [`uzcat`](uzcat.asm) as a lightweight alternatives for system customisation.
+- This release v0.98, moves forward integrating the `zstd` support and being self-sufficient in executing from `STDIN` plain inputs, and it is freed from `zcat -f` potentially insecure option.
 
-- This release v0.98, moves forward integrating the `zstd` support and being self-sufficient in executing from `STDIN` plain inputs, and it is freed from `zcat -f` potentially insecure option. In v0.98.1, the `gzip`&thinsp;/&thinsp;`pigz` format returns as default because it is universally available.
+- In v0.98 the `sed` customisation returns fully available for running a `uzpexec` self-extracting binary on a system&thinsp;/&thinsp;container with `/usr/local` from a `make install` installation.
 
-- `35903e0 - 2026-07-29 - uzpack.sh: regression fix about re-converting from old versions`
+- In v0.98.1, the `gzip`&thinsp;/&thinsp;`pigz` format returns as default because it is universally available. In v0.98.2, BusyBox `u|zcat` seamless inflating file-only limitation has been worked-around.
 
 <br>
 
@@ -134,7 +134,7 @@ It supports natively the `gzip` (legacy) and `zstd` (fastest) carryload formats 
 
 - Support extentions: from `dash`-only to every shell in v0.92, [python](#python-support) scripts since v0.95, `zutils` + `binfmt_script` since v0.97, `zstdcat` internal support since v0.98.
 
-- In v0.98 the `sed` customisation returns fully available for running a `uzpexec` self-extracting binary on a system&thinsp;/&thinsp;container with `/usr/local` from a `make install` installation.
+- Since v0.96, it aims to keep the `uzpexec` uncustomised as much as possible and, instead, relies on system standards like `binfmt_script`, zutils `zcat` and busybox `zcat` with seamless decompression, and offering [`uzcat`](uzcat.asm) as a lightweight alternatives for system customisation.
 
 - RAM-only, without writing on the remote&thinsp;/&thinsp;local systems storage because `memfd_create()`. Obviously when RAM-only is a benefit otherwise [gzcmd.sh](#gzcmdsh) writes on disk&thinsp;/&thinsp;tmpfs.
 
