@@ -35,8 +35,7 @@
 ; =============================================================================
 ;
 ; Building:
-;   nasm -O2 -f bin uzcat.asm -o uzcat
-;   chmod +x uzcat && du -b uzcat
+;   nasm -O2 -f bin uzcat.asm -o uzcat && chmod +x uzcat
 ;
 ; Testing:
 ;   for cmd in gzip xz bzip2 lz4 zstd lzop; do echo $cmd:
@@ -113,29 +112,30 @@ vect_size equ 5
 
 ; The magics vector (6 × 2 byte)
 magics:
-;        xz,  bzip2,    lz4,   zstd,   lzop, gzip
-  dw 0x37fd, 0x5a42, 0x2204, 0xb528, 0x4c89, 0x8b1f
+;        lzop,    lz4,     xz,  bzip2,   zstd,   gzip
+  dw   0x4c89, 0x2204, 0x37fd, 0x5a42, 0xb528, 0x8b1f
 
 ; The strings vector (5 × 5 byte)
 paths:
-  db "xz", 0,0,0
-  db "bz", 0,0,0
-  db "lz4", 0,0
-  db "zstd", 0
-  db "lzop", 0
+  db  "lzop", 0
+  db  "lz4", 0,0
+  db  "xz", 0,0,0
+  db  "bz", 0,0,0
+  db  "zstd", 0
 cmdstr:
-  db "/bin/zcat", 0,0,0,0   ; "/bin/cat" + "zstd" + '\0' = 13 bytes
+  db  "/bin/zcat", 0,0,0,0   ; "/bin/cat" + "zstd" + '\0' = 13 bytes
 
-copy_vers:  db "(c) github/robang74/uzpexec"                    ;  27 | 27
+copy_vers:  db  "(c) github/robang74/uzpexec"                    ;  27 |  27
 %ifdef  _HAS_PROVIDER
-provider :  db  0x20, "12345678", 0x0a                          ;  10 |  -
+provider :  db  0x20, "12345678", 0x0a                           ;  10 |   -
 %else
-micro_ver:  db  0x20, 0x20, 0x20, 0x0a                          ;   - |  4
+micro_ver:  db  0x20, 0x20, 0x20, 0x0a                           ;   - |   4
 %endif
 end_copy :
 %ifndef _HAS_PROVIDER
-    times 6 db 0                                                ;   - |  6
+    times 6 db  0                                                ;   - |   6
 %endif
+file_desc:  db  "/proc/self/fd/9", 0                             ;  16 |  16
 
 ; ==============================================================================
 ; CODE
@@ -318,9 +318,15 @@ child:
   int 0x80
 
   ; Dup2 read end to stdin
+  neg ecx
+  add ecx, 5
+  shr ecx, 1
+  test ecx, ecx
+  jz .continue
+  mov cl, 9
+.continue: 
   mov al, 63                     ; SYS_dup2
   pop ebx                        ; pipefd[0] <-- stack
-  xor ecx, ecx                   ; stdin = 0
   int 0x80
 
   ; Close original read end
@@ -331,21 +337,14 @@ child:
   int 0x80
 %endif
 
-%ifdef _DO_DEBUG
-  push 12
-  pop edx
-  mov ecx, cmdstr                ; command string
-  push  2                        ; stderr
-  pop ebx
-  push  4                        ; SYS_write
-  pop eax
-  int 0x80
-%endif
-
 .exec_it:
   ; Execve the decompressor
-  mov ebx, cmdstr                ; selected decompressor
   push 0
+  test ecx, ecx
+  jz .skip_file
+  push file_desc
+.skip_file:
+  mov ebx, cmdstr                ; selected decompressor
   push ebx
   mov ecx, esp                   ; argv = [NULL]
   xor edx, edx                   ; envp = NULL (inherit from parent)
@@ -382,7 +381,7 @@ do_exit:
 ; PADDING: Aligned exactly to 512 bytes
 ; ==============================================================================
 file_end:                        ; Physical end of the binary file!
-times (512 - ($ - $$)) db 0      ; Padding for 512 bytes alignement
+;times (512 - ($ - $$)) db 0      ; Padding for 512 bytes alignement
 
 ; ==============================================================================
 ; BSS SECTION (RAM only, aligned to 512 bytes)
