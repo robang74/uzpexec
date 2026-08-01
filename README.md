@@ -437,33 +437,33 @@ Case #1: qemu 38.8MB w/ 1st degree dynamic libraries
 
 time qemu-system-x86_64 -m4 2>&-
 
-real  min:  9, avg: 19.7, max: 36 (ms)
-user  min:  4, avg:  7.2, max: 13 (ms)
-sys   min:  3, avg: 12.5, max: 25 (ms)
+    real  min:  9, avg: 19.7, max: 36 (ms)
+    user  min:  4, avg:  7.2, max: 13 (ms)
+    sys   min:  3, avg: 12.5, max: 25 (ms)
 
 Case #2: qemu 7.5MB musl-static, 2.5MB zstd compressed
 
 time ./qemu-system-x86_64 -m4 2>&-
 
-real  min: 40, avg: 43.0, max: 59 (ms)
-user  min: 18, avg: 22.6, max: 30 (ms)
-sys   min: 20, avg: 24.6, max: 34 (ms)
+    real  min: 40, avg: 43.0, max: 59 (ms)
+    user  min: 18, avg: 22.6, max: 30 (ms)
+    sys   min: 20, avg: 24.6, max: 34 (ms)
 
 uzpexec executes a binary which has already uzpexec as loader
 
 time cat ./qemu-system-x86_64 | ./uzpexec -m4 2>&-
 
-real  min: 37, avg: 47.7, max: 86 (ms)
-user  min: 21, avg: 27.4, max: 45 (ms)
-sys   min: 18, avg: 27.6, max: 55 (ms)
+    real  min: 37, avg: 47.7, max: 86 (ms)
+    user  min: 21, avg: 27.4, max: 45 (ms)
+    sys   min: 18, avg: 27.6, max: 55 (ms)
 
 uzpexec executes by STDIN pipe a binary which is zstd compressed
 
 time dd skip=1 if=qemu-system-x86_64 2>&-| ./uzpexec -m4 2>&-
 
-real  min: 30, avg: 37.8, max: 48 (ms)
-user  min: 18, avg: 23.8, max: 35 (ms)
-sys   min: 18, avg: 25.6, max: 40 (ms)
+    real  min: 30, avg: 37.8, max: 48 (ms)
+    user  min: 18, avg: 23.8, max: 35 (ms)
+    sys   min: 18, avg: 25.6, max: 40 (ms)
 
 Quick tests aim to set a raw reference in differential launch latency
 
