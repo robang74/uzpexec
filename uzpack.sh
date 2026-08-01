@@ -36,20 +36,20 @@ nme="uzpexec"
 cpy='(c) github/''robang74.'$nme' v[^ ]* '
 
 
-########################################################################
+################################################################################
 UZPAYLOAD="
-H4sIAAAAAAAAA6t39XFjZGRkgAEmBmYGEC+kgYXDhAEBTBgUGGCq4KqBakD4F1CAhYWBgR0k
-JsDAENH5rDenjSVjDZAbkaUWncUYaXjpbMOGNZtZPM82ZLFG7H7VyMIRvJOBgYPhbEPn8R0p
-QANav5UYdMtlMUeebQgACwDpLOGIzt9bmTYC2VnMQOZOhiYWjk0sZxuaf7CUcLT+Lwkw/P/6
-aVqjpbJiiSqQqnctkQNSGltLpBtsnwHtCC0V6ha9A2R0it4Ekq9ZoqOCg6ODOw9lsUQAbf69
-jWkTA9Dksw2tB0rYKpheP3ntu0E42vAkyLnWMiqlzN6vOTYwgaUDs9gjDG97A+0+wFLyOSsm
-InonJ9DPm/jPNryW2mCfxQl0+Abu6OPO3Gkp+padMiqdr15LvLbYkQb0ShZD58POT53v0vYz
-CJxtiHh9oZdH5bXsBnvDk0A99tGOIAsqeIG6m1+LZzEEdz4E2Q90YhZj9M51QHdnqUYBFTKe
-bdBI1lRIzyzJKE3SL8pPSsxLNzfRL60qSK1ITVYoM9CztNAzVODST8rM068qLklJTiyBRlSo
-kbGFfkFRfrJ+cWpOmj5QPSwKARsPkggAAgAA
-" # END_OF_UZPAYLOAD ###################################################
+H4sIAAAAAAAAA6t39XFjZGRkgAEmBmYGEC+kgYXDhAEBTBgUGGCq4KqBakD4G0hAgIGBnQFCR3Q+681p
+Y8lSi85ijDQ8MHPDmrMNG9ZsZvE825DFGrH7WSMLR/BOBgYOhrMNnce3MG5Iaf1Wotctl8UcebYhAMQH
+UlnCEZ2/tzJtBKrJYgYydzI0sXBsYjnbYHmhhKP1f0mA4f/Xz9IaLZUVS1SBVL1riRyQ0thaIt1g+who
+QWipULfoDSCjU/QqkHzNEh0VHBwd3HkoiyXibMMmhm18nb+BBp9taD1QwlbB9PrJa/+ZhiejNwifbYiI
+Ou7EnZaibxkUYHm4lNn7NccGJrA6ryz2CMPb3oaXzjY0H2Ap+ZgVExG9lWUj5yb+sw2vhTbYZ3ECPbCB
+G2hT56vXEq8tdqQBAyaLofNh56fOd2n7GQSAZr++0cuj8lp2g/1GTqBa++iNjGcbPEp5o7MYgptfiwd3
+Ppy5gRvoZZaILMbonauALs9SjQIqBKrSSNZUSM8syShN0i/KT0rMSzc30S+tKkitSE1WKDPQs7TQM1Lg
+0k/KzNOvKi5JSU4sgUZSqJGxhX5BUX6yfnFqTpo+UD1StDIAAIsUk6IAAgAA
+" # END_OF_UZPAYLOAD ###########################################################
 
 b64=$(command -v base64)
+zct=$(command -v zcat | head -n1)
 gzc=$(command -v ${UZCMD:-} pigz zopfli gzip zstd | head -n1)
 
 grp() { strings | command grep --color=none "$@"; }
@@ -86,18 +86,30 @@ case "${1:-}" in
       ;;
 esac
 
+# Parse arguments
+case "${1:-}" in
+  -u|--update)
+      msg="option '-u' updates the script payload"
+      printf "\nWARNING: %s\n" "$msg" >&2
+      gzc=$(command -v pigz zopfli gzip | head -n1)
+      shift
+      lvl=-19
+      upd=1
+      ;;
+esac
+
 bin=$(command -v $nme || echo ./$nme)
 if [ ! -r "$bin" ]; then
     d=$(dirname "$0")
     bin="${d:-.}/$nme"
 fi
-if [ -r "$bin" ]; then
+# It should always relies on the internal uzpexec, unless updating
+if [ ${upd:-0} -ne 0 -a -r "$bin" ]; then
     prt_versn() { echo; dd_gtcopy; }
 else
     emb=1
-   _gt_plbody() { echo "$UZPAYLOAD" | $b64 -d | $gzc -dc; }
-    prt_versn() { echo; _gt_plbody | strings | grep -e "$cpy"; }
-    echo "Notice: '$nme' not found, using UZPAYLOAD $b64" >&2
+   _gt_plbody() { echo "$UZPAYLOAD" | $b64 -d | $zct; }
+    prt_versn() { echo; _gt_plbody  | strings | grep -e "$cpy"; }
 fi
 if prt_versn |  grep -qe " v0\.8[0-9] "; then
     do_script() { sed -e 's,\x00\(bin/sh\),/\1,' -i "$dst"; }
@@ -129,12 +141,6 @@ case "${1:-}" in
       shift
       spt=1
       ;;
-  -u|--update)
-      echo "WARNING: option '-u' updates the script payload (dev onnly)" >&2
-      shift
-      lvl=-9
-      upd=1
-      ;;
 esac
 
 # The standard gzip hasn't -11 but pigz
@@ -143,17 +149,19 @@ echo "$gzc$lvl"  | grep -q "gzip-1[0-9]" && lvl="-9"
 echo "$gzc-$opt" | grep -q "zopfli-nc" && opt="c"
 # pigz hasn't -10 or -12+ use -11
 echo "$gzc$lvl"  | grep -q "pigz-1[0,2-9]" && lvl="-11"
+# pigz allows -m to not store the date
+echo "$gzc-$opt" | grep -q "pigz-nc" && opt="nmc"
 
 while [ $ext -eq 0 ]; do
-    {
+    if [ $upd -eq 0 ]; then
       echo
       echo "Running uzpack argc: $#, argv: $0"
       echo "    src: '${1:-}'"
       echo "    dst: '${2:-}'"
-    } >&2
+    fi >&2
 
     if [ "$gzc" = "" ]; then
-        echo "ERROR: neither pigz nor gzip is available in path." >&2
+        echo "ERROR: no suitable compressor is available in path." >&2
         ret=1; break
     fi
     printf "Notice: using '%s -%s' compression level" "$(basename "$gzc")" $opt >&2
@@ -171,7 +179,7 @@ while [ $ext -eq 0 ]; do
         hf1=$(cat "$0" | head -n  $srt)
         end=$((end-1))
         hf2=$(tac "$0" | head -n -$end | tac)
-        pld=$($gzc -$opt $bin | $b64 -w 72)
+        pld=$($gzc -$opt $bin | $b64 -w 80)
         printf "%s\n%s\n%s\n" "$hf1" "$pld" "$hf2" >"$0".tmp
         trap "mv -f '$0'.tmp '$0'" EXIT
         echo "Successfully updated: $bin --> $0"
@@ -216,7 +224,7 @@ while [ $ext -eq 0 ]; do
     fi
 
     # Safely copy the uzpexec binary stub to the destination path
-    if [ -r "$bin" ]; then
+    if [ ${upd:-0} -ne 0 -a -r "$bin" ]; then
         command cp -f "$bin" "$dst" || {
             echo "ERROR: failed to copy the binary stub to '$dst'." >&2
             ret=1; break
