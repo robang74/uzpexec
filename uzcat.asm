@@ -104,57 +104,14 @@ phdr:
   ; WRX is the least of your troubles, but uzpexec as obscenely-powerful tool.
 
 ; ==============================================================================
-; VECTORS DEFINITION
-; ==============================================================================
-
-; Size of the vectors
-vect_size equ 5
-
-; The magics vector (6 × 2 byte)
-magics:
-;        lzop,    lz4,     xz,  bzip2,   zstd,   gzip
-  dw   0x4c89, 0x2204, 0x37fd, 0x5a42, 0xb528, 0x8b1f
-
-; The strings vector (5 × 5 byte)
-paths:
-  db  "lzop", 0
-  db  "lz4", 0,0
-  db  "xz", 0,0,0
-  db  "bz", 0,0,0
-  db  "zstd", 0
-cmdstr:
-  db  "/bin/zcat", 0,0,0,0   ; "/bin/cat" + "zstd" + '\0' = 13 bytes
-
-copy_vers:  db  "(c) github/robang74/uzpexec"                    ;  27 |  27
-%ifdef  _HAS_PROVIDER
-provider :  db  0x20, "12345678", 0x0a                           ;  10 |   -
-%else
-micro_ver:  db  0x20, 0x20, 0x20, 0x0a                           ;   - |   4
-%endif
-end_copy :
-%ifndef _HAS_PROVIDER
-    times 6 db  0                                                ;   - |   6
-%endif
-file_desc:  db  "/proc/self/fd/9", 0                             ;  16 |  16
-
-; ==============================================================================
 ; CODE
 ; ==============================================================================
 main_start:
-%ifdef _USE_F_SPECIAL ; actually the uzpexec uses '-f' correctly
-  ; Parse argv to check for -f flag (ignore it, we always behave like zcat -f)
+  ; Parse argv to check for -f flag
   pop eax                        ; argc
   pop ebx                        ; argv[0] = program name
-  dec eax
-  jz .read_magic                 ; no args, proceed to read magic
-
-  ; Check if argv[1] is "-f"
-  xor eax, eax                   ; EAX = 0
-  pop ecx                        ; argv[1]
-  cmp word [ecx], 0x662d         ; compare with "-f"
-  je .use_cat                    ; uzpexec uses "-f" in a specific manner
-  push ecx                       ; put it back in the stack
-%endif
+  push 1                         ; use STDOUT
+  pop edi
 
 .read_magic:
   ; Read first 4 bytes from stdin for magic detection
@@ -167,7 +124,7 @@ main_start:
   int 0x80
 
   cmp eax, 4
-  jne do_exit                    ; not 4 bytes, exit //TODO: not a short jump
+  jne short .do_exit             ; not 4 bytes, exit //TODO: not a short jump
 
 ; ------------------------------------------------------------------------------
 ; Determine decompressor from magic
@@ -188,12 +145,15 @@ main_start:
   add esi, 5                     ; move forward on commands
   loop .loop_cmd
   cmp ax, [edx]                  ; gzip compare for zcat as default cmdstr
-  je .do_fork
+  je short .do_fork
 
 .use_cat:
-  push dword 1
-  push dword 0
-  jmp parent.do_cat
+  ; Check if argv[1] is "-f"
+  xor eax, eax                   ; EAX = 0
+  pop ecx                        ; argv[1]
+  cmp word [ecx], 0x662d         ; compare with "-f"
+  je short parent.do_cat
+  jmp .do_exit
 
 .str_create:
   lea edi, [cmdstr + 5]          ; EDI points after "/bin/"
@@ -203,7 +163,7 @@ main_start:
   lodsb                          ; AL = [ESI], ESI++
   stosb                          ; [EDI] = AL, EDI++
   test al, al
-  jnz .copy_loop                 ; continue until '\0'
+  jnz short .copy_loop           ; continue until '\0'
 
   dec edi
   mov dword [edi], ebx           ; append 'cat\0'
@@ -217,8 +177,12 @@ main_start:
   pop eax
   int 0x80
   test eax, eax
-  js do_exit
+  jns short .continue
 
+.do_exit:
+  jmp short do_exit
+
+.continue:
   pop ebx                        ; pipefd[0] <-- stack
   pop edi                        ; pipefd[1] <-- stack
   push ebx                       ; pipefd[0] --> stack
@@ -228,7 +192,7 @@ main_start:
   pop eax
   int 0x80
   test eax, eax
-  jz child                       ; FORCE near jump, child has EAX=0
+  jz short child                 ; FORCE near jump, child has EAX=0
 
 ; ==============================================================================
 ; PARENT PROCESS
@@ -249,11 +213,10 @@ parent:
 ; slow: 93 MB (88 MiB) copied, 0.0919112 s, 1.0 GB/s (min)
 ; fast: 93 MB (88 MiB) copied, 0.0638537 s, 1.5 GB/s (max)
 ; ------------------------------------------------------------------------------
+.do_cat:
   ; Write first 4 bytes, already read in buf, to pipe
   push 4                         ; bytes already read, to write
   pop eax
-
-.do_cat:
   mov ecx, buf                   ; set once and keep untouched
 
 .pump_loop:
@@ -275,18 +238,18 @@ parent:
   int 0x80
 
   test eax, eax
-  jz .done                       ; check for EOF
+  jz short .done                 ; check for EOF
 %ifdef _DO_EINTR
   cmp eax, -4                    ; check for -EINTR (if any, ever)
-  je .pump_loop                  ; continue
+  je short .pump_loop            ; continue
 %endif
-  js do_exit
-  jmp .pump_loop                 ; continue
+  js short do_exit
+  jmp short .pump_loop           ; continue
 
 .done:
   pop eax
   test eax, eax
-  jz do_exit                     ; after do_cat, do_exit
+  jz short do_exit               ; after do_cat, do_exit
 
   ; Close the writing pipe to send EOF to the child
   mov al, 6                      ; SYS_close
@@ -319,10 +282,10 @@ child:
 
   ; Yann Collet's lz4/lzopcat support only regular file
   pop ebx                        ; pipefd[0] <-- stack
-  push 0
+; push 0
   shr ecx, 1
   xor ecx, 2
-  jz .use_stdin
+  jz short .use_stdin
   push file_desc
   mov cl, 9
 
@@ -354,7 +317,7 @@ child:
 ; ==============================================================================
 do_exit:
   test eax, eax
-  jz .no_error
+  jz short .no_error
   mov ecx, copy_vers
   
   push  4                        ; SYS_write
@@ -372,6 +335,40 @@ do_exit:
   push 1                         ; SYS_exit
   pop eax
   int 0x80
+
+; ==============================================================================
+; VECTORS DEFINITION
+; ==============================================================================
+
+; Size of the vectors
+vect_size equ 5
+
+; The magics vector (6 × 2 byte)
+magics:
+;        lzop,    lz4,     xz,  bzip2,   zstd,   gzip
+  dw   0x4c89, 0x2204, 0x37fd, 0x5a42, 0xb528, 0x8b1f
+
+; The strings vector (5 × 5 byte)
+paths:
+  db  "lzop", 0
+  db  "lz4", 0,0
+  db  "xz", 0,0,0
+  db  "bz", 0,0,0
+  db  "zstd", 0
+cmdstr:
+  db  "/bin/zcat", 0,0,0,0           ; "/bin/cat" + "zstd" + '\0' = 13 bytes
+
+copy_vers:  db  "(c) github/robang74/uzpexec"                    ;  27 |  27
+%ifdef  _HAS_PROVIDER
+provider :  db  0x20, "12345678", 0x0a                           ;  10 |   -
+%else
+micro_ver:  db  0x20, 0x20, 0x20, 0x0a                           ;   - |   4
+%endif
+end_copy :
+%ifndef _HAS_PROVIDER
+    times 6 db  0                                                ;   - |   6
+%endif
+file_desc:  db  "/proc/self/fd/9", 0                             ;  16 |  16
 
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes

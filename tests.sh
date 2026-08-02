@@ -8,8 +8,6 @@ unset WORLD
 bin=uzpexec
 LS=$(command -v ls)
 S='Hello ($0) World!'
-eof_str="U238/proc/self/exe."
-eof_len=$(echo "$eof_str" | wc -c)
 DD() { dd status=none "$@"; }
 retprt() { printf "\tret:${1:-$?}\n\n"; }
 errprt() { err=$?; echo; retprt $err; }
@@ -27,6 +25,8 @@ fi
 nasm -O2 -f bin -d_NO_INFOSIX -d_HAS_PROVIDER $bin.asm -o $bin.ipx
 
 echo "Code size with EOF string:"
+eof_str="U238/proc/self/...."
+eof_len=$(echo "$eof_str" | wc -c)
 n=$(grep --color=never -abo "$eof_str" $bin     | cut -f1 -d:)
 m=$(grep --color=never -abo "$eof_str" $bin.ipx | cut -f1 -d:)
 printf "    %d bytes (%d)\n\n" $(( ${n:--$eof_len} + $eof_len )) \
@@ -50,20 +50,45 @@ echo "Strings output:"
 
 
   echo
+  echo "====== UZCAT BUILD (x2) ======"
+  echo
+
+  nasm -O2 -f bin -d_HAS_PROVIDER uzcat.asm -o uzcat
+  printf "%6s: %s \n" "prov." "$(./uzcat <&- 2>&1)"
+  nasm -O2 -f bin uzcat.asm -o uzcat && chmod +x uzcat
+  printf "%6s: %s \n" "info " "$(./uzcat <&- 2>&1)"
+# printf "%6s: %d %s\n" "size" $(du -b uzcat)
+  eof_str="/proc/self/fd/9"
+  eof_len=$(echo "$eof_str" | wc -c)
+  n=$(grep --color=never -abo "$eof_str" uzcat | cut -f1 -d:)
+  printf "%6s: %s %s (%s)\n" "size " \
+      $(du -b uzcat) $(( ${n:--$eof_len} + $eof_len ))
+
+  echo
   echo "====== UZCAT TESTS (x6) ======"
+  echo
+
+  for cmd in gzip xz bzip2 lzop lz4 zstd; do
+    str="$($cmd -c uzcat.asm | ./uzcat 2>&-| file -)"
+    printf "%6s: %s\n" "$cmd" "$str"
+  done
+  str="$(cat uzcat.asm | ./uzcat -f 2>&-| file -)"
+  printf "%6s: %s \n" "use-f" "$str"
+
+  echo
+  echo "====== BUSYBOX UZCAT (x6) ======"
   echo
 
   nasm -O2 -f bin uzcat.asm -o uzcat && chmod +x uzcat
   set +x
-  printf "%6s: %d %s\n" "size" $(du -b uzcat)
-  for cmd in gzip xz bzip2 lz4 zstd lzop; do
-    printf "%6s: %s\n" "$cmd" "$($cmd -c uzcat.asm | ./uzcat 2>&-| file -)"
+  bbc=$(ls -1 ./busybox /bin/busybox | head -n1)
+  for cmd in gzip xz bzip2 lzop lz4 zstd; do
+    str="$($cmd -c uzcat.asm | $bbc uzcat 2>&-| file -)"
+    printf "%6s: %s\n" "$cmd" "$str"
   done
   set +x
-  printf "%6s: %s \n" "use-f" "$(gzip -c uzcat.asm | ./uzcat -f  | file -)"
-  printf "%6s: %s \n" "info" "$(./uzcat <&- 2>&1)"
-  nasm -O2 -f bin -d_HAS_PROVIDER uzcat.asm -o uzcat
-  printf "%6s: %s \n" "prov." "$(./uzcat <&- 2>&1)"
+  str="$(cat uzcat.asm | $bbc uzcat -f 2>&-| file -)"
+  printf "%6s: %s \n" "use-f" "$str"
 
   echo
   echo "====== TESTS TO PASS (x6) ======"
@@ -178,7 +203,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/9a4fe1a0967b5ed380fcc0421ec068c51db957ea/$bin OK/" |
+sed "s/77ec8bdfeadfe9880fad2a0dcdc2fd2464b25ea3/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
