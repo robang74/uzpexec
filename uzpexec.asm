@@ -514,27 +514,27 @@ do_exit:
 ; COMPACT DATA SECTION (appended to code)
 ; ==============================================================================
 ;                                                                  LN | XE
-copy_vers:  db "(c) github/robang74/uzpexec v0.98"              ;  33 | 33
+copy_vers:  db  "(c) github/robang74/uzpexec v0.98"             ;  33 | 33
 %ifdef  _HAS_PROVIDER
 provider :  db  0x20, "12345678", 0x0a                          ;  10 |  -
 %else
 micro_ver:  db        ".2", 0x20, 0x0a                          ;   - |  4
 %endif
 ; following fields are conditionally overwritable, do unions
-zcat_path:  db "/bin/z"
-zcat_cmd :  db "std"
-zcat_cat :  db "cat", 0                                         ;  13 | 23 (29)
+zcat_path:  db  "/bin/z"
+zcat_cmd :  db  "std"
+zcat_cat :  db  "cat", 0                                        ;  13 | 23 (29)
 %ifndef _HAS_PROVIDER
     times 6 db 0                                                ;   - |  -
 %endif
 %ifdef  _NO_INFOSIX
     times 6 db 0                                                ;   - |  -
 %endif
-eof_tests:  db "U238"                            ; for tests    :   4 |  -
+eof_tests:  db  "U238"                            ; for tests   :   4 |  -
 ; This introduces the need of having the /proc mounted,granted after the /init
 ; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
-commd_exe:  db "/proc/self/"
-file_desc:  db "exe", 0,0                                       ;  16 | 16
+commd_exe:  db  "/proc/self/"
+file_desc:  db  "exe", 0,0                                      ;  16 | 16
                                                                 ; ----------
                                                                 ;  76  tot.
 
