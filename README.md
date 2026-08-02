@@ -487,6 +487,10 @@ By a raw estimation a 1GBit/s network call is nearly equivalent to a local call,
 
 The `zstdcat` isn't available in BusyBox but its `zcat` supports it by seamless file decompression and this is the **only** way in which an embedded system can compensate for a 4x slower latency in execution start. Unfortunately, BusyBox seamless decompression isn't working with pipe.
 
+#### Compression speed
+
+Clearly, the `zstd` strongest advantage in this specific case (executable) is about the decompression speed because in all the other dimensions also the BusyBox `gzip` performs very well.
+
 | Compression (ELF x86 64-bit, 7265KB)     | size | time     |
 |------------------------------------------|-----:|---------:|
 | `time xz    -9c qemu-system-x86_64.elf`  | 2064 |  2.564 s |
@@ -499,9 +503,11 @@ The `zstdcat` isn't available in BusyBox but its `zcat` supports it by seamless 
 ||||
 | `time busybox gzip -9c $qemu_x86_64.elf` | 2607 |  0.349 s |
 
-Clearly, the `zstd` strongest advantage in this specific case (executable) is about the decompression speed because in all the other dimensions also the BusyBox `gzip` performs very well.
-
 Or said from another perspective BusyBox `zcat` has a bottleneck to fix and more in general, the `gunzip` algorithm should be reviewed in order to evaluate a 2x faster refactored implementation. The two might converge as much as a new BusyBox `gunzip` implementation might achieve a 4x speed improvement.
+
+#### Parallel ungzip
+
+The most impactful constraint in embedded system is that a core component like BusyBox cannot be easily updated as per someone whish while adding a tiny ELF binary and leveraging a back-compatible compressing format are the key for boosting inflating performance also in legacy systems with as low as possible impact and effort.
 
 ```sh
 time ({ for i in $(seq 0 7); do
@@ -528,10 +534,11 @@ Under this perspective the parallel inflating requires appending a table like:
 |---------|--------------------------------|
 | 16 bits | size of the uncompressed chunk |
 | 32 bits | a record for each chunk        |
+| 16 bits | size of this table             |
 | 32 bits | a CRC32 code for the table     |
 | 32 bits | an ending magic number         |
 
-For a 8 chunks gziped file the raw data sum up to a maximum of 42 bytes while the `gzip` header is usually 18 bytes. Therefore, a proper field size calibration works better than compressing the table. Trailing "garbage" is ignored by standard `gzip` which would process a sequence of compressed chuck as sequential streams. Hence, this format extension is 100% back-compatible.
+For a 8 chunks gziped file the raw data sum up to a maximum of 44 bytes while the `gzip` header is usually 18 bytes. Therefore, a proper field size calibration works better than compressing the table. Trailing "garbage" is ignored by standard `gzip` which would process a sequence of compressed chuck as sequential streams. Hence, this format extension is 100% back-compatible.
 
 Considering that uncompressed chunk can be 512 bytes fine-grained, the max chuck size could be 32MB, while 32 bit record addresses are additive. Accepting a limitation of 16MB per chunk, each records can be encoded in 24 bits saving 8 bytes for 8 chunks. Since 32 bit alignment is easier faster to read and to decode, the speed is the main goal, the first record is 32 bit aligned as well and just the lower 16 bits are used.
 
