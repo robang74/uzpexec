@@ -512,7 +512,7 @@ The most impactful constraint in embedded system is that a core component like B
 ```sh
 time ({ for i in $(seq 0 7); do
 dd bs=1M count=1 skip=$i if=qemu-system-x86_64.elf |
-gzip -9c > qemu.$i & done; } 2>1 | cat >/dev/null)
+gzip -9c > qemu.$i & done; } 2>&1 | cat >/dev/null)
 
     real  0m0.036s     <-- 4.69 times faster (!!!)
     user  0m0.006s
@@ -526,6 +526,13 @@ du -b qemu.? | cut -f1 |  tr '\n' ' '
 
     514999 457580 535821 396935
     205692 396576 132445  15185
+
+time for i in $(seq 0 7); do
+  ./busybox gzip -dc qemu.$i >/dev/null & done |
+      cat >/dev/null
+
+    real	0m0.017s     <-- 5.80 times faster (!!!)
+    real	0m0.025s     <-- 4.00 times faster
 ```
 
 Under this perspective the parallel inflating requires appending a table like:
@@ -542,7 +549,15 @@ For a 8 chunks gziped file the raw data sum up to a maximum of 44 bytes while th
 
 Considering that uncompressed chunk can be 512 bytes fine-grained, the max chuck size could be 32MB, while 32 bit record addresses are additive. Accepting a limitation of 16MB per chunk, each records can be encoded in 24 bits saving 8 bytes for 8 chunks. Since 32 bit alignment is easier faster to read and to decode, the speed is the main goal, the first record is 32 bit aligned as well and just the lower 16 bits are used.
 
-Finally, the hurd of 8 instances of `gzip` seems way faster than a single `pigz` 8 threads and this result isn't convincing me completely. However, unless further deeper investigation would not confute this number, it stays as reference. 
+Finally, the hurd of 8 instances of `gzip` seems way faster than a single `pigz` 8 threads and this result isn't convincing me completely. However, unless further deeper investigation would not confute this number, it stays as reference.
+
+| Scenario                            | Time      | Note                      |
+|:----------------------------------- |:---------:|:------------------------- |
+| Sequencial  `>/dev/null` (RAM-only) |  99 ms    | Pure CPU-bound            |
+| Parallel 8x `>/dev/null` (RAM-only) | 17–25 ms  |  **Speedup 4–5.8x**       |
+| 8x `dd bs=1M seek notruc of=$file`  |  56 ms    | I/O-bound, VFS contention |
+
+The overall outcome can be improved using a script with `--tries N` which using `gzip -1` determines a good enough number of chunks for a determined parallelisation range. In fact, the list of the compressed chunk sizes above shows an unbalanced mix and in particular the last one is just 15KB which is a waste of an entire thread or fork/exec over 8. In theory, a 7 balanced threads (plus one for their father) would provide a 6x performance in RAM-only inflating.
 
 ---
 
