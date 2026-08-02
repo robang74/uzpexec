@@ -485,17 +485,17 @@ By a raw estimation a 1GBit/s network call is nearly equivalent to a local call,
 
 The `zstdcat` isn't available in BusyBox but its `zcat` supports it by seamless file decompression and this is the **only** way in which an embedded system can compensate for a 4x slower latency in execution start. Unfortunately, BusyBox seamless decompression isn't working with pipe.
 
-| Compression (ELF x86 64-bit, 7265KB) | size | time    |
-|--------------------------------------|-----:|--------:|
-| `time xz    -9c qemu-system-x86_64`  | 2064 | 2.564 s |
-| `time pigz -11c qemu-system-x86_64`  | 2219 | 1.467 s |
-| `time zstd -19c qemu-system-x86_64`  | 2219 | 0.447 s |
-| `time xz    -1c qemu-system-x86_64`  | 2266 | 0.620 s |
+| Compression (ELF x86 64-bit, 7265KB)     | size | time     |
+|------------------------------------------|-----:|---------:|
+| `time xz    -9c qemu-system-x86_64.elf`  | 2064 |  2.564 s |
+| `time pigz -11c qemu-system-x86_64.elf`  | 2492 | 16.763 s |
+| `time zstd -19c qemu-system-x86_64.elf`  | 2223 |  2.804 s |
+| `time xz    -1c qemu-system-x86_64.elf`  | 2266 |  0.620 s |
 ||||
-| `time pigz  -9c qemu-system-x86_64`  | 2220 | 0.051 s |
-| `time zstd  -9c qemu-system-x86_64`  | 2221 | 0.047 s |
+| `time pigz  -9c qemu-system-x86_64.elf`  | 2590 |  0.169 s |
+| `time zstd  -9c qemu-system-x86_64.elf`  | 2477 |  0.220 s |
 ||||
-| `time busybox gzip -c $qemu_x86_64`  | 2220 | 0.081 s |
+| `time busybox gzip -9c $qemu_x86_64.elf` | 2607 |  0.349 s |
 
 Clearly, the `zstd` strongest advantage in this specific case (executable) is about the decompression speed because in all the other dimensions also the BusyBox `gzip` performs very well.
 
