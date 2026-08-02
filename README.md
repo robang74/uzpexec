@@ -515,11 +515,11 @@ The most impactful constraint in embedded system is that a core component like B
 ```sh
 time ({ for i in $(seq 0 7); do
 dd bs=1M count=1 skip=$i if=qemu-system-x86_64.elf |
-gzip -9c > qemu.$i & done; } 2>&1 | cat >/dev/null)
+/bin/gzip -9c >qemu.$i & done; } 2>&1 | cat >/dev/null)
 
-    real  0m0.036s     <-- 4.69 times faster (!!!)
-    user  0m0.006s
-    sys   0m0.021s
+    real  0m0.284s      <-- 3.38 times faster
+    user  0m0.005s
+    sys   0m0.020s
 
 cat qemu.[0-7] | wc -c
 
@@ -558,17 +558,30 @@ For a `N=8` chunks gziped file the raw data sum up to a maximum of 49 bytes whil
 
 Considering that an uncompressed chunk can be 32KiB fine-grained, the max chuck size can be 2^(15+16) = 2GB, and the 32-bit record addresses can be additive. Since 32-bit alignment is faster and easier to read and to decode, because speed is the main goal, the head of the table is 32-bit aligned.
 
-Finally, the hurd of 8 instances of `gzip` seems way faster than a single `pigz` 8 threads and this result isn't convincing me completely. However, unless further deeper investigation would not confute this result, it stays as reference.
-
-| Scenario                            | Time      | Note                      |
-|:----------------------------------- |:---------:|:------------------------- |
-| Sequencial  `>/dev/null` (RAM-only) |  99 ms    | Pure CPU-bound            |
-| Parallel 8x `>/dev/null` (RAM-only) | 17-25 ms  |  **Speedup 4.0x - 5.8x**  |
-| 8x `dd bs=1M seek notruc of=$file`  |  56 ms    | I/O-bound, VFS contention |
+| Scenario                            | gzip     | zstd     | Note            |
+|:----------------------------------- |:--------:|:---------|----------------:|
+| Sequencial  `>/dev/null` (RAM-only) |  99 ms   |  50 ms   | Pure CPU-bound  |
+| Parallel 8x `>/dev/null` (RAM-only) | 17-25 ms | 16-28 ms | Pure RAM-bound  |
+| Parallel 6x `>/dev/null` (balanced) |  5-16 ms |  7-14 ms | Pure RAM-bound  |
+| 8x `dd bs=1M seek notruc of=$file`  |  56 ms   |  54 ms   |  VFS I/O-bound  |
+| 8x compression `-9c >$file.$i`      | 271 ms   | 101 ms   | SSD ultra-fast  |
+| Single thread `-9c >$file`          | 946 ms   | 217 ms   | SSD ultra-fast  |
+| Size of the compressed output       | +0.13%   | +1.84%   | gzip +2.8% zstd |
 
 Note that the list of the compressed chunk sizes above shows an unbalanced mix and in particular the last one is just 15KB length. This is a waste of an entire thread (or fork/exec). In theory, a 7 balanced threads (plus one for their father) would provide a 6x performance in RAM-only inflating, as per linear interpolation of the results.
 
 Therefore, the overall outcome can be improved using a `gzip` wrapping script with `--tries N` which using `gzip -1` determines a good enough number of chunks within a parallelisation range. Using `-9` for compression and `-1` to estimate a balanced splitting for the sake of speed inflating, it can help the end-user in general usage.
+
+Comparison between `gzip` vs `zstd` shows that balancing properly the load can cut in half the decompression time. Moreover, the table shows that parallelising `zstd` inflate is possible but the performance increase matches the `gzip` inflate because for the last the benefit is greater.
+
+Moreover, on a balanced chunked compressed archive inflated with BusyBox `gzip` or `zstd`, the match remains and both fall in the same range 3-8 ms, which is even lower. These numbers make `zstd` redundant about the speed, once translated into a user-end ready implementation.
+
+```sh
+sudo swapoff -a
+echo 3 | sudo tee /proc/sys/vm/drop_caches
+```
+
+After disabling swap and dropping all caches, numbers change into more stable ones (less variance, as expected). The ratios remain but numbers are more acceptable in terms of absolute values. For example, the ratio between system `gzip` (30 ms) and the customised `busybox gzip` (15 ms) remains, also because BusyBox is always already memory resident during the tests.
 
 ---
 
