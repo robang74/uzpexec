@@ -268,7 +268,7 @@ xz -9c $elf >>$elf.uxp && chmod +x $elf.uxp && strace -f ./$elf.uxp 2>&-
 It is worth to note the relevant role of the `U238` as string length sentinel:
 
 - `U238 --> x238` to inform the running code about the customisation
-- between `zcat_cat` and `eof_tests` data size can change, `U238` tags it 
+- between `zcat_cat` and `eof_tests` data size can change, `U238` tags it
 
 Alternatives to `/bin/zstdcat` are every equivalent executable for which its full pathname would fit into a 22 chars string plus the trailing `\0`, and it can contain `/usr/local/bin/zstdcat`, for example.
 
@@ -537,27 +537,35 @@ time for i in $(seq 0 7); do
 
 Under this perspective the parallel inflating requires appending a table like:
 
-| size    | record meaning                 |
-|---------|--------------------------------|
-| 16 bits | size of the uncompressed chunk |
-| 32 bits | a record for each chunk        |
-| 16 bits | size of this table             |
-| 32 bits | a CRC32 code for the table     |
-| 32 bits | an ending magic number         |
+| size    | record meaning                 | unit | tot |
+|---------|--------------------------------|-----:|----:|
+| zeros   | 32 bit alignment               |  -   |  3  |
+|         |                                |      |     |
+| 16 bits | a starting magic number        |  2   |  2  |
+| 16 bits | size of the uncompressed chunk |  2   |  2  |
+| 32 bits | a record for each chunk        |  4   | xN  |
+|         |                                |      | 32  |
+| 32 bits | a CRC32 code for the table     |  4   |  4  |
+|         |                                |      |     |
+| 16 bits | table size in 32-bit words     |  2   |  2  |
+| 16 bits | an ending magic number         |  2   |  2  |
+|         |                                | bytes| 49  |
 
-For a 8 chunks gziped file the raw data sum up to a maximum of 44 bytes while the `gzip` header is usually 18 bytes. Therefore, a proper field size calibration works better than compressing the table. Trailing "garbage" is ignored by standard `gzip` which would process a sequence of compressed chuck as sequential streams. Hence, this format extension is 100% back-compatible.
+For a `N=8` chunks gziped file the raw data sum up to a maximum of 49 bytes while the `gzip` header is usually 18 bytes. Therefore, a proper field size calibration works better than compressing the table. Trailing "garbage" is ignored by standard `gzip` which would process a sequence of compressed chuck as sequential streams. Hence, this format extension is 100% back-compatible.
 
-Considering that uncompressed chunk can be 512 bytes fine-grained, the max chuck size could be 32MB, while 32 bit record addresses are additive. Accepting a limitation of 16MB per chunk, each records can be encoded in 24 bits saving 8 bytes for 8 chunks. Since 32 bit alignment is easier faster to read and to decode, the speed is the main goal, the first record is 32 bit aligned as well and just the lower 16 bits are used.
+Considering that an uncompressed chunk can be 32KiB fine-grained, the max chuck size can be 2^(15+16) = 2GB, and the 32-bit record addresses can be additive. Since 32-bit alignment is faster and easier to read and to decode, because speed is the main goal, the head of the table is 32-bit aligned.
 
-Finally, the hurd of 8 instances of `gzip` seems way faster than a single `pigz` 8 threads and this result isn't convincing me completely. However, unless further deeper investigation would not confute this number, it stays as reference.
+Finally, the hurd of 8 instances of `gzip` seems way faster than a single `pigz` 8 threads and this result isn't convincing me completely. However, unless further deeper investigation would not confute this result, it stays as reference.
 
 | Scenario                            | Time      | Note                      |
 |:----------------------------------- |:---------:|:------------------------- |
 | Sequencial  `>/dev/null` (RAM-only) |  99 ms    | Pure CPU-bound            |
-| Parallel 8x `>/dev/null` (RAM-only) | 17–25 ms  |  **Speedup 4–5.8x**       |
+| Parallel 8x `>/dev/null` (RAM-only) | 17-25 ms  |  **Speedup 4.0x - 5.8x**  |
 | 8x `dd bs=1M seek notruc of=$file`  |  56 ms    | I/O-bound, VFS contention |
 
-The overall outcome can be improved using a script with `--tries N` which using `gzip -1` determines a good enough number of chunks for a determined parallelisation range. In fact, the list of the compressed chunk sizes above shows an unbalanced mix and in particular the last one is just 15KB which is a waste of an entire thread or fork/exec over 8. In theory, a 7 balanced threads (plus one for their father) would provide a 6x performance in RAM-only inflating.
+Note that the list of the compressed chunk sizes above shows an unbalanced mix and in particular the last one is just 15KB length. This is a waste of an entire thread (or fork/exec). In theory, a 7 balanced threads (plus one for their father) would provide a 6x performance in RAM-only inflating, as per linear interpolation of the results.
+
+Therefore, the overall outcome can be improved using a `gzip` wrapping script with `--tries N` which using `gzip -1` determines a good enough number of chunks within a parallelisation range. Using `-9` for compression and `-1` to estimate a balanced splitting for the sake of speed inflating, it can help the end-user in general usage.
 
 ---
 
