@@ -503,6 +503,40 @@ Clearly, the `zstd` strongest advantage in this specific case (executable) is ab
 
 Or said from another perspective BusyBox `zcat` has a bottleneck to fix and more in general, the `gunzip` algorithm should be reviewed in order to evaluate a 2x faster refactored implementation. The two might converge as much as a new BusyBox `gunzip` implementation might achieve a 4x speed improvement.
 
+```sh
+time ({ for i in $(seq 0 7); do
+dd bs=1M count=1 skip=$i if=qemu-system-x86_64.elf |
+gzip -9c > qemu.$i & done; } 2>1 | cat >/dev/null)
+
+    real  0m0.036s     <-- 4.69 times faster (!!!)
+    user  0m0.006s
+    sys   0m0.021s
+
+cat qemu.[0-7] | wc -c
+
+    2655233            <-- 2593KB (+3KB, +0.12%)
+
+du -b qemu.? | cut -f1 |  tr '\n' ' '
+
+    514999 457580 535821 396935
+    205692 396576 132445  15185
+```
+
+Under this perspective the parallel inflating requires appending a table like:
+
+| size    | record meaning                 |
+|---------|--------------------------------|
+| 16 bits | size of the uncompressed chunk |
+| 32 bits | a record for each chunk        |
+| 32 bits | a CRC32 code for the table     |
+| 32 bits | an ending magic number         |
+
+For a 8 chunks gziped file the raw data sum up to a maximum of 42 bytes while the `gzip` header is usually 18 bytes. Therefore, a proper field size calibration works better than compressing the table. Trailing "garbage" is ignored by standard `gzip` which would process a sequence of compressed chuck as sequential streams. Hence, this format extension is 100% back-compatible.
+
+Considering that uncompressed chunk can be 512 bytes fine-grained, the max chuck size could be 32MB, while 32 bit record addresses are additive. Accepting a limitation of 16MB per chunk, each records can be encoded in 24 bits saving 8 bytes for 8 chunks. Since 32 bit alignment is easier faster to read and to decode, the speed is the main goal, the first record is 32 bit aligned as well and just the lower 16 bits are used.
+
+Finally, the hurd of 8 instances of `gzip` seems way faster than a single `pigz` 8 threads and this result isn't convincing me completely. However, unless further deeper investigation would not confute this number, it stays as reference. 
+
 ---
 
 ### Trivial facts
