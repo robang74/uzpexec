@@ -27,7 +27,8 @@ A 512-byte polymorphic stub/payload ([uzpexec](uzpexec.asm)) written in Assemble
 
 - [Release](#release) ‒ [Usage](#usage) ‒ [License](#license)
 - [Presentation](#presentation) ‒ [Deploying](#notes-for-deploying) ‒ [Compile](#how-to-compile) ‒ [Python](#python-support) ‒ [BusyBox](#busybox-support)
-- [Examples](#example-1) ‒ [Customisation](#quick-customisation) ‒ [Trivials](#trivial-facts) ‒ [TeenyELF](#wrx-memory) ‒ [gzcmd.sh](#gzcmdsh)
+- [Examples](#example-1) ‒ [Customisation](#quick-customisation) ‒ [Performance](#performance-test) ‒ [Trivials](#trivial-facts) ‒ [TeenyELF](#wrx-memory)
+- [gzcmd.sh](#gzcmdsh)
 
 <br>
 
@@ -426,7 +427,9 @@ $ ~/bin/qemu-aarch64-static -d strace ./hiwld nice
 
 The above reported console commands and output provide a reference about the running of a simple ARM64 compressed elf, the system call involved, the args/envp management and last but not the simplicity of assembling it.
 
-#### Performance test
+---
+
+### Performance test
 
 The use of `uzpexec` extends every GitHub action from executing whatever is installable by their internal repository to whatever is available by an URL access, adding a negligible latency, in terms of human perception. By contrast, the variance of the latency (rng/min) is reduced up to 6 folds.
 
