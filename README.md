@@ -479,14 +479,18 @@ By a raw estimation a 1GBit/s network call is nearly equivalent to a local call,
 | `zcat`            |   105 |   172 |   200 |    53 |   46 (ext.)  |
 | `pigz -p8 -dc`    |   116 |   176 |   215 |    54 |   46 (ext.)  |
 |||||||
+| `xzcat`           |    43 |    50 |    52 |    15 |  149 (ext.)  |
 | `busybox zcat`    |    72 |    91 |   111 |    28 |   80 (ext.)  |
+| `busybox xzcat`   |    46 |    47 |    48 |    28 |  158 (ext.)  |
 
 The `zstdcat` isn't available in BusyBox but its `zcat` supports it by seamless file decompression and this is the **only** way in which an embedded system can compensate for a 4x slower latency in execution start. Unfortunately, BusyBox seamless decompression isn't working with pipe.
 
 | Compression (ELF x86 64-bit, 7265KB) | size | time    |
 |--------------------------------------|-----:|--------:|
+| `time xz    -9c qemu-system-x86_64`  | 2064 | 2.564 s |
 | `time pigz -11c qemu-system-x86_64`  | 2219 | 1.467 s |
 | `time zstd -19c qemu-system-x86_64`  | 2219 | 0.447 s |
+| `time xz    -1c qemu-system-x86_64`  | 2266 | 0.620 s |
 ||||
 | `time pigz  -9c qemu-system-x86_64`  | 2220 | 0.051 s |
 | `time zstd  -9c qemu-system-x86_64`  | 2221 | 0.047 s |
