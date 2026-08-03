@@ -578,10 +578,31 @@ Moreover, on a balanced chunked compressed archive inflated with BusyBox `gzip` 
 
 ```sh
 sudo swapoff -a
-echo 3 | sudo tee /proc/sys/vm/drop_caches
+sync && echo 3 | sudo tee /proc/sys/vm/drop_caches
 ```
 
 After disabling swap and dropping all caches, numbers change into more stable ones (less variance, as expected). The ratios remain but numbers are more acceptable in terms of absolute values. For example, the ratio between system `gzip` (30 ms) and the customised `busybox gzip` (15 ms) remains, also because BusyBox is always already memory resident during the tests.
+
+```sh
+time qemu-system-x86_64 -m4 2>&-         # system qemu
+    real  0m0.077s
+    user  0m0.008s
+    sys   0m0.037s
+
+time ./qemu-system-x86_64 -m4 2>&-       # zstd, v0.97
+file /bin/zstdcat: symbolic link to zstd
+    real  0m0.039s
+    user  0m0.027s
+    sys   0m0.014s
+
+time ./qemu-system-x86_64.upz -m4 2>&-   # gzip, v0.98.2
+file /bin/zcat: POSIX shell script, ASCII text executable
+    real  0m0.011s
+    user  0m0.000s
+    sys   0m0.003s
+```
+
+Dropping caches before each command execution reveal a complete difference picture among starting times. It appears that version matters more than compress format, while starting the system qemu isn't anymore competitive despite some shared libraries are still loaded in memory.
 
 ---
 
