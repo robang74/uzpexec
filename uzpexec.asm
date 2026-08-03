@@ -477,11 +477,11 @@ child:
   pop ebx                        ; slfd_path <-- c::stack { ... }
   push 0                         ; end of envp/argv
   push ebx                       ; --> /proc/self/fd/9
-  push cmd_flag                  ; "-c\0"
+  push cmd_flag                  ; "-dc\0"
   sub ebx, commd_exe-gzip_cmd    ; = gzip_cmd
   cmp byte [ebx], '/'
   je .use_gzip
-  sub ebx, 8                     ; = zstd_cmd
+  sub ebx, gzip_cmd-bin_path     ; = bin_path (zstd)
 .use_gzip:
   push ebx                       ; bin_path --> argv[0]
   mov ecx, esp                   ; argv[1...]
@@ -527,16 +527,16 @@ micro_ver:  db        ".3", 0x20, 0x0a                          ;   - |  4
 %endif
 ; following fields are conditionally overwritable, do unions
 bin_path :  db  "/bin"                                          ;   4 | 25 (31)
-zstd_cmd :  db  "/unz"
-gzip_cmd :  db  "std",0                                         ;   8 |
-            db  "/gunzip",0                                     ;   8 |
+zstd_cmd :  db  "/zstd"
+gzip_cmd :  db  "cat",0                                         ;   8 |
+            db  "/gzip",0                                     ;   8 |
 %ifndef _HAS_PROVIDER
     times 6 db 0                                                ;   - |  -
 %endif
 %ifdef  _NO_INFOSIX
 ;   times 6 db 0                                                ;   - |  -
 %endif
-cmd_flag :  db  "-c", 0                                         ;   3
+cmd_flag :  db  "-dc", 0                                         ;   3
 ; This introduces the need of having the /proc mounted,granted after the /init
 ; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
 commd_exe:  db  "/proc/self/"

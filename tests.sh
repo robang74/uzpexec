@@ -165,14 +165,14 @@ echo "Strings output:"
   cat hello.sh | ./$bin | grep -E "Hello|ls/fd"
   retprt
 
-  echo "it should USE 'unzstd' with zstd stuff"
+  echo "it should USE 'zstdcat' with zstd stuff"
   zstd -c hello.sh | strace -f ./$bin 2>&1 |
-    cut -d\] -f2 | grep "execve.*unzstd."
+    cut -d\] -f2 | grep "execve.*/bin/zstdcat."
   retprt
 
   echo "it should USE 'gunzip' with gzip stuff"
   pigz -c hello.sh | strace -f ./$bin 2>&1 |
-    cut -d\] -f2 | grep "execve.*gunzip."
+    cut -d\] -f2 | grep "execve.*/bin/gzip."
   retprt
 
   echo "it should use 'execve' with scripts"
@@ -203,7 +203,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/8f25da92a2d7463ec2f6532f3486518628e8dd3f/$bin OK/" |
+sed "s/e233b6436549a789503d9efa3629e4fc05eace51/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################

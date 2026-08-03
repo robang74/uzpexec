@@ -584,22 +584,28 @@ sync && echo 3 | sudo tee /proc/sys/vm/drop_caches
 After disabling swap and dropping all caches, numbers change into more stable ones (less variance, as expected). The ratios remain but numbers are more acceptable in terms of absolute values. For example, the ratio between system `gzip` (30 ms) and the customised `busybox gzip` (15 ms) remains, also because BusyBox is always already memory resident during the tests.
 
 ```sh
-time qemu-system-x86_64 -m4 2>&-         # system qemu
-    real  0m0.077s
-    user  0m0.008s
-    sys   0m0.037s
+time qemu-system-x86_64 -m4 2>&-                     # system qemu
+    real min: 75.0, avg: 85.6, max: 95.0 ms
+    user min:  9.0, avg: 12.3, max: 16.0 ms
+    sys	 min: 31.0, avg: 36.1, max: 39.0 ms
 
-time ./qemu-system-x86_64 -m4 2>&-       # zstd, v0.97
-file /bin/zstdcat: symbolic link to zstd
-    real  0m0.039s
-    user  0m0.027s
-    sys   0m0.014s
-
-time ./qemu-system-x86_64.upz -m4 2>&-   # gzip, v0.98.2
+time ./qemu-system-x86_64.uzp -m4 2>&-               # gzip, v0.98.2
 file /bin/zcat: POSIX shell script, ASCII text executable
-    real  0m0.011s
-    user  0m0.000s
-    sys   0m0.003s
+    real  min: 67.0, avg: 76.8, max: 91.0 ms
+    user  min: 46.0, avg: 50.2, max: 64.0 ms
+    sys   min: 12.0, avg: 14.7, max: 16.0 ms
+
+time ./qemu-system-x86_64.uzp -m4 2>&-               # gzip, v0.98.3
+file /bin/gzip: ELF 64-bit executable, dynamically linked
+    real  min: 59.0, avg: 79.2, max: 97.0 ms
+    user  min: 44.0, avg: 51.8, max: 71.0 ms
+    sys   min:  7.0, avg: 14.8, max: 18.0 ms
+
+time ./qemu-system-x86_64.uxp -m4 2>&-               # zstd, v0.98.3
+file /bin/zstdcat: symbolic link to zstd
+    real  min: 46.0, avg: 50.4, max: 56.0 ms
+    user  min: 16.0, avg: 19.2, max: 21.0 ms
+    sys   min: 18.0, avg: 20.1, max: 24.0 ms
 ```
 
 Dropping caches before each command execution reveal a complete difference picture among starting times. It appears that version matters more than compress format, while starting the system qemu isn't anymore competitive despite some shared libraries are still loaded in memory.
