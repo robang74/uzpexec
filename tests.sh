@@ -25,7 +25,7 @@ fi
 nasm -O2 -f bin -d_NO_INFOSIX -d_HAS_PROVIDER $bin.asm -o $bin.ipx
 
 echo "Code size with EOF string:"
-eof_str="U238/proc/self/...."
+eof_str=".c./proc/self/...."
 eof_len=$(echo "$eof_str" | wc -c)
 n=$(grep --color=never -abo "$eof_str" $bin     | cut -f1 -d:)
 m=$(grep --color=never -abo "$eof_str" $bin.ipx | cut -f1 -d:)
@@ -165,14 +165,14 @@ echo "Strings output:"
   cat hello.sh | ./$bin | grep -E "Hello|ls/fd"
   retprt
 
-  echo "it should USE 'zstdcat' with zstd stuff"
+  echo "it should USE 'unzstd' with zstd stuff"
   zstd -c hello.sh | strace -f ./$bin 2>&1 |
-    cut -d\] -f2 | grep "execve.*zstdcat."
+    cut -d\] -f2 | grep "execve.*unzstd."
   retprt
 
-  echo "it should NOT use '-f' with gzip stuff"
+  echo "it should USE 'gunzip' with gzip stuff"
   pigz -c hello.sh | strace -f ./$bin 2>&1 |
-    cut -d\] -f2 | grep "execve.*cat."
+    cut -d\] -f2 | grep "execve.*gunzip."
   retprt
 
   echo "it should use 'execve' with scripts"
@@ -203,7 +203,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/29516b75447ac5a25046a3db35e25a826c12fd36/$bin OK/" |
+sed "s/8f25da92a2d7463ec2f6532f3486518628e8dd3f/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################

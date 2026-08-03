@@ -52,7 +52,7 @@ elf_header:
   ;
 %ifndef _NO_INFOSIX
 elf_infosix:
-  dw 0, 0, 0                     ; Section info (zeroed out, reclamable)
+; dw 0, 0, 0                     ; Section info (zeroed out, reclamable)
 %endif
   ;
   ; ASSUMPTIONS CHECK
@@ -239,19 +239,18 @@ main:
 ; The values above are comphrensive of all syscalls including exec(zcat -f)
 ; ------------------------------------------------------------------------------
 .do_copy:
+  mov ebx, bin_path
   ; at this point [ecx] contains the magic number to check
   cmp word [ecx], 0x2123         ; match shebang
   je .use_cat
   cmp word [ecx], 0x457f         ; match elf bin
   je .use_cat
   cmp word [ecx], 0xb528         ; match zstd
-  je .write_four
-  cmp byte [eof_tests], 'U'      ; check for customisation
-  jne .write_four
+  je  .write_four
 
 .use_zcat:
-  mov dword edx, [zcat_cat]      ; save "cat\0"
-  mov dword [zcat_cmd], edx      ; write back
+  mov dword edx, [bin_path]      ; save "/bin"
+  mov dword [gzip_cmd], edx      ; write back
   jmp .write_four
 
 .use_cat:
@@ -319,12 +318,12 @@ main:
 
   ; In-place stack manipulation: "/proc/self/exe" --> "/proc/self/fd/9"
   pop eax                        ; memfd1  <-- c::stack { commd_exe }
-  pop edx                        ; commd_exe <-- c::stack { ... } 
+  pop edx                        ; commd_exe <-- c::stack { ... }
   mov dword [edx + file_desc - commd_exe], 0x392f6466
   push edx                       ; --> m::stack { slfd_path, ... }
   push eax                       ; --> m::stack { memfd1, slfd_path, ... }
 
-  cmp ebx, eax 
+  cmp ebx, eax
   jne .fork                      ; memfd1 == memfd2, don't fork but execute
   dec ebx
   jmp parent
@@ -422,8 +421,9 @@ parent:
   ; 5p. Spawns a /bin/sh whose STDIN is piped to zcat, passing original argvs
   mov al, 11                     ; SYS_execve
   pop ebx                        ; slfd_path <-- p::stack { ... }
-  pop edx                        ; replace argv[1]
+  pop ecx                        ; replace argv[1]
   push ebx                       ; with "/proc/self/fd/9"
+; mov ecx, edx
   mov edx, ebp                   ; envp (intact from main_start)
   jmp .backfall
 
@@ -477,8 +477,13 @@ child:
   pop ebx                        ; slfd_path <-- c::stack { ... }
   push 0                         ; end of envp/argv
   push ebx                       ; --> /proc/self/fd/9
-  sub ebx, commd_exe-zcat_path   ; = zcat_path
-  push ebx                       ; zcat_path --> argv[0]
+  push cmd_flag                  ; "-c\0"
+  sub ebx, commd_exe-gzip_cmd    ; = gzip_cmd
+  cmp byte [ebx], '/'
+  je .use_gzip
+  sub ebx, 8                     ; = zstd_cmd
+.use_gzip:
+  push ebx                       ; bin_path --> argv[0]
   mov ecx, esp                   ; argv[1...]
 ; xor edx, edx                   ; envp null
   cdq                            ; EDX = 0 <-- EAX = 0 by jnz do_final_int
@@ -501,7 +506,7 @@ do_exit:
   pop ebx
   ; Print copyright notice, version and internal name
   mov ecx, copy_vers
-  push zcat_path - copy_vers
+  push bin_path - copy_vers
   pop edx
   int 0x80
 
@@ -518,19 +523,20 @@ copy_vers:  db  "(c) github/robang74/uzpexec v0.98"             ;  33 | 33
 %ifdef  _HAS_PROVIDER
 provider :  db  0x20, "12345678", 0x0a                          ;  10 |  -
 %else
-micro_ver:  db        ".2", 0x20, 0x0a                          ;   - |  4
+micro_ver:  db        ".3", 0x20, 0x0a                          ;   - |  4
 %endif
 ; following fields are conditionally overwritable, do unions
-zcat_path:  db  "/bin/z"
-zcat_cmd :  db  "std"
-zcat_cat :  db  "cat", 0                                        ;  13 | 23 (29)
+bin_path :  db  "/bin"                                          ;   4 | 25 (31)
+zstd_cmd :  db  "/unz"
+gzip_cmd :  db  "std",0                                         ;   8 |
+            db  "/gunzip",0                                     ;   8 |
 %ifndef _HAS_PROVIDER
     times 6 db 0                                                ;   - |  -
 %endif
 %ifdef  _NO_INFOSIX
-    times 6 db 0                                                ;   - |  -
+;   times 6 db 0                                                ;   - |  -
 %endif
-eof_tests:  db  "U238"                            ; for tests   :   4 |  -
+cmd_flag :  db  "-c", 0                                         ;   3
 ; This introduces the need of having the /proc mounted,granted after the /init
 ; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
 commd_exe:  db  "/proc/self/"
