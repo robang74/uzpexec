@@ -604,6 +604,14 @@ file /bin/zcat: POSIX shell script, ASCII text executable
 
 Dropping caches before each command execution reveal a complete difference picture among starting times. It appears that version matters more than compress format, while starting the system qemu isn't anymore competitive despite some shared libraries are still loaded in memory.
 
+#### gzip benchmarks
+
+![compression speed vs size](img/compression-speed-vs-size.png)
+- Original source of the image: [github.com/madler/pigz, issues:62, comment:3687474233](https://github.com/madler/pigz/issues/62#issuecomment-3687474233)
+
+![compression thread vs time](img/compression-thread-vs-time.png)
+- Original source of the image: [github.com/madler/pigz, issues:62, comment:3694952423](https://github.com/madler/pigz/issues/62#issuecomment-3694952423)
+
 ---
 
 ### Trivial facts
