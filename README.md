@@ -440,7 +440,7 @@ sync && echo 3 | sudo tee /proc/sys/vm/drop_caches
 
 After disabling swap and dropping all caches, numbers change into more stable ones (less variance, as expected). The ratios remain but numbers are more acceptable in terms of absolute values. For example, the ratio between system `gzip` (30 ms) and the customised `busybox gzip` (15 ms) remains, also because BusyBox is always already memory resident during the tests.
 
-```sh
+```txt
 QUICK TESTS ON v0.98.2 and .3 variant
 
 Stats are made on the 10 sample 1s away after the first (for cache) call

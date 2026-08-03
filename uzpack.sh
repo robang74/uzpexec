@@ -38,14 +38,14 @@ cpy='(c) github/''robang74.'$nme' v[^ ]* '
 
 ################################################################################
 UZPAYLOAD="
-H4sIAAAAAAAAA6t39XFjZGRkgAEmBmYGEC+kgYXDhAEBTBgUGGCq4KqBakD4G0hAgIGBnQFCR3Q+681p
-Y8lSi85ijDQ8MHPDmrMNG9ZsZvE825DFGrH7WSMLR/BOBgYOhrMNnce3MG5Iaf1Wotctl8UcebYhAMQH
-UlnCEZ2/tzJtBKrJYgYydzI0sXBsYjnbYHmhhKP1f0mA4f/Xz9IaLZUVS1SBVL1riRyQ0thaIt1g+who
-QWipULfoDSCjU/QqkHzNEh0VHBwd3HkoiyXibMMmhm18nb+BBp9taD1QwlbB9PrJa/+ZhiejNwifbYiI
-Ou7EnZaibxkUYHm4lNn7NccGJrA6ryz2CMPb3oaXzjY0H2Ap+ZgVExG9lWUj5yb+sw2vhTbYZ3ECPbCB
-G2hT56vXEq8tdqQBAyaLofNh56fOd2n7GQSAZr++0cuj8lp2g/1GTqBa++iNjGcbPEp5o7MYgptfiwd3
-Ppy5gRvoZZaILMbonauALs9SjQIqBKrSSNZUSM8syShN0i/KT0rMSzc30S+tKkitSE1WKDPQs7TQM1Lg
-0k/KzNOvKi5JSU4sgUZSqJGxhX5BUX6yfnFqTpo+UD1StDIAAIsUk6IAAgAA
+H4sIAAAAAAAAA6t39XFjZGRkgAEmBmYGEM+vgYVDjwEBTBgUgOJwdUBZEP4PEhBgYGBngNARnc96c9pY
+stSisxgjDQ/M3LDmbMOGNZtZPM82ZLFG7H7fyMIRvJOBgYPhbEPn8S2MG1Jav5XodctlMUeebQgA8YFU
+lnBE5++tTBuBarKYgcydDE0sHJtYzjZYXijhaP1f4mP4//Wz3ZeARqU1WiorlsgAqXrXElEgpbG1RKhb
+FCTVKXobSL5miY4KDo4O7jyUxRJxtmETwza+zt9AQ882tB4oYatgev3ktf9Mw5PRG4TPNkREHXfiTkvR
+twwKsDxcyuz9mmMDE1idVxZ7hOFtb8NLZxuaD7CUfMyKiYjeyrKRcxP/2YbXQhvssziBjt/AHR0Z3Pnq
+tcRr1x1pwEDJYuh82Pmp813afgYBoNmvb/TyqLzW2mC/kROo1j56I+PZBo9SqegshuCM10CHNr8WabDW
+L2Fufs0Z3Plw5gZuoN9ZIrIYo3euBcpmqUYBdQG1aCRrKqRnlmSUJukX5Scl5qWbm+iXVhWkVqQmK5QZ
+6Fla6BkrcOknZebpVxWXpCQnljDop1dlFkDjTDclmUG/oCg/Wb84NSdNH6gLKAgA3H9YPwACAAA=
 " # END_OF_UZPAYLOAD ###########################################################
 
 b64=$(command -v base64)
@@ -93,7 +93,7 @@ case "${1:-}" in
       printf "\nWARNING: %s\n" "$msg" >&2
       gzc=$(command -v pigz zopfli gzip | head -n1)
       shift
-      lvl=-19
+      lvl=-9
       upd=1
       ;;
 esac

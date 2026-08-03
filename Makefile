@@ -16,7 +16,7 @@ SRCDIR     = $(DATADIR)/src
 # -----------------------------------------------------------------------------
 # Package metadata
 # -----------------------------------------------------------------------------
-VERSION   ?= 0.98.2
+VERSION   ?= 0.98.3
 PKGNAME    = uzpexec
 FILENME    = $(PKGNAME)-$(VERSION)
 ARCH       = $(shell dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null || uname -m)
@@ -138,7 +138,7 @@ uzpack: uzpexec uzpack.sh
 	@echo
 	sh uzpack.sh -u uzpexec
 	rm -f uzpack
-	sh uzpack.sh -19 uzpack.sh uzpack
+	sh uzpack.sh uzpack.sh uzpack
 	du -b $@
 	@echo
 
