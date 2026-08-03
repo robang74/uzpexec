@@ -175,16 +175,16 @@ echo "Strings output:"
     cut -d\] -f2 | grep "execve.*cat."
   retprt
 
-  echo "it should NOT use 'zcat -f' with scripts"
+  echo "it should use 'execve' with scripts"
   cat hello.sh     | strace -f ./$bin 2>&1 |
-    cut -d\] -f2 | grep "execve.*cat."
-  test $? -eq 1 && echo '  no execve *cat found: ok'
+    cut -d\] -f2 | grep "execve.*("
+  test $? -eq 0 && echo '  do execve: ok'
   retprt
 
-  echo "it should NOT use 'zcat -f' with ELF bin"
+  echo "it should NOT use 'execve' with ELF bin"
   cat hello        | strace -f ./$bin 2>&1 |
-    cut -d\] -f2 | grep "execve.*cat."
-  test $? -eq 1 && echo '  no execve *cat found: ok'
+    cut -d\] -f2 | grep "execve.*("
+  test $? -eq 1 && echo '  no execve: ok'
   retprt
 
   echo "it FAILS in opening a closed stdin"
@@ -203,7 +203,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/77ec8bdfeadfe9880fad2a0dcdc2fd2464b25ea3/$bin OK/" |
+sed "s/29516b75447ac5a25046a3db35e25a826c12fd36/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################
