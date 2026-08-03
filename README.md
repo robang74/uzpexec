@@ -433,45 +433,69 @@ The above reported console commands and output provide a reference about the run
 
 The use of `uzpexec` extends every GitHub action from executing whatever is installable by their internal repository to whatever is available by an URL access, adding a negligible latency, in terms of human perception. By contrast, the variance of the latency (rng/min) is reduced up to 6 folds.
 
+```sh
+sudo swapoff -a
+sync && echo 3 | sudo tee /proc/sys/vm/drop_caches
 ```
-QUICK TESTS ON v0.98.1
+
+After disabling swap and dropping all caches, numbers change into more stable ones (less variance, as expected). The ratios remain but numbers are more acceptable in terms of absolute values. For example, the ratio between system `gzip` (30 ms) and the customised `busybox gzip` (15 ms) remains, also because BusyBox is always already memory resident during the tests.
+
+```sh
+QUICK TESTS ON v0.98.2 and .3 variant
 
 Stats are made on the 10 sample 1s away after the first (for cache) call
 
 Case #1: qemu 38.8MB w/ 1st degree dynamic libraries
 
-time qemu-system-x86_64 -m4 2>&-
+time  qemu-system-x86_64      -m4 2>&-                  # system qemu    (x10)
+    real  min: 75.0, avg: 85.6, max: 95.0 ms
+    user  min:  9.0, avg: 12.3, max: 16.0 ms
+    sys	  min: 31.0, avg: 36.1, max: 39.0 ms
 
-    real  min:  9, avg: 19.7, max: 36 (ms)
-    user  min:  4, avg:  7.2, max: 13 (ms)
-    sys   min:  3, avg: 12.5, max: 25 (ms)
+Case #2: qemu 7.5MB musl-static
 
-Case #2: qemu 7.5MB musl-static, 2.5MB zstd compressed
+time ./qemu-system-x86_64.elf -m4 2>&-                  # static qemu    (x10)
+    real  min: 23.0, avg: 32.1, max: 43.0 ms
+    user  min:  1.0, avg:  2.7, max:  5.0 ms
+    sys	  min:  3.0, avg: 10.8, max: 14.0 ms
 
-time ./qemu-system-x86_64 -m4 2>&-
+Case #3: qemu 7.5MB musl-static, 2.5MB gzip compressed
 
-    real  min: 40, avg: 43.0, max: 59 (ms)
-    user  min: 18, avg: 22.6, max: 30 (ms)
-    sys   min: 20, avg: 24.6, max: 34 (ms)
+time ./qemu-system-x86_64.uzp -m4 2>&-                   # gzip, v0.98.2 (x10)
+file /bin/zcat: POSIX shell script, ASCII text executable
+    real  min: 67.0, avg: 76.8, max: 91.0 ms
+    user  min: 46.0, avg: 50.2, max: 64.0 ms
+    sys   min: 12.0, avg: 14.7, max: 16.0 ms
 
-uzpexec executes a binary which has already uzpexec as loader
+time ./qemu-system-x86_64.uzp -m4 2>&-                   # gzip, v0.98.3 (x10)
+file /bin/gzip: ELF 64-bit executable, dynamically linked
+    real  min: 59.0, avg: 79.2, max: 97.0 ms
+    user  min: 44.0, avg: 51.8, max: 71.0 ms
+    sys   min:  7.0, avg: 14.8, max: 18.0 ms
 
-time cat ./qemu-system-x86_64 | ./uzpexec -m4 2>&-
+Case #4: qemu 7.5MB musl-static, 2.5MB zstd compressed
 
-    real  min: 37, avg: 47.7, max: 86 (ms)
-    user  min: 21, avg: 27.4, max: 45 (ms)
-    sys   min: 18, avg: 27.6, max: 55 (ms)
+time ./qemu-system-x86_64.uxp -m4 2>&-                   # zstd, v0.98.3 (x10)
+file /bin/zstdcat: symbolic link to zstd
+    real  min: 46.0, avg: 50.4, max: 56.0 ms
+    user  min: 16.0, avg: 19.2, max: 21.0 ms
+    sys   min: 18.0, avg: 20.1, max: 24.0 ms
 
-uzpexec executes by STDIN pipe a binary which is zstd compressed
+Case #5: uzpexec executes by STDIN pipe a compressed binary
 
-time dd skip=1 if=qemu-system-x86_64 2>&-| ./uzpexec -m4 2>&-
+time cat ./qemu-system-x86_64.gz | ./uzpexec -m4 2>&-    # gzip, v0.98.3 (x10)
+file ./qemu-system-x86_64.gz: gzip compressed data
+    real  min: 58.0, avg: 77.1, max: 95.0 ms
+    user  min: 47.0, avg: 52.8, max: 66.0 ms
+    sys   min:  8.0, avg: 24.7, max: 31.0 ms
 
-    real  min: 30, avg: 37.8, max: 48 (ms)
-    user  min: 18, avg: 23.8, max: 35 (ms)
-    sys   min: 18, avg: 25.6, max: 40 (ms)
+time cat ./qemu-system-x86_64.zstd | ./uzpexec -m4 2>&-  # zstd, v0.98.3 (x10)
+./qemu-system-x86_64.zstd: Zstandard compressed data (v0.8+)
+    real  min: 47.0, avg: 60.2, max: 96.0 ms
+    user  min: 16.0, avg: 28.1, max: 49.0 ms
+    sys   min: 24.0, avg: 32.0, max: 47.0 ms
 
 Quick tests aim to set a raw reference in differential launch latency
-
 ```
 
 By a raw estimation a 1GBit/s network call is nearly equivalent to a local call, because the 1Gbit/s network transfer time (25 ms) is zeroed by decompression on stream. Moreover, considering that `zstd` inflates at 1GB/s, the 23 ms of average latency overhead are spent almost entirely (96%) in the `fork()` and `exec()` of the external decompressing tool.
@@ -496,13 +520,13 @@ Clearly, the `zstd` strongest advantage in this specific case (executable) is ab
 
 | Compression (ELF x86 64-bit, 7265KB)     | size | time     |
 |------------------------------------------|-----:|---------:|
-| `time xz    -9c qemu-system-x86_64.elf`  | 2064 |  2.564 s |
-| `time pigz -11c qemu-system-x86_64.elf`  | 2492 | 16.763 s |
-| `time zstd -19c qemu-system-x86_64.elf`  | 2223 |  2.804 s |
-| `time xz    -1c qemu-system-x86_64.elf`  | 2266 |  0.620 s |
+| `time xz     -9c qemu-system-x86_64.elf` | 2064 |  2.564 s |
+| `time pigz  -11c qemu-system-x86_64.elf` | 2492 | 16.763 s |
+| `time zstd  -19c qemu-system-x86_64.elf` | 2223 |  2.804 s |
+| `time xz     -1c qemu-system-x86_64.elf` | 2266 |  0.620 s |
 ||||
-| `time pigz  -9c qemu-system-x86_64.elf`  | 2590 |  0.169 s |
-| `time zstd  -9c qemu-system-x86_64.elf`  | 2477 |  0.220 s |
+| `time pigz   -9c qemu-system-x86_64.elf` | 2590 |  0.169 s |
+| `time zstd   -9c qemu-system-x86_64.elf` | 2477 |  0.220 s |
 ||||
 | `time busybox gzip -9c $qemu_x86_64.elf` | 2607 |  0.349 s |
 
@@ -575,45 +599,6 @@ Therefore, the overall outcome can be improved using a `gzip` wrapping script wi
 Comparison between `gzip` vs `zstd` shows that balancing properly the load can cut in half the decompression time. Moreover, the table shows that parallelising `zstd` inflate is possible but the performance increase matches the `gzip` inflate because for the last the benefit is greater.
 
 Moreover, on a balanced chunked compressed archive inflated with BusyBox `gzip` or `zstd`, the match remains and both fall in the same range 3-8 ms, which is even lower. These numbers make `zstd` redundant about the speed, once translated into a user-end ready implementation.
-
-```sh
-sudo swapoff -a
-sync && echo 3 | sudo tee /proc/sys/vm/drop_caches
-```
-
-After disabling swap and dropping all caches, numbers change into more stable ones (less variance, as expected). The ratios remain but numbers are more acceptable in terms of absolute values. For example, the ratio between system `gzip` (30 ms) and the customised `busybox gzip` (15 ms) remains, also because BusyBox is always already memory resident during the tests.
-
-```sh
-time  qemu-system-x86_64      -m4 2>&-              # system qemu    (x10)
-    real  min: 75.0, avg: 85.6, max: 95.0 ms
-    user  min:  9.0, avg: 12.3, max: 16.0 ms
-    sys	  min: 31.0, avg: 36.1, max: 39.0 ms
-
-time ./qemu-system-x86_64.elf -m4 2>&-              # static qemu    (x10)
-    real  min: 23.0, avg: 32.1, max: 43.0 ms
-    user  min:  1.0, avg:  2.7, max:  5.0 ms
-    sys	  min:  3.0, avg: 10.8, max: 14.0 ms
-
-time ./qemu-system-x86_64.uzp -m4 2>&-               # gzip, v0.98.2 (x10)
-file /bin/zcat: POSIX shell script, ASCII text executable
-    real  min: 67.0, avg: 76.8, max: 91.0 ms
-    user  min: 46.0, avg: 50.2, max: 64.0 ms
-    sys   min: 12.0, avg: 14.7, max: 16.0 ms
-
-time ./qemu-system-x86_64.uzp -m4 2>&-               # gzip, v0.98.3 (x10)
-file /bin/gzip: ELF 64-bit executable, dynamically linked
-    real  min: 59.0, avg: 79.2, max: 97.0 ms
-    user  min: 44.0, avg: 51.8, max: 71.0 ms
-    sys   min:  7.0, avg: 14.8, max: 18.0 ms
-
-time ./qemu-system-x86_64.uxp -m4 2>&-               # zstd, v0.98.3 (x10)
-file /bin/zstdcat: symbolic link to zstd
-    real  min: 46.0, avg: 50.4, max: 56.0 ms
-    user  min: 16.0, avg: 19.2, max: 21.0 ms
-    sys   min: 18.0, avg: 20.1, max: 24.0 ms
-```
-
-Dropping caches before each command execution reveal a complete difference picture among starting times. It appears that version matters more than compress format, while starting the system qemu isn't anymore competitive despite some shared libraries are still loaded in memory.
 
 #### gzip benchmarks
 
