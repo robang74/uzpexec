@@ -570,7 +570,7 @@ Considering that an uncompressed chunk can be 32KiB fine-grained, the max chuck 
 
 Note that the list of the compressed chunk sizes above shows an unbalanced mix and in particular the last one is just 15KB length. This is a waste of an entire thread (or fork/exec). In theory, a 7 balanced threads (plus one for their father) would provide a 6x performance in RAM-only inflating, as per linear interpolation of the results.
 
-Therefore, the overall outcome can be improved using a `gzip` wrapping script with `--tries N` which using `gzip -1` determines a good enough number of chunks within a parallelisation range. Using `-9` for compression and `-1` to estimate a balanced splitting for the sake of speed inflating, it can help the end-user in general usage.
+Therefore, the overall outcome can be improved using a `gzip` wrapping script with `--tries N` which using `gzip -1` determines a good enough number of chunks within a parallelisation range. Using `-9` for compression and `-2` to estimate a balanced splitting for the sake of speed inflating, it can help the end-user in general usage.
 
 Comparison between `gzip` vs `zstd` shows that balancing properly the load can cut in half the decompression time. Moreover, the table shows that parallelising `zstd` inflate is possible but the performance increase matches the `gzip` inflate because for the last the benefit is greater.
 
@@ -606,11 +606,16 @@ Dropping caches before each command execution reveal a complete difference pictu
 
 #### gzip benchmarks
 
-![compression speed vs size](img/compression-speed-vs-size.png)
-- Original source of the image: [github.com/madler/pigz, issues:62, comment:3687474233](https://github.com/madler/pigz/issues/62#issuecomment-3687474233)
+From this benchmarks, an indirect explanation about why a `gzip` balanced 6-chunked file is the most performant solution on a 8-threads CPU (or better) both in de/compression and the `-2` is the optimal ratio speed/size (under 2% of approximation) for determine a "good enough" balance.
 
-![compression thread vs time](img/compression-thread-vs-time.png)
-- Original source of the image: [github.com/madler/pigz, issues:62, comment:3694952423](https://github.com/madler/pigz/issues/62#issuecomment-3694952423)
+| compression speed vs size | compression thread vs time |
+|:---:|:---:|
+| ![compression speed vs size](img/compression-speed-vs-size.png) | ![compression thread vs time](img/compression-thread-vs-time.png) |
+
+
+- Original source of the image: github.com/madler/pigz, issues:62, comment:[3687474233](https://github.com/madler/pigz/issues/62#issuecomment-3687474233), comment:[3694952423](https://github.com/madler/pigz/issues/62#issuecomment-3694952423)
+
+Even simpler, considering to use the sequence `1:1, 2:2, 4:3, 8:6, N:6` in terms of parallelisation then 6 chunks for a 6 MB or larger file is the golden number, because 6 is divisible for 2 and 3. So this simple approach `(file_size + 4095)/6 = chunk_size` is pre-calculated general best choice when the sizes are computed in 4KB (inode size) elements and rounded by ceiling.
 
 ---
 
