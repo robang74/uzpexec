@@ -58,7 +58,7 @@ echo "Strings output:"
   nasm -O2 -f bin uzcat.asm -o uzcat && chmod +x uzcat
   printf "%6s: %s \n" "info " "$(./uzcat <&- 2>&1)"
 # printf "%6s: %d %s\n" "size" $(du -b uzcat)
-  eof_str="/proc/self/fd/9"
+  eof_str="/proc/self/fd/9.-dc"
   eof_len=$(echo "$eof_str" | wc -c)
   n=$(grep --color=never -abo "$eof_str" uzcat | cut -f1 -d:)
   printf "%6s: %s %s (%s)\n" "size " \
@@ -203,7 +203,7 @@ echo "Strings output:"
 echo "====== HASH TO CHECK ======"
 printf "\nTests final result: "
 sha1sum     tests.res | cut -d' ' -f1 |
-sed "s/e233b6436549a789503d9efa3629e4fc05eace51/$bin OK/" |
+sed "s/0706ea0efef8f187ce2883fc8817b3677c6ac8d4/$bin OK/" |
 tee /proc/self/fd/2 | grep -qe " OK$" || printf "\t%s FAILED\n" $bin
 
 ################################################################################

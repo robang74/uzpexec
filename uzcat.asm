@@ -156,8 +156,8 @@ main_start:
   jmp .do_exit
 
 .str_create:
-  lea edi, [cmdstr + 5]          ; EDI points after "/bin/"
-  mov dword ebx, [edi + 1]       ; EBX saves "cat\0"
+  lea edi, [gzpstr]              ; EDI points after "/bin/"
+; mov dword ebx, [edi + 1]       ; EBX saves "cat\0"
 
 .copy_loop:
   lodsb                          ; AL = [ESI], ESI++
@@ -166,7 +166,7 @@ main_start:
   jnz short .copy_loop           ; continue until '\0'
 
   dec edi
-  mov dword [edi], ebx           ; append 'cat\0'
+  mov dword [edi], 0x00746163    ; append 'cat\0'
 ; ------------------------------------------------------------------------------
 
 .do_fork:
@@ -283,15 +283,19 @@ child:
   ; Yann Collet's lz4/lzopcat support only regular file
   pop ebx                        ; pipefd[0] <-- stack
 ; push 0
+  test ecx, ecx
+  jz short .use_gzip
   shr ecx, 1
   xor ecx, 2
   jz short .use_stdin
+.use_gzip:
   push file_desc
+  push cmd_flag
   mov cl, 9
 
   ; Dup2 read end to stdin
 .use_stdin:
-  mov al, 63                     ; SYS_dup2         
+  mov al, 63                     ; SYS_dup2
   int 0x80
 
   ; Close original read end
@@ -319,7 +323,7 @@ do_exit:
   test eax, eax
   jz short .no_error
   mov ecx, copy_vers
-  
+
   push  4                        ; SYS_write
   pop eax
   push  2                        ; STDERR
@@ -350,13 +354,13 @@ magics:
 
 ; The strings vector (5 × 5 byte)
 paths:
-  db  "lzop", 0
-  db  "lz4", 0,0
-  db  "xz", 0,0,0
-  db  "bz", 0,0,0
-  db  "zstd", 0
-cmdstr:
-  db  "/bin/zcat", 0,0,0,0           ; "/bin/cat" + "zstd" + '\0' = 13 bytes
+        db  "lzop", 0
+        db  "lz4", 0,0
+        db  "xz", 0,0,0
+        db  "bz", 0,0,0
+        db  "zstd", 0
+cmdstr: db  "/bin/"
+gzpstr: db  "gunzip",0,0             ; "/bin/cat" + "zstd" + '\0' = 13 bytes
 
 copy_vers:  db  "(c) github/robang74/uzpexec"                    ;  27 |  27
 %ifdef  _HAS_PROVIDER
@@ -369,6 +373,7 @@ end_copy :
     times 6 db  0                                                ;   - |   6
 %endif
 file_desc:  db  "/proc/self/fd/9", 0                             ;  16 |  16
+cmd_flag :  db  "-dc", 0                                         ;   3 |   3
 
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes
