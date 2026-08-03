@@ -526,23 +526,23 @@ provider :  db  0x20, "12345678", 0x0a                          ;  10 |  -
 micro_ver:  db        ".3", 0x20, 0x0a                          ;   - |  4
 %endif
 ; following fields are conditionally overwritable, do unions
-bin_path :  db  "/bin"                                          ;   4 | 25 (31)
-zstd_cmd :  db  "/zstd"
-gzip_cmd :  db  "cat",0                                         ;   8 |
-            db  "/gzip",0                                     ;   8 |
+bin_path :  db  "/bin"                                          ;   4 | 28 (34)
+zstd_cmd :  db  "/zstd"                                         ;   5
+gzip_cmd :  db  "cat",0                                         ;   4 |
+            db  "/gzip",0                                       ;   6 |
 %ifndef _HAS_PROVIDER
     times 6 db 0                                                ;   - |  -
 %endif
 %ifdef  _NO_INFOSIX
 ;   times 6 db 0                                                ;   - |  -
 %endif
-cmd_flag :  db  "-dc", 0                                         ;   3
+cmd_flag :  db  "-dc", 0                                        ;   3 |  -
 ; This introduces the need of having the /proc mounted,granted after the /init
 ; The shorter alernative is /dev/fd/9, but it is NOT grated on embedded systems
 commd_exe:  db  "/proc/self/"
 file_desc:  db  "exe", 0,0                                      ;  16 | 16
                                                                 ; ----------
-                                                                ;  76  tot.
+                                                                ;  81  tot.
 
 ; ==============================================================================
 ; PADDING: Aligned exactly to 512 bytes (dd skip=1)
