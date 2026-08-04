@@ -600,6 +600,8 @@ Comparison between `gzip` vs `zstd` shows that balancing properly the load can c
 
 Moreover, on a balanced chunked compressed archive inflated with BusyBox `gzip` or `zstd`, the match remains and both fall in the same range 3-8 ms, which is even lower. These numbers make `zstd` redundant about the speed, once translated into a user-end ready implementation.
 
+The perfect match in parallelisation outcomes between `zstd` and the slowest `gzip` indicates a performance wall determined by the hardware (i5-8365, DDR4) and in particular about DDR4 access times under high-contention conditions.
+
 #### gzip benchmarks
 
 From this benchmarks, an indirect explanation about why a `gzip` balanced 6-chunked file is the most performant solution on a 8-threads CPU (or better) both in de/compression and the `-2` is the optimal ratio speed/size (under 2% of approximation) for determine a "good enough" balance.
